@@ -2,7 +2,11 @@
 
 York University student dashboard designed to help students navigate their chaotic student lives.
 
-Unified student dashboard for York University. This repo contains **dashboard scaffolding only**. Individual features (Course Explorer, Degree Plan, Schedule Builder, etc.) are stubbed with clear expansion points for each team member.
+YorkLanes replaces the fragmented York student workflow (degree checklists, course catalogue, Visual Schedule Builder, spreadsheets, generic calendars) with one web dashboard for degree planning, scheduling, progress tracking, finances, and assignments.
+
+**EECS4314 Group 7 capstone project.** This repo contains **dashboard scaffolding only**. Individual features are stubbed with clear expansion points for each team member.
+
+**Repository:** https://github.com/SamiulH25/YorkLanes
 
 ## Tech stack
 
@@ -10,91 +14,23 @@ Unified student dashboard for York University. This repo contains **dashboard sc
 |-------|------------|
 | Frontend | Astro.js, TypeScript, Tailwind CSS |
 | Backend | Node.js, Express.js, TypeScript |
-| Database | PostgreSQL (Supabase hosted + local CLI) |
+| Database | PostgreSQL via **hosted Supabase** |
+| Client DB access | `@supabase/supabase-js` (web app) |
 | Auth (planned) | Google OAuth 2.0 (Passport.js or Firebase Auth) |
 | Scraper (future) | Python (BeautifulSoup / Scrapy) |
-| Deploy (planned) | Vercel (web), Render (API + DB) |
-
-## Repository layout
-
-```
-YorkLanes/
-├── apps/
-│   ├── web/          Astro frontend (dashboard UI)
-│   └── api/          Express REST API
-├── supabase/         Migrations, seed, local CLI config
-├── services/
-│   └── scraper/      Python scraper placeholder (not built yet)
-├── docker-compose.yml
-├── package.json      npm workspaces root
-└── .env.example
-```
-
-## Quick start
-
-### Prerequisites
-
-- Node.js 20+
-- Docker Desktop (for local Supabase, or legacy docker-compose Postgres)
-
-### 1. Install dependencies
-
-```bash
-npm install
-```
-
-### 2. Configure environment
-
-```bash
-cp .env.example apps/api/.env
-cp apps/web/.env.example apps/web/.env
-# Add Supabase keys to apps/web/.env.local (see apps/web/.env.example)
-```
-
-### 3. Start database (choose one)
-
-**Option A: Supabase local (recommended)**
-
-```bash
-npm run supabase:start
-npm run supabase:reset
-```
-
-**Option B: Legacy Docker Postgres**
-
-```bash
-docker compose up -d
-```
-
-Schema is managed via `supabase/migrations/`. See `supabase/README.md`.
-
-### 4. Run development servers
-
-```bash
-npm run dev
-```
-
-| Service | URL |
-|---------|-----|
-| Frontend (Astro) | http://localhost:4321 |
-| Backend (Express) | http://localhost:3001 |
-| Health check | http://localhost:3001/health |
-| Dashboard API | http://localhost:3001/api/dashboard/summary |
-
-Open http://localhost:4321 to see the dashboard.
+| Deploy (planned) | Vercel (web), Render (API) |
 
 ## What is built today
 
-- Dashboard layout with sidebar navigation
-- Four placeholder widgets: progress ring, assignments, finance snapshot, quick links
-- Login and onboarding page shells (not wired to OAuth yet)
+- York U themed dashboard with **dark mode** toggle (persists in localStorage)
+- Sidebar layout, welcome header, and bento-style widget grid
+- Placeholder widgets: degree progress, deadlines, student budget, feature tools
+- Login and onboarding page shells (OAuth not wired yet)
 - Express API with health check and dashboard summary endpoint
-- PostgreSQL schema with users, programmes, and courses tables (feature tables commented as TODO)
-- README files in each expansion zone explaining where to add code
+- Supabase migrations for core schema (`users`, `programmes`, `courses`, etc.)
+- Expansion READMEs and `EXPAND HERE` comments throughout the codebase
 
 ## What is NOT built (by design)
-
-These are left for feature owners. Each has a README or inline `EXPAND HERE` comments:
 
 | Feature | Owner | Start here |
 |---------|-------|------------|
@@ -107,17 +43,110 @@ These are left for feature owners. Each has a README or inline `EXPAND HERE` com
 | Assignment Calendar | Sarah | `apps/web/src/pages/assignments/`, `apps/api/src/routes/assignments.ts` |
 | Course scraper | Shared | `services/scraper/README.md` |
 
+## Repository layout
+
+```
+YorkLanes/
+├── apps/
+│   ├── web/              Astro frontend (dashboard UI, Supabase JS client)
+│   └── api/              Express REST API (direct Postgres via pg)
+├── supabase/
+│   ├── migrations/       Schema source of truth (pushed to hosted Supabase)
+│   └── seed.sql          Dev seed data
+├── services/scraper/     Python scraper placeholder (future)
+├── package.json          npm workspaces root
+└── .env.example
+```
+
+## Quick start
+
+### Prerequisites
+
+- Node.js 20+
+- Access to the team Supabase project (ask a maintainer for keys)
+
+**You do not need Docker or a local database.** The app connects to hosted Supabase in the cloud.
+
+### 1. Install dependencies
+
+```bash
+npm install
+```
+
+### 2. Configure environment
+
+```bash
+cp .env.example apps/api/.env
+cp apps/web/.env.example apps/web/.env
+```
+
+Create **`apps/web/.env.local`** (gitignored):
+
+```
+SUPABASE_URL=https://edrbocogcqmqalexgajq.supabase.co
+SUPABASE_KEY=<publishable-or-anon-key>
+```
+
+Set **`apps/api/.env`**:
+
+```
+DATABASE_URL=<Postgres connection string from Supabase Dashboard > Database > Connect>
+```
+
+Get credentials from the [Supabase project dashboard](https://supabase.com/dashboard/project/edrbocogcqmqalexgajq). Share keys with teammates over a secure channel. Never commit `.env` or `.env.local`.
+
+**Do not share the service role key.** That bypasses Row Level Security and is for server-side use only.
+
+### 3. Apply schema to hosted Supabase (one time per machine)
+
+If migrations are not on the remote yet:
+
+```bash
+npx supabase login
+npx supabase link --project-ref edrbocogcqmqalexgajq
+npm run supabase:push
+```
+
+The `supabase/` folder holds migration SQL. You edit files there and push to cloud. It is **not** something you run locally day to day.
+
+### 4. Run development servers
+
+```bash
+npm run dev
+```
+
+| Service | URL |
+|---------|-----|
+| Frontend | http://localhost:4321 |
+| Dashboard | http://localhost:4321/dashboard |
+| Backend API | http://localhost:3001 |
+| Health check | http://localhost:3001/health |
+| Supabase test page | http://localhost:4321/todos |
+
+Use the **moon/sun button** in the dashboard header to toggle dark mode.
+
+## Database architecture
+
+| App part | How it connects |
+|----------|-----------------|
+| `apps/web/src/db/supabase.js` | Supabase JS client (REST + RLS) |
+| `apps/api/src/db/index.ts` | `pg` pool via `DATABASE_URL` (direct SQL) |
+| `supabase/migrations/` | Versioned schema pushed to hosted Postgres |
+
+Hosted Supabase **replaces** the need to run local Postgres or `docker compose`. Local Supabase (`npm run supabase:start`) and `docker-compose.yml` exist only as optional offline alternatives.
+
 ## How to add a new feature
 
-1. **Frontend page**: create `apps/web/src/pages/<feature>/index.astro` using `DashboardLayout.astro`
-2. **Nav link**: uncomment the matching entry in `apps/web/src/layouts/DashboardLayout.astro`
-3. **API route**: create `apps/api/src/routes/<feature>.ts` and mount it in `apps/api/src/index.ts`
-4. **Database**: add a migration in `supabase/migrations/`, then `npm run supabase:reset` or `npm run supabase:push`
-5. **Dashboard widget**: update `apps/api/src/routes/dashboard.ts` to return real summary data
-6. **Types**: keep `apps/web/src/types/` and `apps/api/src/types/` in sync
+1. **Frontend page:** `apps/web/src/pages/<feature>/index.astro` using `DashboardLayout.astro`
+2. **Nav link:** uncomment the entry in `apps/web/src/layouts/DashboardLayout.astro`
+3. **API route:** `apps/api/src/routes/<feature>.ts`, mount in `apps/api/src/index.ts`
+4. **Database:** new file in `supabase/migrations/`, then `npm run supabase:push`
+5. **Dashboard widget:** update `apps/api/src/routes/dashboard.ts` with real summary data
+6. **Types:** keep `apps/web/src/types/` and `apps/api/src/types/` in sync
 
 See also:
 
+- `supabase/README.md`
 - `apps/api/src/routes/README.md`
 - `apps/web/FEATURE_PAGES.md`
 - `apps/web/src/components/dashboard/README.md`
@@ -130,12 +159,24 @@ See also:
 | `npm run dev:web` | Astro dev server only |
 | `npm run dev:api` | Express dev server only |
 | `npm run build` | Build both apps |
-| `npm run supabase:start` | Start local Supabase stack |
-| `npm run supabase:reset` | Migrate and seed local database |
 | `npm run supabase:push` | Push migrations to hosted Supabase |
-
-Full Supabase docs: `supabase/README.md`
+| `npm run supabase:start` | Optional: local Supabase stack (requires Docker) |
+| `npm run supabase:reset` | Optional: reset local Supabase after `supabase:start` |
 
 ## Team
 
-EECS4314 Group 7: Taziz Ahsan, Nabeela Ansari, Sarah Asghar, Samiul Hossain, Thor Laski, Jericho Marc Mendoza
+EECS4314 Group 7:
+
+- Taziz Ahsan
+- Nabeela Ansari
+- Sarah Asghar
+- Samiul Hossain
+- Thor Laski
+- Jericho Marc Mendoza
+
+## External references
+
+- [York program search / calendars](https://futurestudents.yorku.ca/program-search)
+- [Degree checklists](https://www.yorku.ca/laps/degree-checklist/2025-2026/)
+- [Course catalogue](https://w2prod.sis.yorku.ca/Apps/WebObjects/cdm)
+- [Visual Schedule Builder](https://registrar.yorku.ca/enrol/guide/vsb)

@@ -1,16 +1,17 @@
 ---
 import DashboardLayout from "../../layouts/DashboardLayout.astro";
+import { FACULTY_CHECKLISTS } from "../../data/faculty-checklists";
 import { fetchFaculties } from "../../lib/plans";
 
 const apiUrl = import.meta.env.PUBLIC_API_URL ?? "http://localhost:3001";
 
-let faculties: Awaited<ReturnType<typeof fetchFaculties>> = [];
+let faculties = FACULTY_CHECKLISTS;
 let loadError: string | null = null;
 
 try {
   faculties = await fetchFaculties();
 } catch (error) {
-  loadError = error instanceof Error ? error.message : "Could not load faculties";
+  loadError = error instanceof Error ? error.message : "Could not reach API";
 }
 ---
 
@@ -26,13 +27,13 @@ try {
   {
     loadError && (
       <div class="mb-6 rounded-xl border border-york-gold/40 bg-york-gold/10 px-4 py-3 text-sm">
-        {loadError}. Make sure the API is running with <code class="font-mono text-xs">npm run dev:api</code>.
+        API offline ({loadError}). Faculty links below use built-in defaults. Start the API with{" "}
+        <code class="font-mono text-xs">npm run dev:api</code> before parsing a file.
       </div>
     )
   }
 
-  <form id="checklist-form" class="mx-auto max-w-2xl space-y-6">
-    <!-- Step 1: Download -->
+  <form id="checklist-form" class="mx-auto max-w-2xl space-y-6" novalidate data-api-url={apiUrl}>
     <section class="surface rounded-2xl p-6" aria-labelledby="step-download-heading">
       <p class="label">Step 1</p>
       <h2 id="step-download-heading" class="mt-1 font-display text-lg font-semibold text-york-black dark:text-white">
@@ -43,42 +44,42 @@ try {
       </p>
 
       <div class="mt-5">
-        <label for="facultyKey" class="mb-1.5 block text-sm font-medium">Faculty (for download link only)</label>
+        <label for="facultyKey" class="mb-1.5 block text-sm font-medium">Faculty (for download link)</label>
         <select
           id="facultyKey"
           name="facultyKey"
           class="w-full rounded-xl border border-york-stone/80 bg-york-cream/50 px-3 py-2.5 text-sm dark:border-white/15 dark:bg-york-navy/50"
         >
-          <option value="">Select faculty for checklist link...</option>
+          <option value="">Select faculty...</option>
           {faculties.map((f) => (
             <option value={f.key}>{f.name}</option>
           ))}
         </select>
       </div>
 
-      <div id="download-panel" class="mt-5 hidden">
-        <div class="rounded-xl border border-york-red/20 bg-york-red/5 p-5 dark:bg-york-red/10">
-          <p id="faculty-instructions" class="text-sm leading-relaxed text-stone-600 dark:text-stone-300"></p>
-          <a
-            id="faculty-link"
-            href="#"
-            target="_blank"
-            rel="noopener noreferrer"
-            class="btn-york mt-4 inline-flex items-center gap-2"
-          >
-            Open faculty checklist page
-            <span aria-hidden="true">↗</span>
-          </a>
-          <p id="faculty-hint" class="mt-3 text-xs text-york-muted"></p>
-        </div>
-      </div>
+      {
+        faculties.map((f) => (
+          <div class="faculty-panel mt-5 hidden" data-faculty-panel={f.key}>
+            <div class="rounded-xl border border-york-red/20 bg-york-red/5 p-5 dark:bg-york-red/10">
+              <p class="text-sm leading-relaxed text-stone-600 dark:text-stone-300">{f.instructions}</p>
+              <a
+                href={f.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                class="btn-york mt-4 inline-flex items-center gap-2"
+              >
+                Open faculty checklist page
+                <span aria-hidden="true">↗</span>
+              </a>
+              <p class="mt-3 text-xs text-york-muted">Accepted formats: {f.fileHint}</p>
+            </div>
+          </div>
+        ))
+      }
 
-      <p class="mt-4 text-xs text-york-muted">
-        Already have your checklist file? Skip to step 2 below.
-      </p>
+      <p class="mt-4 text-xs text-york-muted">Already have your checklist file? Skip to step 2 below.</p>
     </section>
 
-    <!-- Step 2: Upload -->
     <section class="surface rounded-2xl p-6" aria-labelledby="step-upload-heading">
       <p class="label">Step 2</p>
       <h2 id="step-upload-heading" class="mt-1 font-display text-lg font-semibold text-york-black dark:text-white">
@@ -88,26 +89,25 @@ try {
         We read your programme name, start year, and courses directly from the file.
       </p>
 
-      <input
-        id="checklist"
-        name="checklist"
-        type="file"
-        accept=".pdf,.docx,.doc,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-        required
-        class="sr-only"
-      />
-
       <label
         id="upload-dropzone"
-        for="checklist"
         class="mt-5 flex min-h-[180px] cursor-pointer flex-col items-center justify-center rounded-2xl border-2 border-dashed border-york-stone/70 bg-york-cream/40 px-6 py-10 text-center transition-colors hover:border-york-red/50 hover:bg-york-red/5 focus-within:outline-none focus-within:ring-2 focus-within:ring-york-red dark:border-white/20 dark:bg-york-navy/30 dark:hover:bg-york-red/10"
       >
-        <svg class="mb-3 h-10 w-10 text-york-muted" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
-          <path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5" />
-        </svg>
-        <p class="text-sm font-medium text-york-black dark:text-white">Drop your checklist here</p>
-        <p class="mt-1 text-xs text-york-muted">PDF or DOCX from your faculty site</p>
-        <p class="mt-3 text-xs font-medium text-york-red">or click to browse</p>
+        <input
+          id="checklist"
+          name="checklist"
+          type="file"
+          accept=".pdf,.docx,.doc,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+          class="sr-only"
+        />
+        <div class="pointer-events-none select-none">
+          <svg class="mx-auto mb-3 h-10 w-10 text-york-muted" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5" />
+          </svg>
+          <p class="text-sm font-medium text-york-black dark:text-white">Drop your checklist here</p>
+          <p class="mt-1 text-xs text-york-muted">PDF or DOCX from your faculty site</p>
+          <p class="mt-3 text-xs font-medium text-york-red">or click to browse</p>
+        </div>
       </label>
 
       <div id="file-preview" class="mt-4 hidden rounded-xl border border-york-stone/60 bg-york-cream/50 px-4 py-3 dark:border-white/15 dark:bg-york-navy/40">
@@ -123,28 +123,15 @@ try {
         </div>
       </div>
 
-      <div id="detected-meta" class="mt-4 hidden rounded-xl border border-york-stone/60 px-4 py-3 text-sm dark:border-white/15">
-        <p class="font-medium text-york-black dark:text-white">After upload we will detect:</p>
-        <ul class="mt-2 list-inside list-disc text-stone-600 dark:text-stone-300">
-          <li>Programme name from the checklist header</li>
-          <li>Start year from the filename (e.g. 2025-2026)</li>
-          <li>Faculty from course codes and programme text</li>
-        </ul>
-      </div>
-
-      <button type="submit" class="btn-york mt-6 w-full" id="submit-btn" disabled>
+      <button type="submit" class="btn-york mt-6 w-full" id="submit-btn">
         Parse checklist and build plan
       </button>
       <p id="form-status" class="hidden mt-3 text-sm"></p>
     </section>
   </form>
 
-  <p class="mx-auto mt-6 max-w-2xl text-center text-xs text-york-muted">
-    Checklists are guides only. Confirm requirements with the official academic calendar for your entry year.
-  </p>
-
-  <script define:vars={{ faculties, apiUrl }}>
+  <script>
     import { initPlanSetup } from "../../scripts/plan-setup.ts";
-    initPlanSetup({ faculties, apiUrl });
+    initPlanSetup();
   </script>
 </DashboardLayout>

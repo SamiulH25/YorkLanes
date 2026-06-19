@@ -1,24 +1,25 @@
-import type { FacultyChecklistInfo } from "../types/plan";
+const ACCEPTED_EXTENSIONS = [".pdf", ".docx", ".doc"];
 
 interface PlanSetupOptions {
-  faculties: FacultyChecklistInfo[];
-  apiUrl: string;
+  apiUrl?: string;
 }
-
-const ACCEPTED_EXTENSIONS = [".pdf", ".docx", ".doc"];
 
 function isAcceptedChecklist(file: File): boolean {
   const name = file.name.toLowerCase();
   return ACCEPTED_EXTENSIONS.some((ext) => name.endsWith(ext));
 }
 
-function init({ faculties, apiUrl }: PlanSetupOptions): void {
-  const facultySelect = document.getElementById("facultyKey") as HTMLSelectElement | null;
-  const downloadPanel = document.getElementById("download-panel");
-  const instructions = document.getElementById("faculty-instructions");
-  const link = document.getElementById("faculty-link") as HTMLAnchorElement | null;
-  const hint = document.getElementById("faculty-hint");
+function formatBytes(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+export function initPlanSetup(options: PlanSetupOptions = {}): void {
   const form = document.getElementById("checklist-form") as HTMLFormElement | null;
+  const apiUrl = options.apiUrl ?? form?.dataset.apiUrl ?? "http://localhost:3001";
+  const facultySelect = document.getElementById("facultyKey") as HTMLSelectElement | null;
+  const facultyPanels = document.querySelectorAll<HTMLElement>("[data-faculty-panel]");
   const fileInput = document.getElementById("checklist") as HTMLInputElement | null;
   const dropzone = document.getElementById("upload-dropzone");
   const filePreview = document.getElementById("file-preview");
@@ -27,7 +28,6 @@ function init({ faculties, apiUrl }: PlanSetupOptions): void {
   const fileClear = document.getElementById("file-clear");
   const status = document.getElementById("form-status");
   const submitBtn = document.getElementById("submit-btn") as HTMLButtonElement | null;
-  const detectedMeta = document.getElementById("detected-meta");
 
   let selectedFile: File | null = null;
   let dragDepth = 0;
@@ -37,12 +37,6 @@ function init({ faculties, apiUrl }: PlanSetupOptions): void {
     status.classList.remove("hidden");
     status.textContent = message;
     status.className = isError ? "mt-3 text-sm text-york-red" : "mt-3 text-sm text-york-muted";
-  }
-
-  function formatBytes(bytes: number): string {
-    if (bytes < 1024) return `${bytes} B`;
-    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
-    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
   }
 
   function syncInputFiles(file: File | null): void {
@@ -56,7 +50,7 @@ function init({ faculties, apiUrl }: PlanSetupOptions): void {
       dt.items.add(file);
       fileInput.files = dt.files;
     } catch {
-      // Some browsers block programmatic assignment; submit uses selectedFile fallback.
+      // Submit uses selectedFile fallback.
     }
   }
 
@@ -68,27 +62,17 @@ function init({ faculties, apiUrl }: PlanSetupOptions): void {
       filePreview.classList.remove("hidden");
       fileName.textContent = file.name;
       fileSize.textContent = formatBytes(file.size);
-      submitBtn?.removeAttribute("disabled");
-      detectedMeta?.classList.remove("hidden");
       status?.classList.add("hidden");
     } else {
       filePreview?.classList.add("hidden");
-      detectedMeta?.classList.add("hidden");
-      submitBtn?.setAttribute("disabled", "true");
     }
   }
 
   function onFacultyChange(): void {
-    const selected = faculties.find((f) => f.key === facultySelect?.value);
-    if (!selected) {
-      downloadPanel?.classList.add("hidden");
-      return;
-    }
-
-    downloadPanel?.classList.remove("hidden");
-    if (instructions) instructions.textContent = selected.instructions;
-    if (link) link.href = selected.url;
-    if (hint) hint.textContent = `Accepted formats: ${selected.fileHint}`;
+    const key = facultySelect?.value ?? "";
+    facultyPanels.forEach((panel) => {
+      panel.classList.toggle("hidden", panel.dataset.facultyPanel !== key);
+    });
   }
 
   function setDropzoneActive(active: boolean): void {
@@ -116,11 +100,6 @@ function init({ faculties, apiUrl }: PlanSetupOptions): void {
   }
 
   facultySelect?.addEventListener("change", onFacultyChange);
-
-  // Block the browser from opening dropped files on the page or form.
-  form?.addEventListener("dragenter", preventDragDefaults);
-  form?.addEventListener("dragover", preventDragDefaults);
-  form?.addEventListener("drop", preventDragDefaults);
 
   dropzone?.addEventListener("dragenter", (event) => {
     preventDragDefaults(event);
@@ -151,6 +130,7 @@ function init({ faculties, apiUrl }: PlanSetupOptions): void {
 
   fileClear?.addEventListener("click", (event) => {
     event.preventDefault();
+    event.stopPropagation();
     setSelectedFile(null);
   });
 
@@ -167,12 +147,12 @@ function init({ faculties, apiUrl }: PlanSetupOptions): void {
     showStatus("Parsing checklist and building your plan...");
 
     try {
-      const formData = new FormData(form);
+      const formData = new FormData();
       formData.set("checklist", file, file.name);
 
-      const facultyKey = formData.get("facultyKey");
-      if (!facultyKey) {
-        formData.delete("facultyKey");
+      const facultyKey = facultySelect?.value;
+      if (facultyKey) {
+        formData.set("facultyKey", facultyKey);
       }
 
       const response = await fetch(`${apiUrl}/api/plans/import`, {
@@ -192,12 +172,4 @@ function init({ faculties, apiUrl }: PlanSetupOptions): void {
       submitBtn?.removeAttribute("disabled");
     }
   });
-}
-
-export function initPlanSetup(options: PlanSetupOptions): void {
-  if (document.readyState === "loading") {
-    document.addEventListener("DOMContentLoaded", () => init(options));
-  } else {
-    init(options);
-  }
 }

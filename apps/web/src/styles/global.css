@@ -1,0 +1,61 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html {
+    @apply scroll-smooth;
+  }
+
+  body {
+    @apply font-sans antialiased;
+  }
+
+  ::selection {
+    @apply bg-york-red/20 text-york-black dark:bg-york-red/30 dark:text-white;
+  }
+}
+
+@layer components {
+  .page-bg {
+    @apply bg-york-cream bg-york-stripes text-york-black dark:bg-york-navy dark:text-stone-100;
+  }
+
+  .surface {
+    @apply border border-york-stone/60 bg-white/90 shadow-card backdrop-blur-sm
+      dark:border-white/10 dark:bg-york-slate/80 dark:shadow-card-dark;
+  }
+
+  .surface-muted {
+    @apply bg-york-cream/80 dark:bg-york-navy/60;
+  }
+
+  .label {
+    @apply font-display text-sm font-medium text-york-muted dark:text-stone-400;
+  }
+
+  .heading-page {
+    @apply font-display text-2xl font-semibold tracking-tight text-york-black dark:text-white;
+  }
+
+  .link-nav {
+    @apply flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-all
+      text-stone-600 hover:bg-york-red/5 hover:text-york-red
+      dark:text-stone-300 dark:hover:bg-white/5 dark:hover:text-white;
+  }
+
+  .link-nav-active {
+    @apply bg-york-red text-white shadow-sm hover:bg-york-red-dark hover:text-white
+      dark:bg-york-red dark:text-white;
+  }
+
+  .btn-york {
+    @apply inline-flex items-center justify-center gap-2 rounded-xl bg-york-red px-4 py-2.5
+      text-sm font-semibold text-white transition-colors
+      hover:bg-york-red-dark focus:outline-none focus:ring-2 focus:ring-york-red/40;
+  }
+
+  .badge {
+    @apply inline-flex rounded-full px-2.5 py-0.5 text-xs font-medium;
+  }
+}

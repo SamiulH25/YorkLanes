@@ -1,48 +1,36 @@
 ---
-/**
- * Onboarding placeholder.
- *
- * EXPAND HERE:
- * - Load programme list from API (scraped degree checklists)
- * - POST selected programme + starting year to API
- * - Generate default multi-year plan (Samiul: apps/api/src/routes/plans.ts)
- * - Redirect to /dashboard after save
- */
 import DashboardLayout from "../../layouts/DashboardLayout.astro";
 ---
 
 <DashboardLayout title="Onboarding | YorkLanes" activeNav="onboarding">
   <Fragment slot="header">
-    <h1 class="text-2xl font-bold text-gray-900">Set up your degree</h1>
-    <p class="text-sm text-york-muted">Choose your programme and starting year</p>
+    <div>
+      <p class="text-xs font-medium text-york-muted">First time here</p>
+      <h1 class="heading-page">Set up your degree</h1>
+      <p class="mt-0.5 text-sm text-york-muted">Tell us your programme so we can build your plan</p>
+    </div>
   </Fragment>
 
-  <div class="max-w-lg rounded-xl border border-dashed border-gray-300 bg-white p-8">
-    <p class="text-sm text-gray-600">
-      Onboarding form goes here. After Google OAuth is working, redirect new users
-      to this page until they select a programme.
+  <div class="surface max-w-lg rounded-2xl p-8">
+    <p class="text-sm leading-relaxed text-stone-600 dark:text-stone-300">
+      After sign-in, new students land here until they pick a programme and start year.
     </p>
 
-    <!-- TODO: replace with real form posting to POST /api/onboarding -->
-    <form class="mt-6 space-y-4">
+    <form class="mt-6 space-y-5">
       <div>
-        <label class="block text-sm font-medium text-gray-700">Programme</label>
-        <select disabled class="mt-1 w-full rounded-lg border border-gray-300 bg-gray-50 px-3 py-2 text-sm">
-          <option>BSc Computer Science (example)</option>
+        <label class="mb-1.5 block text-sm font-medium text-york-black dark:text-white">Programme</label>
+        <select disabled class="w-full rounded-xl border border-york-stone/80 bg-york-cream/50 px-3 py-2.5 text-sm dark:border-white/15 dark:bg-york-navy/50">
+          <option>BSc Computer Science</option>
         </select>
       </div>
       <div>
-        <label class="block text-sm font-medium text-gray-700">Starting year</label>
-        <select disabled class="mt-1 w-full rounded-lg border border-gray-300 bg-gray-50 px-3 py-2 text-sm">
+        <label class="mb-1.5 block text-sm font-medium text-york-black dark:text-white">Starting year</label>
+        <select disabled class="w-full rounded-xl border border-york-stone/80 bg-york-cream/50 px-3 py-2.5 text-sm dark:border-white/15 dark:bg-york-navy/50">
           <option>2025</option>
         </select>
       </div>
-      <button
-        type="button"
-        disabled
-        class="rounded-lg bg-york-red px-4 py-2 text-sm font-medium text-white opacity-50"
-      >
-        Save and continue (not yet wired)
+      <button type="button" disabled class="btn-york opacity-40">
+        Save and continue
       </button>
     </form>
   </div>

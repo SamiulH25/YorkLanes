@@ -1,15 +1,4 @@
 ---
-/**
- * Main dashboard page.
- *
- * Fetches summary data from the Express API and renders placeholder widgets.
- * This is the only fully scaffolded page. Feature pages live under src/pages/
- * once each team member creates them.
- *
- * NOTE: In static build mode, data is fetched at build time. During development
- * (npm run dev:web), each request refetches from the API. For production with
- * live data, consider client-side fetch or an Astro SSR adapter.
- */
 import DashboardLayout from "../../layouts/DashboardLayout.astro";
 import ProgressWidget from "../../components/dashboard/ProgressWidget.astro";
 import AssignmentsWidget from "../../components/dashboard/AssignmentsWidget.astro";
@@ -32,32 +21,47 @@ try {
     quickLinks: [],
   };
 }
+
+const today = new Date().toLocaleDateString("en-CA", {
+  weekday: "long",
+  month: "long",
+  day: "numeric",
+});
 ---
 
 <DashboardLayout title="Dashboard | YorkLanes" activeNav="dashboard">
   <Fragment slot="header">
-    <h1 class="text-2xl font-bold text-gray-900">Welcome, {summary.user.displayName}</h1>
-    <p class="text-sm text-york-muted">
-      {
-        summary.user.programme
-          ? `${summary.user.programme} · Started ${summary.user.startingYear}`
-          : "Complete onboarding to set your programme"
-      }
-    </p>
+    <div>
+      <p class="text-xs font-medium text-york-muted">{today}</p>
+      <h1 class="heading-page">Hey, {summary.user.displayName}</h1>
+      <p class="mt-0.5 text-sm text-york-muted">
+        {
+          summary.user.programme
+            ? `${summary.user.programme} · Class of ${(summary.user.startingYear ?? 0) + 4}`
+            : "Set up your programme to get started"
+        }
+      </p>
+    </div>
   </Fragment>
 
   {
     loadError && (
-      <div class="mb-6 rounded-lg border border-yellow-200 bg-yellow-50 px-4 py-3 text-sm text-yellow-800">
-        Dashboard API not reachable: {loadError}. Run <code class="font-mono">npm run dev:api</code> from the repo root.
+      <div class="mb-6 rounded-xl border border-york-gold/40 bg-york-gold/10 px-4 py-3 text-sm text-stone-700 dark:text-stone-200">
+        API offline: {loadError}. Run <code class="rounded bg-black/5 px-1.5 py-0.5 font-mono text-xs dark:bg-white/10">npm run dev:api</code>
       </div>
     )
   }
 
-  <div class="grid gap-6 lg:grid-cols-2">
-    <ProgressWidget progress={summary.progress} />
-    <FinanceWidget finance={summary.finance} />
-    <AssignmentsWidget assignments={summary.assignments} />
-    <QuickLinksWidget links={summary.quickLinks} />
+  <div class="grid gap-5 lg:grid-cols-12">
+    <div class="lg:col-span-5">
+      <ProgressWidget progress={summary.progress} />
+    </div>
+    <div class="flex flex-col gap-5 lg:col-span-7">
+      <AssignmentsWidget assignments={summary.assignments} />
+      <FinanceWidget finance={summary.finance} />
+    </div>
+    <div class="lg:col-span-12">
+      <QuickLinksWidget links={summary.quickLinks} />
+    </div>
   </div>
 </DashboardLayout>

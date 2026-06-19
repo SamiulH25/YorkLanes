@@ -1,12 +1,4 @@
 ---
-/**
- * Progress ring widget (placeholder).
- *
- * EXPAND HERE: Thor (Progress Tracker)
- * - Replace static values with real requirement completion data
- * - API: apps/api/src/routes/progress.ts
- * - Page: src/pages/progress/index.astro (full feature UI)
- */
 import type { DashboardSummary } from "../../types/dashboard";
 
 interface Props {
@@ -14,40 +6,60 @@ interface Props {
 }
 
 const { progress } = Astro.props;
-const radius = 54;
+const radius = 52;
 const circumference = 2 * Math.PI * radius;
 const offset = circumference - (progress.percentComplete / 100) * circumference;
 ---
 
-<section class="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
-  <h2 class="text-sm font-semibold uppercase tracking-wide text-york-muted">Degree Progress</h2>
+<section class="surface relative overflow-hidden rounded-2xl p-6">
+  <div class="absolute -right-6 -top-6 h-24 w-24 rounded-full bg-york-red/5 dark:bg-york-red/10"></div>
 
-  <div class="mt-4 flex items-center gap-6">
-    <div class="relative h-32 w-32 shrink-0">
-      <svg class="h-32 w-32 -rotate-90" viewBox="0 0 120 120">
-        <circle cx="60" cy="60" r={radius} fill="none" stroke="#e5e7eb" stroke-width="10"></circle>
+  <div class="flex items-start justify-between">
+    <div>
+      <p class="label">Your degree</p>
+      <h2 class="mt-1 font-display text-xl font-semibold text-york-black dark:text-white">Progress</h2>
+    </div>
+    <span class="badge bg-york-red/10 text-york-red dark:bg-york-red/20">Fall 2025</span>
+  </div>
+
+  <div class="mt-8 flex flex-col items-center gap-6 sm:flex-row sm:items-center">
+    <div class="relative h-36 w-36 shrink-0">
+      <svg class="h-36 w-36 -rotate-90 drop-shadow-glow" viewBox="0 0 120 120">
+        <circle cx="60" cy="60" r={radius} fill="none" class="stroke-york-stone dark:stroke-white/10" stroke-width="8"></circle>
         <circle
           cx="60"
           cy="60"
           r={radius}
           fill="none"
           stroke="#E31837"
-          stroke-width="10"
+          stroke-width="8"
           stroke-dasharray={circumference}
           stroke-dashoffset={offset}
           stroke-linecap="round"
         ></circle>
       </svg>
-      <span class="absolute inset-0 flex items-center justify-center text-xl font-bold text-gray-900">
-        {progress.percentComplete}%
+      <span class="absolute inset-0 flex flex-col items-center justify-center">
+        <span class="font-display text-3xl font-bold text-york-black dark:text-white">{progress.percentComplete}%</span>
+        <span class="text-xs text-york-muted">complete</span>
       </span>
     </div>
 
-    <div>
-      <p class="text-sm text-gray-700">{progress.label}</p>
-      <p class="mt-2 text-xs text-york-muted">
-        Placeholder widget. Connect to progress API when Thor implements the tracker.
-      </p>
+    <div class="flex-1 text-center sm:text-left">
+      <p class="text-sm leading-relaxed text-stone-600 dark:text-stone-300">{progress.label}</p>
+      <div class="mt-4 space-y-2">
+        <div class="flex items-center gap-2 text-xs text-york-muted">
+          <span class="h-2 w-2 rounded-full bg-york-red"></span>
+          Major requirements
+        </div>
+        <div class="flex items-center gap-2 text-xs text-york-muted">
+          <span class="h-2 w-2 rounded-full bg-york-gold"></span>
+          General education
+        </div>
+        <div class="flex items-center gap-2 text-xs text-york-muted">
+          <span class="h-2 w-2 rounded-full bg-stone-400"></span>
+          Electives
+        </div>
+      </div>
     </div>
   </div>
 </section>

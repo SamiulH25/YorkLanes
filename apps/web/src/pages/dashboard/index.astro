@@ -1,0 +1,63 @@
+---
+/**
+ * Main dashboard page.
+ *
+ * Fetches summary data from the Express API and renders placeholder widgets.
+ * This is the only fully scaffolded page. Feature pages live under src/pages/
+ * once each team member creates them.
+ *
+ * NOTE: In static build mode, data is fetched at build time. During development
+ * (npm run dev:web), each request refetches from the API. For production with
+ * live data, consider client-side fetch or an Astro SSR adapter.
+ */
+import DashboardLayout from "../../layouts/DashboardLayout.astro";
+import ProgressWidget from "../../components/dashboard/ProgressWidget.astro";
+import AssignmentsWidget from "../../components/dashboard/AssignmentsWidget.astro";
+import FinanceWidget from "../../components/dashboard/FinanceWidget.astro";
+import QuickLinksWidget from "../../components/dashboard/QuickLinksWidget.astro";
+import { fetchDashboardSummary } from "../../lib/api";
+
+let summary;
+let loadError: string | null = null;
+
+try {
+  summary = await fetchDashboardSummary();
+} catch (error) {
+  loadError = error instanceof Error ? error.message : "Failed to load dashboard";
+  summary = {
+    user: { displayName: "Student", programme: null, startingYear: null },
+    progress: { percentComplete: 0, label: "API unavailable" },
+    assignments: { upcoming: [], message: "Start the API server to load data." },
+    finance: { balance: 0, currency: "CAD", message: "Start the API server to load data." },
+    quickLinks: [],
+  };
+}
+---
+
+<DashboardLayout title="Dashboard | YorkLanes" activeNav="dashboard">
+  <Fragment slot="header">
+    <h1 class="text-2xl font-bold text-gray-900">Welcome, {summary.user.displayName}</h1>
+    <p class="text-sm text-york-muted">
+      {
+        summary.user.programme
+          ? `${summary.user.programme} · Started ${summary.user.startingYear}`
+          : "Complete onboarding to set your programme"
+      }
+    </p>
+  </Fragment>
+
+  {
+    loadError && (
+      <div class="mb-6 rounded-lg border border-yellow-200 bg-yellow-50 px-4 py-3 text-sm text-yellow-800">
+        Dashboard API not reachable: {loadError}. Run <code class="font-mono">npm run dev:api</code> from the repo root.
+      </div>
+    )
+  }
+
+  <div class="grid gap-6 lg:grid-cols-2">
+    <ProgressWidget progress={summary.progress} />
+    <FinanceWidget finance={summary.finance} />
+    <AssignmentsWidget assignments={summary.assignments} />
+    <QuickLinksWidget links={summary.quickLinks} />
+  </div>
+</DashboardLayout>

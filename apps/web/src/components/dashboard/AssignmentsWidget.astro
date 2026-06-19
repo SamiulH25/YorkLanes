@@ -1,0 +1,42 @@
+---
+/**
+ * Upcoming assignments widget (placeholder).
+ *
+ * EXPAND HERE: Sarah (Assignment Calendar)
+ * - Fetch real assignments from /api/assignments
+ * - Link each item to the full calendar page
+ */
+import type { DashboardSummary } from "../../types/dashboard";
+
+interface Props {
+  assignments: DashboardSummary["assignments"];
+}
+
+const { assignments } = Astro.props;
+---
+
+<section class="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
+  <h2 class="text-sm font-semibold uppercase tracking-wide text-york-muted">Upcoming Assignments</h2>
+
+  {
+    assignments.upcoming.length > 0 ? (
+      <ul class="mt-4 space-y-3">
+        {assignments.upcoming.map((item) => (
+          <li class="flex items-start justify-between rounded-lg bg-gray-50 px-3 py-2">
+            <div>
+              <p class="text-sm font-medium text-gray-900">{item.title}</p>
+              {item.courseCode && (
+                <p class="text-xs text-york-muted">{item.courseCode}</p>
+              )}
+            </div>
+            <time class="text-xs text-gray-600">{item.dueAt}</time>
+          </li>
+        ))}
+      </ul>
+    ) : (
+      <p class="mt-4 text-sm text-gray-600">
+        {assignments.message ?? "No upcoming assignments."}
+      </p>
+    )
+  }
+</section>

@@ -1,0 +1,53 @@
+---
+/**
+ * Progress ring widget (placeholder).
+ *
+ * EXPAND HERE: Thor (Progress Tracker)
+ * - Replace static values with real requirement completion data
+ * - API: apps/api/src/routes/progress.ts
+ * - Page: src/pages/progress/index.astro (full feature UI)
+ */
+import type { DashboardSummary } from "../../types/dashboard";
+
+interface Props {
+  progress: DashboardSummary["progress"];
+}
+
+const { progress } = Astro.props;
+const radius = 54;
+const circumference = 2 * Math.PI * radius;
+const offset = circumference - (progress.percentComplete / 100) * circumference;
+---
+
+<section class="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
+  <h2 class="text-sm font-semibold uppercase tracking-wide text-york-muted">Degree Progress</h2>
+
+  <div class="mt-4 flex items-center gap-6">
+    <div class="relative h-32 w-32 shrink-0">
+      <svg class="h-32 w-32 -rotate-90" viewBox="0 0 120 120">
+        <circle cx="60" cy="60" r={radius} fill="none" stroke="#e5e7eb" stroke-width="10"></circle>
+        <circle
+          cx="60"
+          cy="60"
+          r={radius}
+          fill="none"
+          stroke="#E31837"
+          stroke-width="10"
+          stroke-dasharray={circumference}
+          stroke-dashoffset={offset}
+          stroke-linecap="round"
+        ></circle>
+      </svg>
+      <span class="absolute inset-0 flex items-center justify-center text-xl font-bold text-gray-900">
+        {progress.percentComplete}%
+      </span>
+    </div>
+
+    <div>
+      <p class="text-sm text-gray-700">{progress.label}</p>
+      <p class="mt-2 text-xs text-york-muted">
+        Placeholder widget. Connect to progress API when Thor implements the tracker.
+      </p>
+    </div>
+  </div>
+</section>

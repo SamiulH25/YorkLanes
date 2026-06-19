@@ -1,0 +1,80 @@
+---
+/**
+ * Dashboard shell: sidebar navigation + main content area.
+ *
+ * EXPAND HERE:
+ * - Add nav links in the sidebar as feature pages are created under src/pages/
+ * - Replace the placeholder user block once Google OAuth is wired up
+ * - Add active-link highlighting when more routes exist
+ */
+import BaseLayout from "./BaseLayout.astro";
+
+interface Props {
+  title?: string;
+  activeNav?: "dashboard" | "onboarding";
+}
+
+const { title = "Dashboard | YorkLanes", activeNav = "dashboard" } = Astro.props;
+
+const navItems = [
+  { id: "dashboard", label: "Dashboard", href: "/dashboard" },
+  // Feature routes: uncomment as each page is built in src/pages/
+  // { id: "courses", label: "Course Explorer", href: "/courses" },       // Jericho
+  // { id: "plan", label: "Degree Plan", href: "/plan" },                 // Samiul
+  // { id: "schedule", label: "Schedule", href: "/schedule" },             // Nabeela
+  // { id: "progress", label: "Progress", href: "/progress" },             // Thor
+  // { id: "finance", label: "Finance", href: "/finance" },               // Taziz
+  // { id: "assignments", label: "Assignments", href: "/assignments" },     // Sarah
+];
+---
+
+<BaseLayout title={title}>
+  <div class="flex min-h-screen">
+    <aside class="flex w-64 flex-col border-r border-gray-200 bg-white">
+      <div class="border-b border-gray-200 px-6 py-5">
+        <p class="text-lg font-bold text-york-red">YorkLanes</p>
+        <p class="text-xs text-york-muted">York University Student Dashboard</p>
+      </div>
+
+      <nav class="flex-1 px-3 py-4">
+        <ul class="space-y-1">
+          {
+            navItems.map((item) => (
+              <li>
+                <a
+                  href={item.href}
+                  class:list={[
+                    "block rounded-lg px-3 py-2 text-sm font-medium transition-colors",
+                    activeNav === item.id
+                      ? "bg-red-50 text-york-red"
+                      : "text-gray-700 hover:bg-gray-100",
+                  ]}
+                >
+                  {item.label}
+                </a>
+              </li>
+            ))
+          }
+        </ul>
+      </nav>
+
+      <!-- TODO: replace with real user from OAuth session -->
+      <div class="border-t border-gray-200 px-6 py-4">
+        <p class="text-sm font-medium text-gray-900">Guest User</p>
+        <p class="text-xs text-york-muted">Sign in not configured</p>
+        <a href="/login" class="mt-2 inline-block text-xs text-york-red hover:underline">
+          Sign in with Google
+        </a>
+      </div>
+    </aside>
+
+    <main class="flex-1 overflow-y-auto">
+      <header class="border-b border-gray-200 bg-white px-8 py-4">
+        <slot name="header" />
+      </header>
+      <div class="px-8 py-6">
+        <slot />
+      </div>
+    </main>
+  </div>
+</BaseLayout>

@@ -1,0 +1,34 @@
+---
+/**
+ * Finance snapshot widget (placeholder).
+ *
+ * EXPAND HERE: Taziz (Finance Module)
+ * - Show balance, recent transactions, simple chart
+ * - API: apps/api/src/routes/finance.ts
+ */
+import type { DashboardSummary } from "../../types/dashboard";
+
+interface Props {
+  finance: DashboardSummary["finance"];
+}
+
+const { finance } = Astro.props;
+
+const formattedBalance = new Intl.NumberFormat("en-CA", {
+  style: "currency",
+  currency: finance.currency,
+}).format(finance.balance);
+---
+
+<section class="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
+  <h2 class="text-sm font-semibold uppercase tracking-wide text-york-muted">Finance Snapshot</h2>
+
+  <p class="mt-4 text-3xl font-bold text-gray-900">{formattedBalance}</p>
+  <p class="mt-1 text-xs text-york-muted">Current balance</p>
+
+  {
+    finance.message && (
+      <p class="mt-4 text-sm text-gray-600">{finance.message}</p>
+    )
+  }
+</section>

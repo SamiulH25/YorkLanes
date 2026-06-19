@@ -1,7 +1,7 @@
 import { Router } from "express";
 import multer from "multer";
 import { FACULTY_CHECKLISTS, getFacultyChecklist } from "../data/faculty-checklists.js";
-import { getPool } from "../db/index.js";
+import { checkDegreePlanTables, getPool } from "../db/index.js";
 import { parseChecklistFile } from "../services/checklistParser.js";
 import { inferChecklistMetadata } from "../services/inferChecklistMetadata.js";
 import { createPlanFromChecklist, getPlanById } from "../services/planGenerator.js";
@@ -45,6 +45,15 @@ plansRouter.post("/import", upload.single("checklist"), async (req, res) => {
   try {
     if (!req.file) {
       res.status(400).json({ error: "Checklist file is required" });
+      return;
+    }
+
+    const tableCheck = await checkDegreePlanTables();
+    if (!tableCheck.ok) {
+      res.status(503).json({
+        error: tableCheck.error ?? "Degree plan database is not ready",
+        hint: "From the repo root run: npm run supabase:push",
+      });
       return;
     }
 
@@ -95,8 +104,15 @@ plansRouter.post("/import", upload.single("checklist"), async (req, res) => {
 
     res.status(201).json({ plan, parsed, inferred });
   } catch (error) {
-    res.status(500).json({
-      error: error instanceof Error ? error.message : "Failed to import checklist",
-    });
+    const message = error instanceof Error ? error.message : "Failed to import checklist";
+    const hint =
+      message.includes("row-level security") || message.includes("permission denied")
+        ? "Database RLS blocked the insert. Run npm run supabase:push to apply the latest migrations."
+        : message.includes("degree_plans")
+          ? "Run npm run supabase:push from the repo root to create degree plan tables."
+          : undefined;
+
+    console.error("[plans/import]", error);
+    res.status(500).json({ error: message, hint });
   }
 });

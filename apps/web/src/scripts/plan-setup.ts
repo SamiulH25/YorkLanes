@@ -162,7 +162,8 @@ export function initPlanSetup(options: PlanSetupOptions = {}): void {
       const payload = await response.json();
 
       if (!response.ok) {
-        throw new Error(payload.error ?? "Import failed");
+        const hint = payload.hint ? ` ${payload.hint}` : "";
+        throw new Error(`${payload.error ?? "Import failed"}${hint}`);
       }
 
       sessionStorage.setItem("yorklanes-plan-id", payload.plan.id);

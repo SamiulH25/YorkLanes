@@ -41,11 +41,11 @@ alter table public.degree_plans enable row level security;
 alter table public.plan_terms enable row level security;
 alter table public.plan_courses enable row level security;
 
-create policy "degree_plans_all_dev"
-  on public.degree_plans for all to anon, authenticated using (true) with check (true);
+create policy "degree_plans_all"
+  on public.degree_plans for all using (true) with check (true);
 
-create policy "plan_terms_all_dev"
-  on public.plan_terms for all to anon, authenticated using (true) with check (true);
+create policy "plan_terms_all"
+  on public.plan_terms for all using (true) with check (true);
 
-create policy "plan_courses_all_dev"
-  on public.plan_courses for all to anon, authenticated using (true) with check (true);
+create policy "plan_courses_all"
+  on public.plan_courses for all using (true) with check (true);

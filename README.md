@@ -4,7 +4,7 @@ York University student dashboard designed to help students navigate their chaot
 
 YorkLanes replaces the fragmented York student workflow (degree checklists, course catalogue, Visual Schedule Builder, spreadsheets, generic calendars) with one web dashboard for degree planning, scheduling, progress tracking, finances, and assignments.
 
-**EECS4314 Group 7 capstone project.** This repo contains **dashboard scaffolding only**. Individual features are stubbed with clear expansion points for each team member.
+**EECS4314 Group 7** This repo contains **dashboard scaffolding only**. Individual features are stubbed with clear expansion points for each team member.
 
 **Repository:** https://github.com/SamiulH25/YorkLanes
 

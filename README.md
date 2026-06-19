@@ -10,7 +10,7 @@ Unified student dashboard for York University. This repo contains **dashboard sc
 |-------|------------|
 | Frontend | Astro.js, TypeScript, Tailwind CSS |
 | Backend | Node.js, Express.js, TypeScript |
-| Database | PostgreSQL (Supabase hosted + local CLI) |
+| Database | PostgreSQL via hosted Supabase |
 | Auth (planned) | Google OAuth 2.0 (Passport.js or Firebase Auth) |
 | Scraper (future) | Python (BeautifulSoup / Scrapy) |
 | Deploy (planned) | Vercel (web), Render (API + DB) |
@@ -35,7 +35,7 @@ YorkLanes/
 ### Prerequisites
 
 - Node.js 20+
-- Docker Desktop (for local Supabase, or legacy docker-compose Postgres)
+- A Supabase project (hosted, no Docker required)
 
 ### 1. Install dependencies
 
@@ -45,28 +45,39 @@ npm install
 
 ### 2. Configure environment
 
+Copy env templates and add your Supabase credentials from the [project dashboard](https://supabase.com/dashboard/project/edrbocogcqmqalexgajq):
+
 ```bash
 cp .env.example apps/api/.env
 cp apps/web/.env.example apps/web/.env
-# Add Supabase keys to apps/web/.env.local (see apps/web/.env.example)
 ```
 
-### 3. Start database (choose one)
+**`apps/web/.env.local`** (Supabase JS client):
 
-**Option A: Supabase local (recommended)**
+```
+SUPABASE_URL=https://edrbocogcqmqalexgajq.supabase.co
+SUPABASE_KEY=<your-publishable-or-anon-key>
+```
+
+**`apps/api/.env`** (Express direct SQL):
+
+```
+DATABASE_URL=<connection string from Supabase > Database > Connect>
+```
+
+You do **not** need to run `npm run supabase:start` or Docker for normal development. The app talks to your hosted database in the cloud.
+
+### 3. Apply schema to hosted Supabase (one time)
+
+If migrations are not on the remote yet:
 
 ```bash
-npm run supabase:start
-npm run supabase:reset
+npx supabase login
+npx supabase link --project-ref edrbocogcqmqalexgajq
+npm run supabase:push
 ```
 
-**Option B: Legacy Docker Postgres**
-
-```bash
-docker compose up -d
-```
-
-Schema is managed via `supabase/migrations/`. See `supabase/README.md`.
+The `supabase/` folder holds migration SQL files. You edit those and push to cloud. It is not a local database you run day to day.
 
 ### 4. Run development servers
 

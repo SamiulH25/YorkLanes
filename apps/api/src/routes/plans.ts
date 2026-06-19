@@ -52,7 +52,9 @@ plansRouter.post("/import", upload.single("checklist"), async (req, res) => {
     if (!tableCheck.ok) {
       res.status(503).json({
         error: tableCheck.error ?? "Degree plan database is not ready",
-        hint: "From the repo root run: npm run supabase:push",
+        hint:
+          tableCheck.hint ??
+          "Set SUPABASE_DB_URL in apps/api/.env to your hosted Postgres URI, then run npm run supabase:push",
       });
       return;
     }

@@ -9,6 +9,7 @@
 import "dotenv/config";
 import cors from "cors";
 import express from "express";
+import { getDatabaseTarget } from "./db/index.js";
 import { dashboardRouter } from "./routes/dashboard.js";
 import { healthRouter } from "./routes/health.js";
 import { plansRouter } from "./routes/plans.js";
@@ -27,4 +28,5 @@ app.use("/api/plans", plansRouter);
 
 app.listen(port, () => {
   console.log(`YorkLanes API listening on http://localhost:${port}`);
+  console.log(`Database target: ${getDatabaseTarget()}`);
 });

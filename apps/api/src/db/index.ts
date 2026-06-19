@@ -2,6 +2,7 @@
  * Database connection pool.
  */
 import pg from "pg";
+import { describeDatabaseTarget, resolveDatabaseUrl } from "./resolveDatabaseUrl.js";
 
 const { Pool } = pg;
 
@@ -18,27 +19,33 @@ function buildPoolConfig(connectionString: string): pg.PoolConfig {
 
 export function getPool(): pg.Pool {
   if (!pool) {
-    const connectionString = process.env.DATABASE_URL;
-    if (!connectionString) {
-      throw new Error("DATABASE_URL is not set. Copy .env.example to apps/api/.env");
-    }
+    const connectionString = resolveDatabaseUrl();
     pool = new Pool(buildPoolConfig(connectionString));
   }
   return pool;
 }
 
-export async function checkDatabaseConnection(): Promise<boolean> {
+export function getDatabaseTarget(): string {
+  try {
+    return describeDatabaseTarget(resolveDatabaseUrl());
+  } catch {
+    return "not configured";
+  }
+}
+
+export async function checkDatabaseConnection(): Promise<{ ok: boolean; error?: string }> {
   try {
     const client = await getPool().connect();
     await client.query("SELECT 1");
     client.release();
-    return true;
-  } catch {
-    return false;
+    return { ok: true };
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Database connection failed";
+    return { ok: false, error: message };
   }
 }
 
-export async function checkDegreePlanTables(): Promise<{ ok: boolean; error?: string }> {
+export async function checkDegreePlanTables(): Promise<{ ok: boolean; error?: string; hint?: string }> {
   try {
     const result = await getPool().query<{ plans: string | null; terms: string | null; courses: string | null }>(
       `SELECT
@@ -51,16 +58,28 @@ export async function checkDegreePlanTables(): Promise<{ ok: boolean; error?: st
     if (!row?.plans || !row?.terms || !row?.courses) {
       return {
         ok: false,
-        error:
-          "Degree plan tables are missing. Run npm run supabase:push from the repo root to apply migrations.",
+        error: "Degree plan tables are missing on the connected database.",
+        hint: "Run npm run supabase:push from the repo root against your hosted Supabase project.",
       };
     }
 
     return { ok: true };
   } catch (error) {
-    return {
-      ok: false,
-      error: error instanceof Error ? error.message : "Database check failed",
-    };
+    const message = error instanceof Error ? error.message : "Database check failed";
+
+    if (
+      message.includes("localhost:54322") ||
+      message.includes("ECONNREFUSED") ||
+      message.includes("Set SUPABASE_DB_URL")
+    ) {
+      return {
+        ok: false,
+        error: message,
+        hint:
+          "Set SUPABASE_DB_URL in apps/api/.env to your hosted Postgres URI (Supabase Dashboard > Database > Connect).",
+      };
+    }
+
+    return { ok: false, error: message };
   }
 }

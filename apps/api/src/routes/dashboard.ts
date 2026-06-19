@@ -41,7 +41,7 @@ dashboardRouter.get("/summary", (_req, res) => {
     },
     quickLinks: [
       { label: "Course Explorer", href: "/courses", featureOwner: "Jericho", status: "not-started" },
-      { label: "Degree Plan", href: "/plan", featureOwner: "Samiul", status: "not-started" },
+      { label: "Degree Plan", href: "/plan", featureOwner: "Samiul", status: "in-progress" },
       { label: "Schedule Builder", href: "/schedule", featureOwner: "Nabeela", status: "not-started" },
       { label: "Progress Tracker", href: "/progress", featureOwner: "Thor", status: "not-started" },
       { label: "Finance", href: "/finance", featureOwner: "Taziz", status: "not-started" },

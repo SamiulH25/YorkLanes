@@ -1,0 +1,119 @@
+---
+import DashboardLayout from "../../layouts/DashboardLayout.astro";
+import { fetchPlan } from "../../lib/plans";
+
+const planId = Astro.url.searchParams.get("id") ?? "";
+
+let plan = null;
+let loadError: string | null = null;
+
+if (planId) {
+  try {
+    plan = await fetchPlan(planId);
+  } catch (error) {
+    loadError = error instanceof Error ? error.message : "Failed to load plan";
+  }
+}
+---
+
+<DashboardLayout title="Degree Plan | YorkLanes" activeNav="plan">
+  <Fragment slot="header">
+    <div class="flex flex-wrap items-start justify-between gap-4">
+      <div>
+        <p class="text-xs font-medium text-york-muted">Degree plan editor</p>
+        <h1 class="heading-page">{plan?.programme_name ?? "Your degree plan"}</h1>
+        {
+          plan && (
+            <p class="mt-0.5 text-sm text-york-muted">
+              Started {plan.starting_year} · {plan.terms.length} terms · from {plan.source_filename}
+            </p>
+          )
+        }
+      </div>
+      <a href="/plan/setup" class="btn-york">Import new checklist</a>
+    </div>
+  </Fragment>
+
+  {
+    !planId && (
+      <div class="surface rounded-2xl p-8 text-center">
+        <p class="text-sm text-stone-600 dark:text-stone-300">No plan loaded yet.</p>
+        <a href="/plan/setup" class="btn-york mt-4 inline-flex">Import your checklist</a>
+      </div>
+    )
+  }
+
+  {
+    loadError && (
+      <div class="mb-6 rounded-xl border border-york-gold/40 bg-york-gold/10 px-4 py-3 text-sm">
+        {loadError}. Try importing again from <a href="/plan/setup" class="text-york-red underline">plan setup</a>.
+      </div>
+    )
+  }
+
+  {
+    plan && plan.parse_warnings.length > 0 && (
+      <div class="mb-6 rounded-xl border border-york-gold/40 bg-york-gold/10 px-4 py-3 text-sm">
+        <p class="font-medium">Parser notes</p>
+        <ul class="mt-2 list-inside list-disc text-stone-600 dark:text-stone-300">
+          {plan.parse_warnings.map((warning) => (
+            <li>{warning}</li>
+          ))}
+        </ul>
+      </div>
+    )
+  }
+
+  {
+    plan && (
+      <div class="overflow-x-auto pb-2">
+        <div class="flex min-w-max gap-4">
+          {plan.terms.map((term) => (
+            <section class="surface w-64 shrink-0 rounded-2xl p-4">
+              <div class="mb-3 border-b border-york-stone/50 pb-2 dark:border-white/10">
+                <p class="text-xs font-semibold uppercase tracking-widest text-york-red">{term.session}</p>
+                <h2 class="font-display text-base font-semibold text-york-black dark:text-white">{term.label}</h2>
+                <p class="text-xs text-york-muted">Checklist year {term.checklist_year}</p>
+              </div>
+
+              {
+                term.courses.length > 0 ? (
+                  <ul class="space-y-2">
+                    {term.courses.map((course) => (
+                      <li class="rounded-lg bg-york-cream/80 px-3 py-2 dark:bg-york-navy/50">
+                        <p class="text-sm font-semibold text-york-black dark:text-white">{course.course_code}</p>
+                        {
+                          course.credits != null && (
+                            <p class="text-xs text-york-muted">{course.credits} credits</p>
+                          )
+                        }
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  <p class="text-xs text-york-muted">No courses assigned</p>
+                )
+              }
+            </section>
+          ))}
+        </div>
+      </div>
+    )
+  }
+
+  {
+    plan && (
+      <p class="mt-6 text-xs text-york-muted">
+        EXPAND HERE (Samiul): drag-and-drop, add/remove courses, prerequisite validation.
+      </p>
+    )
+  }
+
+  {
+    planId && (
+      <script is:inline define:vars={{ planId }}>
+        sessionStorage.setItem("yorklanes-plan-id", planId);
+      </script>
+    )
+  }
+</DashboardLayout>

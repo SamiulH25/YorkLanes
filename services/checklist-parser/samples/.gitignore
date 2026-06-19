@@ -1,0 +1,8 @@
+# Local test checklists (not committed). Place sample PDF/DOCX files here.
+*.pdf
+*.docx
+*.doc
+*-out.json
+*-dump.txt
+beng-page0.txt
+beng-snippet.txt

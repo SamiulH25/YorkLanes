@@ -59,7 +59,8 @@ CREATE TABLE IF NOT EXISTS course_prerequisites (
 
 -- ---------------------------------------------------------------------------
 -- Degree plans (Samiul)
--- TODO: add plan_terms, plan_courses when degree plan editor is built
+-- Implemented in supabase/migrations/20250619190000_degree_plans.sql
+-- degree_plans, plan_terms, plan_courses
 -- ---------------------------------------------------------------------------
 
 -- ---------------------------------------------------------------------------

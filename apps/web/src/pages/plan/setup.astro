@@ -1,0 +1,186 @@
+---
+import DashboardLayout from "../../layouts/DashboardLayout.astro";
+import { fetchFaculties } from "../../lib/plans";
+import type { FacultyChecklistInfo } from "../../types/plan";
+
+let faculties: FacultyChecklistInfo[] = [];
+let loadError: string | null = null;
+
+try {
+  faculties = await fetchFaculties();
+} catch (error) {
+  loadError = error instanceof Error ? error.message : "Could not load faculties";
+}
+---
+
+<DashboardLayout title="Import Checklist | YorkLanes" activeNav="plan">
+  <Fragment slot="header">
+    <div>
+      <p class="text-xs font-medium text-york-muted">Degree plan setup</p>
+      <h1 class="heading-page">Import your checklist</h1>
+      <p class="mt-0.5 text-sm text-york-muted">Download from your faculty site, then upload it here</p>
+    </div>
+  </Fragment>
+
+  {
+    loadError && (
+      <div class="mb-6 rounded-xl border border-york-gold/40 bg-york-gold/10 px-4 py-3 text-sm">
+        {loadError}. Make sure the API is running with <code class="font-mono text-xs">npm run dev:api</code>.
+      </div>
+    )
+  }
+
+  <div class="grid gap-6 lg:grid-cols-2">
+    <section class="surface rounded-2xl p-6">
+      <p class="label">Step 1</p>
+      <h2 class="mt-1 font-display text-lg font-semibold text-york-black dark:text-white">Choose your faculty</h2>
+
+      <form id="checklist-form" class="mt-5 space-y-5">
+        <div>
+          <label for="facultyKey" class="mb-1.5 block text-sm font-medium">Faculty / department</label>
+          <select
+            id="facultyKey"
+            name="facultyKey"
+            required
+            class="w-full rounded-xl border border-york-stone/80 bg-york-cream/50 px-3 py-2.5 text-sm dark:border-white/15 dark:bg-york-navy/50"
+          >
+            <option value="">Select faculty...</option>
+            {faculties.map((f) => (
+              <option value={f.key}>{f.name}</option>
+            ))}
+          </select>
+        </div>
+
+        <div id="faculty-guide" class="hidden rounded-xl border border-york-red/20 bg-york-red/5 p-4 text-sm dark:bg-york-red/10">
+          <p class="font-medium text-york-black dark:text-white">Get your official checklist</p>
+          <p id="faculty-instructions" class="mt-2 text-stone-600 dark:text-stone-300"></p>
+          <a
+            id="faculty-link"
+            href="#"
+            target="_blank"
+            rel="noopener noreferrer"
+            class="mt-3 inline-flex items-center gap-1 text-sm font-semibold text-york-red hover:underline"
+          >
+            Open faculty checklist page
+            <span aria-hidden="true">↗</span>
+          </a>
+          <p id="faculty-hint" class="mt-2 text-xs text-york-muted"></p>
+        </div>
+
+        <div>
+          <label for="startingYear" class="mb-1.5 block text-sm font-medium">Year you started (or will start)</label>
+          <select
+            id="startingYear"
+            name="startingYear"
+            required
+            class="w-full rounded-xl border border-york-stone/80 bg-york-cream/50 px-3 py-2.5 text-sm dark:border-white/15 dark:bg-york-navy/50"
+          >
+            <option value="2025">2025</option>
+            <option value="2024">2024</option>
+            <option value="2023">2023</option>
+            <option value="2026">2026</option>
+          </select>
+        </div>
+
+        <div>
+          <label for="programmeName" class="mb-1.5 block text-sm font-medium">Programme name (optional)</label>
+          <input
+            id="programmeName"
+            name="programmeName"
+            type="text"
+            placeholder="e.g. BSc Honours Computer Science"
+            class="w-full rounded-xl border border-york-stone/80 bg-york-cream/50 px-3 py-2.5 text-sm dark:border-white/15 dark:bg-york-navy/50"
+          />
+        </div>
+
+        <div>
+          <label for="checklist" class="mb-1.5 block text-sm font-medium">Step 2: Upload checklist file</label>
+          <input
+            id="checklist"
+            name="checklist"
+            type="file"
+            accept=".pdf,.docx,.doc"
+            required
+            class="w-full text-sm file:mr-3 file:rounded-lg file:border-0 file:bg-york-red file:px-3 file:py-2 file:text-sm file:font-medium file:text-white"
+          />
+        </div>
+
+        <button type="submit" class="btn-york w-full" id="submit-btn">
+          Parse checklist and build plan
+        </button>
+        <p id="form-status" class="hidden text-sm"></p>
+      </form>
+    </section>
+
+    <section class="surface rounded-2xl p-6">
+      <p class="label">How it works</p>
+      <ol class="mt-3 space-y-3 text-sm leading-relaxed text-stone-600 dark:text-stone-300">
+        <li><span class="font-semibold text-york-black dark:text-white">1.</span> Pick the faculty that matches your programme.</li>
+        <li><span class="font-semibold text-york-black dark:text-white">2.</span> Open the official checklist page and download the PDF or DOCX for your start year.</li>
+        <li><span class="font-semibold text-york-black dark:text-white">3.</span> Upload the file. We extract course codes and place them across Fall/Winter terms.</li>
+        <li><span class="font-semibold text-york-black dark:text-white">4.</span> Edit your plan on the next screen. Prerequisite validation comes next.</li>
+      </ol>
+      <p class="mt-4 text-xs text-york-muted">
+        Checklists are guides only. Always confirm requirements with the official academic calendar for your entry year.
+      </p>
+    </section>
+  </div>
+
+  <script is:inline define:vars={{ faculties }}>
+    const facultySelect = document.getElementById("facultyKey");
+    const guide = document.getElementById("faculty-guide");
+    const instructions = document.getElementById("faculty-instructions");
+    const link = document.getElementById("faculty-link");
+    const hint = document.getElementById("faculty-hint");
+    const form = document.getElementById("checklist-form");
+    const status = document.getElementById("form-status");
+    const submitBtn = document.getElementById("submit-btn");
+
+    facultySelect?.addEventListener("change", () => {
+      const selected = faculties.find((f) => f.key === facultySelect.value);
+      if (!selected) {
+        guide?.classList.add("hidden");
+        return;
+      }
+      guide?.classList.remove("hidden");
+      if (instructions) instructions.textContent = selected.instructions;
+      if (link) link.href = selected.url;
+      if (hint) hint.textContent = `Accepted: ${selected.fileHint}`;
+    });
+
+    form?.addEventListener("submit", async (event) => {
+      event.preventDefault();
+      if (!(form instanceof HTMLFormElement)) return;
+
+      submitBtn?.setAttribute("disabled", "true");
+      if (status) {
+        status.classList.remove("hidden");
+        status.textContent = "Parsing checklist...";
+        status.className = "text-sm text-york-muted";
+      }
+
+      try {
+        const formData = new FormData(form);
+        const apiUrl = import.meta.env.PUBLIC_API_URL ?? "http://localhost:3001";
+        const response = await fetch(`${apiUrl}/api/plans/import`, {
+          method: "POST",
+          body: formData,
+        });
+        const payload = await response.json();
+
+        if (!response.ok) {
+          throw new Error(payload.error ?? "Import failed");
+        }
+
+        sessionStorage.setItem("yorklanes-plan-id", payload.plan.id);
+        window.location.href = `/plan?id=${payload.plan.id}`;
+      } catch (error) {
+        if (status) {
+          status.textContent = error instanceof Error ? error.message : "Import failed";
+          status.className = "text-sm text-york-red";
+        }
+        submitBtn?.removeAttribute("disabled");
+      }
+    });
+  </script>
+</DashboardLayout>

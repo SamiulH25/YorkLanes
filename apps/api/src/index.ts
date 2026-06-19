@@ -11,6 +11,7 @@ import cors from "cors";
 import express from "express";
 import { dashboardRouter } from "./routes/dashboard.js";
 import { healthRouter } from "./routes/health.js";
+import { plansRouter } from "./routes/plans.js";
 // import { authRouter } from "./routes/auth.js";  // TODO: enable after OAuth setup
 
 const app = express();
@@ -21,6 +22,7 @@ app.use(express.json());
 
 app.use("/health", healthRouter);
 app.use("/api/dashboard", dashboardRouter);
+app.use("/api/plans", plansRouter);
 // app.use("/auth", authRouter);  // TODO: enable after OAuth setup
 
 app.listen(port, () => {

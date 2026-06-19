@@ -1,5 +1,5 @@
 ---
-description: Always commit completed work before ending a task
+description: Always commit completed work and provide git commands at end of replies
 alwaysApply: true
 ---
 
@@ -14,3 +14,25 @@ When you finish implementing a task that modified files in the repository, creat
 - If there is nothing to commit, say so instead of making an empty commit
 
 The user expects the repo to stay in sync with the work you did.
+
+# End-of-reply git commands
+
+At the end of every reply where files were changed (or where there are uncommitted changes to report), include a **Commit & push** section with the exact PowerShell commands to:
+
+1. Stage the relevant files
+2. Commit with a suggested message
+3. Pull before push (team workflow)
+4. Push to origin
+
+If nothing changed, say "Nothing to commit" instead.
+
+Example format:
+
+```
+## Commit & push
+
+git add ...
+git commit -m "Your message"
+git pull origin main
+git push origin main
+```

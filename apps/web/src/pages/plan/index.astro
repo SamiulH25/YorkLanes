@@ -36,9 +36,18 @@ if (planId) {
 
   {
     !planId && (
-      <div class="surface rounded-2xl p-8 text-center">
-        <p class="text-sm text-stone-600 dark:text-stone-300">No plan loaded yet.</p>
-        <a href="/plan/setup" class="btn-york mt-4 inline-flex">Import your checklist</a>
+      <div class="surface mx-auto max-w-lg rounded-2xl p-8 text-center">
+        <p class="text-xs font-medium uppercase tracking-widest text-york-red">Get started</p>
+        <h2 class="mt-2 font-display text-xl font-semibold text-york-black dark:text-white">Import your degree checklist</h2>
+        <p class="mt-2 text-sm leading-relaxed text-stone-600 dark:text-stone-300">
+          Download the official checklist from your faculty site, upload it on the next screen, and YorkLanes will parse your courses into a term plan.
+        </p>
+        <ol class="mt-6 space-y-2 text-left text-sm text-stone-600 dark:text-stone-300">
+          <li><span class="font-semibold text-york-black dark:text-white">1.</span> Choose your faculty and programme details</li>
+          <li><span class="font-semibold text-york-black dark:text-white">2.</span> Download the PDF or DOCX checklist</li>
+          <li><span class="font-semibold text-york-black dark:text-white">3.</span> Upload the file and we build your plan</li>
+        </ol>
+        <a href="/plan/setup" class="btn-york mt-6 inline-flex">Go to checklist import</a>
       </div>
     )
   }
@@ -109,11 +118,14 @@ if (planId) {
     )
   }
 
-  {
-    planId && (
-      <script is:inline define:vars={{ planId }}>
-        sessionStorage.setItem("yorklanes-plan-id", planId);
-      </script>
-    )
-  }
+  <script is:inline define:vars={{ planId }}>
+    if (planId) {
+      sessionStorage.setItem("yorklanes-plan-id", planId);
+    } else {
+      const saved = sessionStorage.getItem("yorklanes-plan-id");
+      if (saved) {
+        window.location.replace(`/plan?id=${saved}`);
+      }
+    }
+  </script>
 </DashboardLayout>

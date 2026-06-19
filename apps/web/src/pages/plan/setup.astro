@@ -17,8 +17,8 @@ try {
   <Fragment slot="header">
     <div>
       <p class="text-xs font-medium text-york-muted">Degree plan setup</p>
-      <h1 class="heading-page">Import your checklist</h1>
-      <p class="mt-0.5 text-sm text-york-muted">Download from your faculty site, then upload it here</p>
+      <h1 class="heading-page">Build your degree plan</h1>
+      <p class="mt-0.5 text-sm text-york-muted">Download your official checklist, upload it here, and we will parse it into a term plan</p>
     </div>
   </Fragment>
 
@@ -30,12 +30,33 @@ try {
     )
   }
 
-  <div class="grid gap-6 lg:grid-cols-2">
-    <section class="surface rounded-2xl p-6">
-      <p class="label">Step 1</p>
-      <h2 class="mt-1 font-display text-lg font-semibold text-york-black dark:text-white">Choose your faculty</h2>
+  <ol class="mb-8 flex flex-wrap items-center gap-2 text-sm" aria-label="Setup steps">
+    <li class="flex items-center gap-2 rounded-full bg-york-red/10 px-3 py-1 font-medium text-york-red" data-step-indicator="1">
+      <span class="flex h-5 w-5 items-center justify-center rounded-full bg-york-red text-xs text-white">1</span>
+      Your programme
+    </li>
+    <li class="text-york-muted" aria-hidden="true">→</li>
+    <li class="flex items-center gap-2 rounded-full bg-york-stone/30 px-3 py-1 text-york-muted dark:bg-white/10" data-step-indicator="2">
+      <span class="flex h-5 w-5 items-center justify-center rounded-full bg-york-stone/60 text-xs dark:bg-white/20">2</span>
+      Download checklist
+    </li>
+    <li class="text-york-muted" aria-hidden="true">→</li>
+    <li class="flex items-center gap-2 rounded-full bg-york-stone/30 px-3 py-1 text-york-muted dark:bg-white/10" data-step-indicator="3">
+      <span class="flex h-5 w-5 items-center justify-center rounded-full bg-york-stone/60 text-xs dark:bg-white/20">3</span>
+      Upload and parse
+    </li>
+  </ol>
 
-      <form id="checklist-form" class="mt-5 space-y-5">
+  <form id="checklist-form" class="mx-auto max-w-2xl space-y-6">
+    <!-- Step 1: Programme details -->
+    <section class="surface rounded-2xl p-6" aria-labelledby="step-profile-heading">
+      <p class="label">Step 1</p>
+      <h2 id="step-profile-heading" class="mt-1 font-display text-lg font-semibold text-york-black dark:text-white">
+        Tell us about your programme
+      </h2>
+      <p class="mt-1 text-sm text-york-muted">We use this to link you to the right checklist page and label your plan.</p>
+
+      <div class="mt-5 space-y-4">
         <div>
           <label for="facultyKey" class="mb-1.5 block text-sm font-medium">Faculty / department</label>
           <select
@@ -51,112 +72,277 @@ try {
           </select>
         </div>
 
-        <div id="faculty-guide" class="hidden rounded-xl border border-york-red/20 bg-york-red/5 p-4 text-sm dark:bg-york-red/10">
-          <p class="font-medium text-york-black dark:text-white">Get your official checklist</p>
-          <p id="faculty-instructions" class="mt-2 text-stone-600 dark:text-stone-300"></p>
+        <div class="grid gap-4 sm:grid-cols-2">
+          <div>
+            <label for="startingYear" class="mb-1.5 block text-sm font-medium">Year you started (or will start)</label>
+            <select
+              id="startingYear"
+              name="startingYear"
+              required
+              class="w-full rounded-xl border border-york-stone/80 bg-york-cream/50 px-3 py-2.5 text-sm dark:border-white/15 dark:bg-york-navy/50"
+            >
+              <option value="2026">2026</option>
+              <option value="2025">2025</option>
+              <option value="2024">2024</option>
+              <option value="2023">2023</option>
+            </select>
+          </div>
+          <div>
+            <label for="programmeName" class="mb-1.5 block text-sm font-medium">Programme name (optional)</label>
+            <input
+              id="programmeName"
+              name="programmeName"
+              type="text"
+              placeholder="e.g. BEng Software Engineering"
+              class="w-full rounded-xl border border-york-stone/80 bg-york-cream/50 px-3 py-2.5 text-sm dark:border-white/15 dark:bg-york-navy/50"
+            />
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Step 2: Download -->
+    <section
+      id="step-download"
+      class="surface rounded-2xl p-6 opacity-50 pointer-events-none transition-opacity"
+      aria-labelledby="step-download-heading"
+      aria-disabled="true"
+    >
+      <p class="label">Step 2</p>
+      <h2 id="step-download-heading" class="mt-1 font-display text-lg font-semibold text-york-black dark:text-white">
+        Download your official checklist
+      </h2>
+      <p class="mt-1 text-sm text-york-muted">Select a faculty above to unlock this step.</p>
+
+      <div id="download-panel" class="mt-5 hidden">
+        <div class="rounded-xl border border-york-red/20 bg-york-red/5 p-5 dark:bg-york-red/10">
+          <p id="faculty-instructions" class="text-sm leading-relaxed text-stone-600 dark:text-stone-300"></p>
           <a
             id="faculty-link"
             href="#"
             target="_blank"
             rel="noopener noreferrer"
-            class="mt-3 inline-flex items-center gap-1 text-sm font-semibold text-york-red hover:underline"
+            class="btn-york mt-4 inline-flex items-center gap-2"
           >
             Open faculty checklist page
             <span aria-hidden="true">↗</span>
           </a>
-          <p id="faculty-hint" class="mt-2 text-xs text-york-muted"></p>
+          <p id="faculty-hint" class="mt-3 text-xs text-york-muted"></p>
         </div>
 
-        <div>
-          <label for="startingYear" class="mb-1.5 block text-sm font-medium">Year you started (or will start)</label>
-          <select
-            id="startingYear"
-            name="startingYear"
-            required
-            class="w-full rounded-xl border border-york-stone/80 bg-york-cream/50 px-3 py-2.5 text-sm dark:border-white/15 dark:bg-york-navy/50"
-          >
-            <option value="2025">2025</option>
-            <option value="2024">2024</option>
-            <option value="2023">2023</option>
-            <option value="2026">2026</option>
-          </select>
-        </div>
-
-        <div>
-          <label for="programmeName" class="mb-1.5 block text-sm font-medium">Programme name (optional)</label>
-          <input
-            id="programmeName"
-            name="programmeName"
-            type="text"
-            placeholder="e.g. BSc Honours Computer Science"
-            class="w-full rounded-xl border border-york-stone/80 bg-york-cream/50 px-3 py-2.5 text-sm dark:border-white/15 dark:bg-york-navy/50"
-          />
-        </div>
-
-        <div>
-          <label for="checklist" class="mb-1.5 block text-sm font-medium">Step 2: Upload checklist file</label>
-          <input
-            id="checklist"
-            name="checklist"
-            type="file"
-            accept=".pdf,.docx,.doc"
-            required
-            class="w-full text-sm file:mr-3 file:rounded-lg file:border-0 file:bg-york-red file:px-3 file:py-2 file:text-sm file:font-medium file:text-white"
-          />
-        </div>
-
-        <button type="submit" class="btn-york w-full" id="submit-btn">
-          Parse checklist and build plan
-        </button>
-        <p id="form-status" class="hidden text-sm"></p>
-      </form>
+        <label class="mt-5 flex cursor-pointer items-start gap-3 rounded-xl border border-york-stone/60 p-4 dark:border-white/15">
+          <input id="download-confirm" type="checkbox" class="mt-0.5 h-4 w-4 rounded border-york-stone text-york-red focus:ring-york-red" />
+          <span class="text-sm text-stone-600 dark:text-stone-300">
+            I downloaded the checklist file for my programme and start year. It is saved on my device and ready to upload.
+          </span>
+        </label>
+      </div>
     </section>
 
-    <section class="surface rounded-2xl p-6">
-      <p class="label">How it works</p>
-      <ol class="mt-3 space-y-3 text-sm leading-relaxed text-stone-600 dark:text-stone-300">
-        <li><span class="font-semibold text-york-black dark:text-white">1.</span> Pick the faculty that matches your programme.</li>
-        <li><span class="font-semibold text-york-black dark:text-white">2.</span> Open the official checklist page and download the PDF or DOCX for your start year.</li>
-        <li><span class="font-semibold text-york-black dark:text-white">3.</span> Upload the file. We extract course codes and place them across Fall/Winter terms.</li>
-        <li><span class="font-semibold text-york-black dark:text-white">4.</span> Edit your plan on the next screen. Prerequisite validation comes next.</li>
-      </ol>
-      <p class="mt-4 text-xs text-york-muted">
-        Checklists are guides only. Always confirm requirements with the official academic calendar for your entry year.
-      </p>
+    <!-- Step 3: Dedicated upload -->
+    <section
+      id="step-upload"
+      class="surface rounded-2xl p-6 opacity-50 pointer-events-none transition-opacity"
+      aria-labelledby="step-upload-heading"
+      aria-disabled="true"
+    >
+      <p class="label">Step 3</p>
+      <h2 id="step-upload-heading" class="mt-1 font-display text-lg font-semibold text-york-black dark:text-white">
+        Upload your checklist
+      </h2>
+      <p id="upload-hint" class="mt-1 text-sm text-york-muted">Confirm you downloaded your checklist to unlock upload.</p>
+
+      <input
+        id="checklist"
+        name="checklist"
+        type="file"
+        accept=".pdf,.docx,.doc"
+        required
+        class="sr-only"
+      />
+
+      <div
+        id="upload-dropzone"
+        tabindex="0"
+        role="button"
+        aria-label="Upload checklist file"
+        class="mt-5 flex min-h-[180px] cursor-pointer flex-col items-center justify-center rounded-2xl border-2 border-dashed border-york-stone/70 bg-york-cream/40 px-6 py-10 text-center transition-colors hover:border-york-red/50 hover:bg-york-red/5 focus:outline-none focus-visible:ring-2 focus-visible:ring-york-red dark:border-white/20 dark:bg-york-navy/30 dark:hover:bg-york-red/10"
+      >
+        <svg class="mb-3 h-10 w-10 text-york-muted" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5" />
+        </svg>
+        <p class="text-sm font-medium text-york-black dark:text-white">Drop your checklist here</p>
+        <p class="mt-1 text-xs text-york-muted">PDF or DOCX from your faculty site</p>
+        <p class="mt-3 text-xs font-medium text-york-red">or click to browse</p>
+      </div>
+
+      <div id="file-preview" class="mt-4 hidden rounded-xl border border-york-stone/60 bg-york-cream/50 px-4 py-3 dark:border-white/15 dark:bg-york-navy/40">
+        <div class="flex items-center justify-between gap-3">
+          <div class="min-w-0">
+            <p class="text-xs font-medium uppercase tracking-widest text-york-muted">Selected file</p>
+            <p id="file-name" class="truncate text-sm font-semibold text-york-black dark:text-white"></p>
+            <p id="file-size" class="text-xs text-york-muted"></p>
+          </div>
+          <button type="button" id="file-clear" class="shrink-0 text-sm font-medium text-york-red hover:underline">
+            Remove
+          </button>
+        </div>
+      </div>
+
+      <button type="submit" class="btn-york mt-6 w-full" id="submit-btn" disabled>
+        Parse checklist and build plan
+      </button>
+      <p id="form-status" class="hidden mt-3 text-sm"></p>
     </section>
-  </div>
+  </form>
+
+  <p class="mx-auto mt-6 max-w-2xl text-center text-xs text-york-muted">
+    Checklists are guides only. Confirm requirements with the official academic calendar for your entry year.
+  </p>
 
   <script is:inline define:vars={{ faculties }}>
     const facultySelect = document.getElementById("facultyKey");
-    const guide = document.getElementById("faculty-guide");
+    const downloadStep = document.getElementById("step-download");
+    const uploadStep = document.getElementById("step-upload");
+    const downloadPanel = document.getElementById("download-panel");
+    const downloadConfirm = document.getElementById("download-confirm");
     const instructions = document.getElementById("faculty-instructions");
     const link = document.getElementById("faculty-link");
     const hint = document.getElementById("faculty-hint");
+    const uploadHint = document.getElementById("upload-hint");
     const form = document.getElementById("checklist-form");
+    const fileInput = document.getElementById("checklist");
+    const dropzone = document.getElementById("upload-dropzone");
+    const filePreview = document.getElementById("file-preview");
+    const fileName = document.getElementById("file-name");
+    const fileSize = document.getElementById("file-size");
+    const fileClear = document.getElementById("file-clear");
     const status = document.getElementById("form-status");
     const submitBtn = document.getElementById("submit-btn");
+    const stepIndicators = document.querySelectorAll("[data-step-indicator]");
 
-    facultySelect?.addEventListener("change", () => {
-      const selected = faculties.find((f) => f.key === facultySelect.value);
+    function setStepActive(stepNum) {
+      stepIndicators.forEach((el) => {
+        const n = Number(el.getAttribute("data-step-indicator"));
+        const badge = el.querySelector("span");
+        if (n <= stepNum) {
+          el.classList.remove("bg-york-stone/30", "text-york-muted", "dark:bg-white/10");
+          el.classList.add("bg-york-red/10", "font-medium", "text-york-red");
+          badge?.classList.remove("bg-york-stone/60", "dark:bg-white/20");
+          badge?.classList.add("bg-york-red", "text-white");
+        } else {
+          el.classList.add("bg-york-stone/30", "text-york-muted", "dark:bg-white/10");
+          el.classList.remove("bg-york-red/10", "font-medium", "text-york-red");
+          badge?.classList.add("bg-york-stone/60", "dark:bg-white/20");
+          badge?.classList.remove("bg-york-red", "text-white");
+        }
+      });
+    }
+
+    function enableSection(section, enabled) {
+      if (!section) return;
+      section.classList.toggle("opacity-50", !enabled);
+      section.classList.toggle("pointer-events-none", !enabled);
+      section.setAttribute("aria-disabled", enabled ? "false" : "true");
+    }
+
+    function formatBytes(bytes) {
+      if (bytes < 1024) return `${bytes} B`;
+      if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+      return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+    }
+
+    function updateFilePreview() {
+      const file = fileInput?.files?.[0];
+      if (file && filePreview && fileName && fileSize) {
+        filePreview.classList.remove("hidden");
+        fileName.textContent = file.name;
+        fileSize.textContent = formatBytes(file.size);
+        submitBtn?.removeAttribute("disabled");
+      } else {
+        filePreview?.classList.add("hidden");
+        submitBtn?.setAttribute("disabled", "true");
+      }
+    }
+
+    function onFacultyChange() {
+      const selected = faculties.find((f) => f.key === facultySelect?.value);
       if (!selected) {
-        guide?.classList.add("hidden");
+        downloadPanel?.classList.add("hidden");
+        enableSection(downloadStep, false);
+        enableSection(uploadStep, false);
+        downloadConfirm.checked = false;
+        setStepActive(1);
         return;
       }
-      guide?.classList.remove("hidden");
+
+      downloadPanel?.classList.remove("hidden");
+      enableSection(downloadStep, true);
       if (instructions) instructions.textContent = selected.instructions;
       if (link) link.href = selected.url;
-      if (hint) hint.textContent = `Accepted: ${selected.fileHint}`;
+      if (hint) hint.textContent = `Accepted formats: ${selected.fileHint}`;
+      setStepActive(2);
+      onDownloadConfirmChange();
+    }
+
+    function onDownloadConfirmChange() {
+      const ready = Boolean(facultySelect?.value && downloadConfirm?.checked);
+      enableSection(uploadStep, ready);
+      if (uploadHint) {
+        uploadHint.textContent = ready
+          ? "Upload the PDF or DOCX you downloaded from your faculty site."
+          : "Confirm you downloaded your checklist to unlock upload.";
+      }
+      if (ready) setStepActive(3);
+      else if (facultySelect?.value) setStepActive(2);
+    }
+
+    facultySelect?.addEventListener("change", onFacultyChange);
+    downloadConfirm?.addEventListener("change", onDownloadConfirmChange);
+
+    dropzone?.addEventListener("click", () => fileInput?.click());
+    dropzone?.addEventListener("keydown", (event) => {
+      if (event.key === "Enter" || event.key === " ") {
+        event.preventDefault();
+        fileInput?.click();
+      }
+    });
+
+    dropzone?.addEventListener("dragover", (event) => {
+      event.preventDefault();
+      dropzone.classList.add("border-york-red", "bg-york-red/5");
+    });
+    dropzone?.addEventListener("dragleave", () => {
+      dropzone.classList.remove("border-york-red", "bg-york-red/5");
+    });
+    dropzone?.addEventListener("drop", (event) => {
+      event.preventDefault();
+      dropzone.classList.remove("border-york-red", "bg-york-red/5");
+      const dropped = event.dataTransfer?.files?.[0];
+      if (dropped && fileInput) {
+        const dt = new DataTransfer();
+        dt.items.add(dropped);
+        fileInput.files = dt.files;
+        updateFilePreview();
+      }
+    });
+
+    fileInput?.addEventListener("change", updateFilePreview);
+    fileClear?.addEventListener("click", () => {
+      if (fileInput) fileInput.value = "";
+      updateFilePreview();
     });
 
     form?.addEventListener("submit", async (event) => {
       event.preventDefault();
       if (!(form instanceof HTMLFormElement)) return;
+      if (!fileInput?.files?.[0]) return;
 
       submitBtn?.setAttribute("disabled", "true");
       if (status) {
         status.classList.remove("hidden");
-        status.textContent = "Parsing checklist...";
-        status.className = "text-sm text-york-muted";
+        status.textContent = "Parsing checklist and building your plan...";
+        status.className = "mt-3 text-sm text-york-muted";
       }
 
       try {
@@ -177,7 +363,7 @@ try {
       } catch (error) {
         if (status) {
           status.textContent = error instanceof Error ? error.message : "Import failed";
-          status.className = "text-sm text-york-red";
+          status.className = "mt-3 text-sm text-york-red";
         }
         submitBtn?.removeAttribute("disabled");
       }

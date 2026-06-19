@@ -3,6 +3,7 @@ import multer from "multer";
 import { FACULTY_CHECKLISTS, getFacultyChecklist } from "../data/faculty-checklists.js";
 import { getPool } from "../db/index.js";
 import { parseChecklistFile } from "../services/checklistParser.js";
+import { inferChecklistMetadata } from "../services/inferChecklistMetadata.js";
 import { createPlanFromChecklist, getPlanById } from "../services/planGenerator.js";
 
 const upload = multer({
@@ -42,20 +43,6 @@ plansRouter.get("/:planId", async (req, res) => {
 
 plansRouter.post("/import", upload.single("checklist"), async (req, res) => {
   try {
-    const facultyKey = String(req.body.facultyKey ?? "");
-    const startingYear = Number(req.body.startingYear);
-    const programmeName = req.body.programmeName ? String(req.body.programmeName) : undefined;
-
-    if (!getFacultyChecklist(facultyKey)) {
-      res.status(400).json({ error: "Invalid faculty selection" });
-      return;
-    }
-
-    if (!Number.isInteger(startingYear) || startingYear < 2015 || startingYear > 2035) {
-      res.status(400).json({ error: "Invalid starting year" });
-      return;
-    }
-
     if (!req.file) {
       res.status(400).json({ error: "Checklist file is required" });
       return;
@@ -72,16 +59,41 @@ plansRouter.post("/import", upload.single("checklist"), async (req, res) => {
       return;
     }
 
+    const optionalFacultyKey = req.body.facultyKey ? String(req.body.facultyKey) : undefined;
+    const optionalStartingYear = req.body.startingYear ? Number(req.body.startingYear) : undefined;
+    const optionalProgrammeName = req.body.programmeName ? String(req.body.programmeName) : undefined;
+
+    if (optionalFacultyKey && !getFacultyChecklist(optionalFacultyKey)) {
+      res.status(400).json({ error: "Invalid faculty selection" });
+      return;
+    }
+
+    if (
+      optionalStartingYear !== undefined &&
+      (!Number.isInteger(optionalStartingYear) ||
+        optionalStartingYear < 2015 ||
+        optionalStartingYear > 2035)
+    ) {
+      res.status(400).json({ error: "Invalid starting year" });
+      return;
+    }
+
+    const inferred = inferChecklistMetadata(parsed, req.file.originalname, {
+      facultyKey: optionalFacultyKey,
+      programmeName: optionalProgrammeName,
+      startingYear: optionalStartingYear,
+    });
+
     const plan = await createPlanFromChecklist(getPool(), {
-      facultyKey,
-      programmeName,
-      startingYear,
+      facultyKey: inferred.facultyKey,
+      programmeName: inferred.programmeName ?? undefined,
+      startingYear: inferred.startingYear,
       sourceFilename: req.file.originalname,
       sourceType: req.file.mimetype,
       parsed,
     });
 
-    res.status(201).json({ plan, parsed });
+    res.status(201).json({ plan, parsed, inferred });
   } catch (error) {
     res.status(500).json({
       error: error instanceof Error ? error.message : "Failed to import checklist",

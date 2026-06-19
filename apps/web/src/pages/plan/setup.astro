@@ -1,9 +1,10 @@
 ---
 import DashboardLayout from "../../layouts/DashboardLayout.astro";
 import { fetchFaculties } from "../../lib/plans";
-import type { FacultyChecklistInfo } from "../../types/plan";
 
-let faculties: FacultyChecklistInfo[] = [];
+const apiUrl = import.meta.env.PUBLIC_API_URL ?? "http://localhost:3001";
+
+let faculties: Awaited<ReturnType<typeof fetchFaculties>> = [];
 let loadError: string | null = null;
 
 try {
@@ -18,7 +19,7 @@ try {
     <div>
       <p class="text-xs font-medium text-york-muted">Degree plan setup</p>
       <h1 class="heading-page">Build your degree plan</h1>
-      <p class="mt-0.5 text-sm text-york-muted">Download your official checklist, upload it here, and we will parse it into a term plan</p>
+      <p class="mt-0.5 text-sm text-york-muted">Download your checklist from York, upload it here, and we detect your programme automatically</p>
     </div>
   </Fragment>
 
@@ -30,89 +31,30 @@ try {
     )
   }
 
-  <ol class="mb-8 flex flex-wrap items-center gap-2 text-sm" aria-label="Setup steps">
-    <li class="flex items-center gap-2 rounded-full bg-york-red/10 px-3 py-1 font-medium text-york-red" data-step-indicator="1">
-      <span class="flex h-5 w-5 items-center justify-center rounded-full bg-york-red text-xs text-white">1</span>
-      Your programme
-    </li>
-    <li class="text-york-muted" aria-hidden="true">→</li>
-    <li class="flex items-center gap-2 rounded-full bg-york-stone/30 px-3 py-1 text-york-muted dark:bg-white/10" data-step-indicator="2">
-      <span class="flex h-5 w-5 items-center justify-center rounded-full bg-york-stone/60 text-xs dark:bg-white/20">2</span>
-      Download checklist
-    </li>
-    <li class="text-york-muted" aria-hidden="true">→</li>
-    <li class="flex items-center gap-2 rounded-full bg-york-stone/30 px-3 py-1 text-york-muted dark:bg-white/10" data-step-indicator="3">
-      <span class="flex h-5 w-5 items-center justify-center rounded-full bg-york-stone/60 text-xs dark:bg-white/20">3</span>
-      Upload and parse
-    </li>
-  </ol>
-
   <form id="checklist-form" class="mx-auto max-w-2xl space-y-6">
-    <!-- Step 1: Programme details -->
-    <section class="surface rounded-2xl p-6" aria-labelledby="step-profile-heading">
+    <!-- Step 1: Download -->
+    <section class="surface rounded-2xl p-6" aria-labelledby="step-download-heading">
       <p class="label">Step 1</p>
-      <h2 id="step-profile-heading" class="mt-1 font-display text-lg font-semibold text-york-black dark:text-white">
-        Tell us about your programme
-      </h2>
-      <p class="mt-1 text-sm text-york-muted">We use this to link you to the right checklist page and label your plan.</p>
-
-      <div class="mt-5 space-y-4">
-        <div>
-          <label for="facultyKey" class="mb-1.5 block text-sm font-medium">Faculty / department</label>
-          <select
-            id="facultyKey"
-            name="facultyKey"
-            required
-            class="w-full rounded-xl border border-york-stone/80 bg-york-cream/50 px-3 py-2.5 text-sm dark:border-white/15 dark:bg-york-navy/50"
-          >
-            <option value="">Select faculty...</option>
-            {faculties.map((f) => (
-              <option value={f.key}>{f.name}</option>
-            ))}
-          </select>
-        </div>
-
-        <div class="grid gap-4 sm:grid-cols-2">
-          <div>
-            <label for="startingYear" class="mb-1.5 block text-sm font-medium">Year you started (or will start)</label>
-            <select
-              id="startingYear"
-              name="startingYear"
-              required
-              class="w-full rounded-xl border border-york-stone/80 bg-york-cream/50 px-3 py-2.5 text-sm dark:border-white/15 dark:bg-york-navy/50"
-            >
-              <option value="2026">2026</option>
-              <option value="2025">2025</option>
-              <option value="2024">2024</option>
-              <option value="2023">2023</option>
-            </select>
-          </div>
-          <div>
-            <label for="programmeName" class="mb-1.5 block text-sm font-medium">Programme name (optional)</label>
-            <input
-              id="programmeName"
-              name="programmeName"
-              type="text"
-              placeholder="e.g. BEng Software Engineering"
-              class="w-full rounded-xl border border-york-stone/80 bg-york-cream/50 px-3 py-2.5 text-sm dark:border-white/15 dark:bg-york-navy/50"
-            />
-          </div>
-        </div>
-      </div>
-    </section>
-
-    <!-- Step 2: Download -->
-    <section
-      id="step-download"
-      class="surface rounded-2xl p-6 opacity-50 pointer-events-none transition-opacity"
-      aria-labelledby="step-download-heading"
-      aria-disabled="true"
-    >
-      <p class="label">Step 2</p>
       <h2 id="step-download-heading" class="mt-1 font-display text-lg font-semibold text-york-black dark:text-white">
         Download your official checklist
       </h2>
-      <p class="mt-1 text-sm text-york-muted">Select a faculty above to unlock this step.</p>
+      <p class="mt-1 text-sm text-york-muted">
+        Pick your faculty to get the right link, then download the PDF or DOCX for your programme.
+      </p>
+
+      <div class="mt-5">
+        <label for="facultyKey" class="mb-1.5 block text-sm font-medium">Faculty (for download link only)</label>
+        <select
+          id="facultyKey"
+          name="facultyKey"
+          class="w-full rounded-xl border border-york-stone/80 bg-york-cream/50 px-3 py-2.5 text-sm dark:border-white/15 dark:bg-york-navy/50"
+        >
+          <option value="">Select faculty for checklist link...</option>
+          {faculties.map((f) => (
+            <option value={f.key}>{f.name}</option>
+          ))}
+        </select>
+      </div>
 
       <div id="download-panel" class="mt-5 hidden">
         <div class="rounded-xl border border-york-red/20 bg-york-red/5 p-5 dark:bg-york-red/10">
@@ -129,28 +71,22 @@ try {
           </a>
           <p id="faculty-hint" class="mt-3 text-xs text-york-muted"></p>
         </div>
-
-        <label class="mt-5 flex cursor-pointer items-start gap-3 rounded-xl border border-york-stone/60 p-4 dark:border-white/15">
-          <input id="download-confirm" type="checkbox" class="mt-0.5 h-4 w-4 rounded border-york-stone text-york-red focus:ring-york-red" />
-          <span class="text-sm text-stone-600 dark:text-stone-300">
-            I downloaded the checklist file for my programme and start year. It is saved on my device and ready to upload.
-          </span>
-        </label>
       </div>
+
+      <p class="mt-4 text-xs text-york-muted">
+        Already have your checklist file? Skip to step 2 below.
+      </p>
     </section>
 
-    <!-- Step 3: Dedicated upload -->
-    <section
-      id="step-upload"
-      class="surface rounded-2xl p-6 opacity-50 pointer-events-none transition-opacity"
-      aria-labelledby="step-upload-heading"
-      aria-disabled="true"
-    >
-      <p class="label">Step 3</p>
+    <!-- Step 2: Upload -->
+    <section class="surface rounded-2xl p-6" aria-labelledby="step-upload-heading">
+      <p class="label">Step 2</p>
       <h2 id="step-upload-heading" class="mt-1 font-display text-lg font-semibold text-york-black dark:text-white">
         Upload your checklist
       </h2>
-      <p id="upload-hint" class="mt-1 text-sm text-york-muted">Confirm you downloaded your checklist to unlock upload.</p>
+      <p class="mt-1 text-sm text-york-muted">
+        We read your programme name, start year, and courses directly from the file.
+      </p>
 
       <input
         id="checklist"
@@ -189,6 +125,15 @@ try {
         </div>
       </div>
 
+      <div id="detected-meta" class="mt-4 hidden rounded-xl border border-york-stone/60 px-4 py-3 text-sm dark:border-white/15">
+        <p class="font-medium text-york-black dark:text-white">After upload we will detect:</p>
+        <ul class="mt-2 list-inside list-disc text-stone-600 dark:text-stone-300">
+          <li>Programme name from the checklist header</li>
+          <li>Start year from the filename (e.g. 2025-2026)</li>
+          <li>Faculty from course codes and programme text</li>
+        </ul>
+      </div>
+
       <button type="submit" class="btn-york mt-6 w-full" id="submit-btn" disabled>
         Parse checklist and build plan
       </button>
@@ -200,173 +145,8 @@ try {
     Checklists are guides only. Confirm requirements with the official academic calendar for your entry year.
   </p>
 
-  <script is:inline define:vars={{ faculties }}>
-    const facultySelect = document.getElementById("facultyKey");
-    const downloadStep = document.getElementById("step-download");
-    const uploadStep = document.getElementById("step-upload");
-    const downloadPanel = document.getElementById("download-panel");
-    const downloadConfirm = document.getElementById("download-confirm");
-    const instructions = document.getElementById("faculty-instructions");
-    const link = document.getElementById("faculty-link");
-    const hint = document.getElementById("faculty-hint");
-    const uploadHint = document.getElementById("upload-hint");
-    const form = document.getElementById("checklist-form");
-    const fileInput = document.getElementById("checklist");
-    const dropzone = document.getElementById("upload-dropzone");
-    const filePreview = document.getElementById("file-preview");
-    const fileName = document.getElementById("file-name");
-    const fileSize = document.getElementById("file-size");
-    const fileClear = document.getElementById("file-clear");
-    const status = document.getElementById("form-status");
-    const submitBtn = document.getElementById("submit-btn");
-    const stepIndicators = document.querySelectorAll("[data-step-indicator]");
-
-    function setStepActive(stepNum) {
-      stepIndicators.forEach((el) => {
-        const n = Number(el.getAttribute("data-step-indicator"));
-        const badge = el.querySelector("span");
-        if (n <= stepNum) {
-          el.classList.remove("bg-york-stone/30", "text-york-muted", "dark:bg-white/10");
-          el.classList.add("bg-york-red/10", "font-medium", "text-york-red");
-          badge?.classList.remove("bg-york-stone/60", "dark:bg-white/20");
-          badge?.classList.add("bg-york-red", "text-white");
-        } else {
-          el.classList.add("bg-york-stone/30", "text-york-muted", "dark:bg-white/10");
-          el.classList.remove("bg-york-red/10", "font-medium", "text-york-red");
-          badge?.classList.add("bg-york-stone/60", "dark:bg-white/20");
-          badge?.classList.remove("bg-york-red", "text-white");
-        }
-      });
-    }
-
-    function enableSection(section, enabled) {
-      if (!section) return;
-      section.classList.toggle("opacity-50", !enabled);
-      section.classList.toggle("pointer-events-none", !enabled);
-      section.setAttribute("aria-disabled", enabled ? "false" : "true");
-    }
-
-    function formatBytes(bytes) {
-      if (bytes < 1024) return `${bytes} B`;
-      if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
-      return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
-    }
-
-    function updateFilePreview() {
-      const file = fileInput?.files?.[0];
-      if (file && filePreview && fileName && fileSize) {
-        filePreview.classList.remove("hidden");
-        fileName.textContent = file.name;
-        fileSize.textContent = formatBytes(file.size);
-        submitBtn?.removeAttribute("disabled");
-      } else {
-        filePreview?.classList.add("hidden");
-        submitBtn?.setAttribute("disabled", "true");
-      }
-    }
-
-    function onFacultyChange() {
-      const selected = faculties.find((f) => f.key === facultySelect?.value);
-      if (!selected) {
-        downloadPanel?.classList.add("hidden");
-        enableSection(downloadStep, false);
-        enableSection(uploadStep, false);
-        downloadConfirm.checked = false;
-        setStepActive(1);
-        return;
-      }
-
-      downloadPanel?.classList.remove("hidden");
-      enableSection(downloadStep, true);
-      if (instructions) instructions.textContent = selected.instructions;
-      if (link) link.href = selected.url;
-      if (hint) hint.textContent = `Accepted formats: ${selected.fileHint}`;
-      setStepActive(2);
-      onDownloadConfirmChange();
-    }
-
-    function onDownloadConfirmChange() {
-      const ready = Boolean(facultySelect?.value && downloadConfirm?.checked);
-      enableSection(uploadStep, ready);
-      if (uploadHint) {
-        uploadHint.textContent = ready
-          ? "Upload the PDF or DOCX you downloaded from your faculty site."
-          : "Confirm you downloaded your checklist to unlock upload.";
-      }
-      if (ready) setStepActive(3);
-      else if (facultySelect?.value) setStepActive(2);
-    }
-
-    facultySelect?.addEventListener("change", onFacultyChange);
-    downloadConfirm?.addEventListener("change", onDownloadConfirmChange);
-
-    dropzone?.addEventListener("click", () => fileInput?.click());
-    dropzone?.addEventListener("keydown", (event) => {
-      if (event.key === "Enter" || event.key === " ") {
-        event.preventDefault();
-        fileInput?.click();
-      }
-    });
-
-    dropzone?.addEventListener("dragover", (event) => {
-      event.preventDefault();
-      dropzone.classList.add("border-york-red", "bg-york-red/5");
-    });
-    dropzone?.addEventListener("dragleave", () => {
-      dropzone.classList.remove("border-york-red", "bg-york-red/5");
-    });
-    dropzone?.addEventListener("drop", (event) => {
-      event.preventDefault();
-      dropzone.classList.remove("border-york-red", "bg-york-red/5");
-      const dropped = event.dataTransfer?.files?.[0];
-      if (dropped && fileInput) {
-        const dt = new DataTransfer();
-        dt.items.add(dropped);
-        fileInput.files = dt.files;
-        updateFilePreview();
-      }
-    });
-
-    fileInput?.addEventListener("change", updateFilePreview);
-    fileClear?.addEventListener("click", () => {
-      if (fileInput) fileInput.value = "";
-      updateFilePreview();
-    });
-
-    form?.addEventListener("submit", async (event) => {
-      event.preventDefault();
-      if (!(form instanceof HTMLFormElement)) return;
-      if (!fileInput?.files?.[0]) return;
-
-      submitBtn?.setAttribute("disabled", "true");
-      if (status) {
-        status.classList.remove("hidden");
-        status.textContent = "Parsing checklist and building your plan...";
-        status.className = "mt-3 text-sm text-york-muted";
-      }
-
-      try {
-        const formData = new FormData(form);
-        const apiUrl = import.meta.env.PUBLIC_API_URL ?? "http://localhost:3001";
-        const response = await fetch(`${apiUrl}/api/plans/import`, {
-          method: "POST",
-          body: formData,
-        });
-        const payload = await response.json();
-
-        if (!response.ok) {
-          throw new Error(payload.error ?? "Import failed");
-        }
-
-        sessionStorage.setItem("yorklanes-plan-id", payload.plan.id);
-        window.location.href = `/plan?id=${payload.plan.id}`;
-      } catch (error) {
-        if (status) {
-          status.textContent = error instanceof Error ? error.message : "Import failed";
-          status.className = "mt-3 text-sm text-york-red";
-        }
-        submitBtn?.removeAttribute("disabled");
-      }
-    });
+  <script define:vars={{ faculties, apiUrl }}>
+    import { initPlanSetup } from "../../scripts/plan-setup.ts";
+    initPlanSetup({ faculties, apiUrl });
   </script>
 </DashboardLayout>

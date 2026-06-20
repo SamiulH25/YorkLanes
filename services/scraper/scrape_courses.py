@@ -23,7 +23,26 @@ YOKI_BASE = "https://raw.githubusercontent.com/SSADC-at-york/Yoki/main/docs/data
 def load_json_courses(path: Path) -> list[CourseRecord]:
     payload = json.loads(path.read_text(encoding="utf-8"))
     entries = payload.get("courses", payload)
-    return [from_yoki_entry(entry, source=f"json:{path.name}") for entry in entries]
+    courses: list[CourseRecord] = []
+
+    for entry in entries:
+        if "title" in entry and "code" in entry:
+            courses.append(
+                CourseRecord(
+                    code=str(entry["code"]),
+                    title=str(entry["title"]),
+                    credits=float(entry["credits"]) if entry.get("credits") is not None else None,
+                    department=entry.get("department"),
+                    description=entry.get("description"),
+                    prerequisite_codes=list(entry.get("prerequisite_codes") or []),
+                    source=entry.get("source"),
+                )
+            )
+            continue
+
+        courses.append(from_yoki_entry(entry, source=f"json:{path.name}"))
+
+    return courses
 
 
 def save_json(courses: list[CourseRecord], path: Path) -> None:

@@ -11,6 +11,10 @@ export interface ParsedCourse {
   code: string;
   credits: number | null;
   raw: string;
+  kind?: "course" | "stub";
+  stub_type?: string;
+  section?: string;
+  section_label?: string;
 }
 
 export interface ParsedYear {

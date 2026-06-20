@@ -75,6 +75,7 @@ export {
   cachePlanGraphSnapshot,
   findUnsatisfiedDependencies,
   listPlannedCourseCodes,
+  listPlanStubs,
   readActivePlanGraphSnapshot,
   readPlanGraphSnapshot,
   PLAN_ACTIVE_ID_KEY,

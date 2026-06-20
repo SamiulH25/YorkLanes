@@ -8,6 +8,8 @@ export interface PlanCourseRow {
   title: string | null;
   checklist_year: number | null;
   sort_order: number;
+  entry_kind: "course" | "stub";
+  section_label: string | null;
 }
 
 export interface PlanTermRow {
@@ -45,7 +47,15 @@ function buildTerms(startingYear: number, parsed: ParsedChecklist): Array<{
   academicYear: number;
   checklistYear: number;
   sortOrder: number;
-  courses: Array<{ code: string; credits: number | null; checklistYear: number; sortOrder: number }>;
+  courses: Array<{
+    code: string;
+    credits: number | null;
+    checklistYear: number;
+    sortOrder: number;
+    entryKind: "course" | "stub";
+    sectionLabel: string | null;
+    title: string | null;
+  }>;
 }> {
   const terms: Array<{
     label: string;
@@ -53,7 +63,15 @@ function buildTerms(startingYear: number, parsed: ParsedChecklist): Array<{
     academicYear: number;
     checklistYear: number;
     sortOrder: number;
-    courses: Array<{ code: string; credits: number | null; checklistYear: number; sortOrder: number }>;
+    courses: Array<{
+      code: string;
+      credits: number | null;
+      checklistYear: number;
+      sortOrder: number;
+      entryKind: "course" | "stub";
+      sectionLabel: string | null;
+      title: string | null;
+    }>;
   }> = [];
 
   let sortOrder = 0;
@@ -69,11 +87,15 @@ function buildTerms(startingYear: number, parsed: ParsedChecklist): Array<{
     const winterCourses: typeof terms[0]["courses"] = [];
 
     yearBlock.courses.forEach((course, index) => {
+      const isStub = course.kind === "stub";
       const entry = {
         code: course.code,
         credits: course.credits,
         checklistYear,
         sortOrder: index,
+        entryKind: (isStub ? "stub" : "course") as "course" | "stub",
+        sectionLabel: course.section_label ?? course.section ?? null,
+        title: isStub ? (course.section_label ?? course.section ?? course.code) : null,
       };
       if (index % 2 === 0) {
         fallCourses.push(entry);
@@ -162,10 +184,19 @@ export async function createPlanFromChecklist(
 
       for (const course of term.courses) {
         const courseResult = await client.query<PlanCourseRow>(
-          `INSERT INTO plan_courses (term_id, course_code, credits, checklist_year, sort_order)
-           VALUES ($1, $2, $3, $4, $5)
-           RETURNING id, course_code, credits, title, checklist_year, sort_order`,
-          [termId, course.code, course.credits, course.checklistYear, course.sortOrder],
+          `INSERT INTO plan_courses (term_id, course_code, credits, title, checklist_year, sort_order, entry_kind, section_label)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+           RETURNING id, course_code, credits, title, checklist_year, sort_order, entry_kind, section_label`,
+          [
+            termId,
+            course.code,
+            course.credits,
+            course.title,
+            course.checklistYear,
+            course.sortOrder,
+            course.entryKind,
+            course.sectionLabel,
+          ],
         );
         courses.push(courseResult.rows[0]);
       }
@@ -236,7 +267,7 @@ export async function getPlanById(pool: Pool, planId: string): Promise<DegreePla
 
   for (const term of termsResult.rows) {
     const coursesResult = await pool.query<PlanCourseRow>(
-      `SELECT id, course_code, credits, title, checklist_year, sort_order
+      `SELECT id, course_code, credits, title, checklist_year, sort_order, entry_kind, section_label
        FROM plan_courses WHERE term_id = $1 ORDER BY sort_order`,
       [term.id],
     );

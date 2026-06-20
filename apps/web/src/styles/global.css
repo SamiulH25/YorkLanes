@@ -104,8 +104,12 @@
     @apply border-york-red/50;
   }
 
-  .plan-course-card--dragging {
-    @apply opacity-50;
+  .plan-course-card--stub {
+    @apply border-dashed border-york-gold/60 bg-york-gold/10 dark:border-york-gold/40 dark:bg-york-gold/5;
+  }
+
+  .plan-course-card--stub .plan-course-code {
+    @apply text-sm font-medium italic text-stone-700 dark:text-stone-200;
   }
 
   .plan-course-handle {

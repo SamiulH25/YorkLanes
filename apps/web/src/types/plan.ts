@@ -13,6 +13,8 @@ export interface PlanCourse {
   title: string | null;
   checklist_year: number | null;
   sort_order: number;
+  entry_kind: "course" | "stub";
+  section_label: string | null;
 }
 
 export interface PlanTerm {

@@ -102,22 +102,38 @@ if (planId) {
                   <ul class="plan-course-list" data-term-id={term.id} data-drop-zone>
                     {
                       term.courses.length > 0 ? (
-                        term.courses.map((course) => (
+                        term.courses.map((course) => {
+                          const isStub = course.entry_kind === "stub";
+                          const displayLabel =
+                            isStub
+                              ? (course.section_label ?? course.title ?? course.course_code)
+                              : course.course_code;
+                          return (
                           <li
-                            class="plan-course-card"
+                            class:list={["plan-course-card", { "plan-course-card--stub": isStub }]}
                             data-course-id={course.id}
                             data-course-code={course.course_code}
+                            data-entry-kind={course.entry_kind ?? "course"}
                           >
                             <button
                               type="button"
                               class="plan-course-handle"
                               draggable="true"
-                              aria-label={`Drag ${course.course_code} to another term`}
+                              aria-label={`Drag ${displayLabel} to another term`}
                             >
                               ⋮⋮
                             </button>
                             <div class="plan-course-body">
-                              <p class="plan-course-code">{course.course_code}</p>
+                              {
+                                isStub ? (
+                                  <>
+                                    <p class="plan-course-code">{displayLabel}</p>
+                                    <p class="text-xs text-york-muted">Checklist placeholder</p>
+                                  </>
+                                ) : (
+                                  <p class="plan-course-code">{course.course_code}</p>
+                                )
+                              }
                               {
                                 course.credits != null && (
                                   <p class="text-xs text-york-muted">{course.credits} credits</p>
@@ -125,7 +141,8 @@ if (planId) {
                               }
                             </div>
                           </li>
-                        ))
+                          );
+                        })
                       ) : (
                         <li class="plan-course-empty">Drop courses here</li>
                       )

@@ -103,7 +103,9 @@ function highlightSelection(state: EditorState): void {
     `.plan-course-card[data-course-id="${state.selectedCourseId}"]`,
   );
   selectedEl.textContent = card?.dataset.courseCode
-    ? `Selected: ${card.dataset.courseCode}`
+    ? card.dataset.entryKind === "stub"
+      ? `Selected placeholder: ${card.querySelector(".plan-course-code")?.textContent ?? card.dataset.courseCode}`
+      : `Selected: ${card.dataset.courseCode}`
     : "";
 }
 
@@ -159,6 +161,7 @@ export function drawDependencies(state: EditorState): void {
       `[data-course-id="${edge.to_course_id}"]`,
     );
     if (!fromCard || !toCard) continue;
+    if (fromCard.dataset.entryKind === "stub" || toCard.dataset.entryKind === "stub") continue;
 
     const fromRect = relativeRect(canvas, fromCard);
     const toRect = relativeRect(canvas, toCard);

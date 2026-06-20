@@ -16,6 +16,8 @@ export interface CoursePlacement {
   term_label: string;
   term_sort_order: number;
   sort_order: number;
+  entry_kind: "course" | "stub";
+  section_label: string | null;
 }
 
 export interface PlanGraphSnapshot {
@@ -23,6 +25,12 @@ export interface PlanGraphSnapshot {
   placements: CoursePlacement[];
   dependencies: CourseDependencyEdge[];
   course_codes: string[];
+}
+
+const CONCRETE_COURSE_CODE = /^[A-Z]{2,6} \d{4}$/;
+
+function isConcreteCourseCode(code: string): boolean {
+  return CONCRETE_COURSE_CODE.test(code);
 }
 
 function buildPlacements(plan: DegreePlanRow): CoursePlacement[] {
@@ -37,6 +45,8 @@ function buildPlacements(plan: DegreePlanRow): CoursePlacement[] {
         term_label: term.label,
         term_sort_order: term.sort_order,
         sort_order: course.sort_order,
+        entry_kind: course.entry_kind ?? "course",
+        section_label: course.section_label,
       });
     }
   }
@@ -55,7 +65,13 @@ function termOrderForCourse(plan: DegreePlanRow, courseId: string): number | nul
 
 export async function buildPlanGraph(pool: Pool, plan: DegreePlanRow): Promise<PlanGraphSnapshot> {
   const placements = buildPlacements(plan);
-  const courseCodes = [...new Set(placements.map((p) => p.course_code))];
+  const courseCodes = [
+    ...new Set(
+      placements
+        .filter((p) => p.entry_kind === "course" && isConcreteCourseCode(p.course_code))
+        .map((p) => p.course_code),
+    ),
+  ];
   const codeToCourseId = new Map(placements.map((p) => [p.course_code, p.course_id]));
   const courseIdToTermOrder = new Map<string, number>();
 

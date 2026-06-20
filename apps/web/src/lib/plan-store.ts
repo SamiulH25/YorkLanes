@@ -11,6 +11,8 @@ export interface CoursePlacement {
   term_label: string;
   term_sort_order: number;
   sort_order: number;
+  entry_kind?: "course" | "stub";
+  section_label?: string | null;
 }
 
 export interface CourseDependencyEdge {
@@ -41,6 +43,8 @@ export function buildPlacementsFromPlan(plan: DegreePlan): CoursePlacement[] {
         term_label: term.label,
         term_sort_order: term.sort_order,
         sort_order: course.sort_order,
+        entry_kind: course.entry_kind ?? "course",
+        section_label: course.section_label,
       });
     }
   }
@@ -71,8 +75,13 @@ export function readActivePlanGraphSnapshot(): PlanGraphSnapshot | null {
 /** Convenience for schedule/progress features: list of course codes in term order. */
 export function listPlannedCourseCodes(snapshot: PlanGraphSnapshot): string[] {
   return [...snapshot.placements]
+    .filter((p) => (p.entry_kind ?? "course") === "course")
     .sort((a, b) => a.term_sort_order - b.term_sort_order || a.sort_order - b.sort_order)
     .map((p) => p.course_code);
+}
+
+export function listPlanStubs(snapshot: PlanGraphSnapshot): CoursePlacement[] {
+  return snapshot.placements.filter((p) => p.entry_kind === "stub");
 }
 
 export function findUnsatisfiedDependencies(snapshot: PlanGraphSnapshot): CourseDependencyEdge[] {

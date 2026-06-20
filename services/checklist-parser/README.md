@@ -31,7 +31,8 @@ Examples extracted from official checklists:
 
 - Checklist layout varies by faculty. Test with your programme PDF.
 - Scanned PDFs (image only) will not parse. Use text-based exports.
-- Complex rules ("pick 6 credits from list") are not expanded. Courses listed in the file are imported; elective rules come later.
+- Complex rules ("pick 6 credits from list") collapse into **placeholder stubs** (`COMPLEMENTARY`, `GENERAL_ED`, `ELECTIVE`, etc.) instead of importing every listed course.
+- Re-import a checklist after parser updates to refresh stub handling on existing plans.
 
 ## Official checklist sources
 

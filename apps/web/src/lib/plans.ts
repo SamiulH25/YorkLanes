@@ -1,6 +1,18 @@
 import type { DegreePlan, FacultyChecklistInfo } from "../types/plan";
+import type { PlanGraphSnapshot } from "./plan-store";
 
 const API_URL = import.meta.env.PUBLIC_API_URL ?? "http://localhost:3001";
+
+export interface PlanLayoutMove {
+  courseId: string;
+  termId: string;
+  sortOrder: number;
+}
+
+export interface PlanGraphResponse {
+  plan: DegreePlan;
+  graph: Omit<PlanGraphSnapshot, "plan" | "updated_at">;
+}
 
 export async function fetchFaculties(): Promise<FacultyChecklistInfo[]> {
   const response = await fetch(`${API_URL}/api/plans/faculties`);
@@ -33,4 +45,41 @@ export async function importChecklist(formData: FormData): Promise<{ plan: Degre
   return payload as { plan: DegreePlan };
 }
 
+export async function fetchPlanGraph(planId: string): Promise<PlanGraphResponse> {
+  const response = await fetch(`${API_URL}/api/plans/${planId}/graph`);
+  if (!response.ok) {
+    throw new Error("Failed to load plan graph");
+  }
+  return response.json() as Promise<PlanGraphResponse>;
+}
+
+export async function updatePlanLayout(
+  planId: string,
+  moves: PlanLayoutMove[],
+): Promise<PlanGraphResponse> {
+  const response = await fetch(`${API_URL}/api/plans/${planId}/layout`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ moves }),
+  });
+  const payload = await response.json();
+  if (!response.ok) {
+    throw new Error(payload.error ?? "Failed to update plan layout");
+  }
+  return payload as PlanGraphResponse;
+}
+
 export const PLAN_STORAGE_KEY = "yorklanes-plan-id";
+
+export {
+  cachePlanGraphSnapshot,
+  findUnsatisfiedDependencies,
+  listPlannedCourseCodes,
+  readActivePlanGraphSnapshot,
+  readPlanGraphSnapshot,
+  PLAN_ACTIVE_ID_KEY,
+  PLAN_GRAPH_CACHE_KEY,
+  type CourseDependencyEdge,
+  type CoursePlacement,
+  type PlanGraphSnapshot,
+} from "./plan-store";

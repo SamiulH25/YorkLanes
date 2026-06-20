@@ -78,46 +78,69 @@ if (planId) {
 
   {
     plan && (
-      <div class="overflow-x-auto pb-2">
-        <div class="flex min-w-max gap-4">
-          {plan.terms.map((term) => (
-            <section class="surface w-64 shrink-0 rounded-2xl p-4">
-              <div class="mb-3 border-b border-york-stone/50 pb-2 dark:border-white/10">
-                <p class="text-xs font-semibold uppercase tracking-widest text-york-red">{term.session}</p>
-                <h2 class="font-display text-base font-semibold text-york-black dark:text-white">{term.label}</h2>
-                <p class="text-xs text-york-muted">Checklist year {term.checklist_year}</p>
-              </div>
+      <div id="plan-editor" data-plan-id={plan.id}>
+        <script id="plan-data" type="application/json" is:inline set:html={JSON.stringify(plan)} />
 
-              {
-                term.courses.length > 0 ? (
-                  <ul class="space-y-2">
-                    {term.courses.map((course) => (
-                      <li class="rounded-lg bg-york-cream/80 px-3 py-2 dark:bg-york-navy/50">
-                        <p class="text-sm font-semibold text-york-black dark:text-white">{course.course_code}</p>
-                        {
-                          course.credits != null && (
-                            <p class="text-xs text-york-muted">{course.credits} credits</p>
-                          )
-                        }
-                      </li>
-                    ))}
-                  </ul>
-                ) : (
-                  <p class="text-xs text-york-muted">No courses assigned</p>
-                )
-              }
-            </section>
-          ))}
+        <div class="plan-editor-toolbar">
+          <p id="plan-dep-summary" class="text-york-muted" />
+          <p id="plan-selected-course" class="font-medium text-york-black dark:text-white" />
         </div>
-      </div>
-    )
-  }
+        <p id="plan-editor-status" class="mb-3 text-xs text-york-muted" />
 
-  {
-    plan && (
-      <p class="mt-6 text-xs text-york-muted">
-        EXPAND HERE (Samiul): drag-and-drop, add/remove courses, prerequisite validation.
-      </p>
+        <div class="plan-editor-canvas" id="plan-editor-canvas">
+          <div class="plan-editor-stage" id="plan-editor-stage">
+            <svg id="plan-deps-svg" class="plan-deps-layer" aria-hidden="true" />
+            <div class="plan-editor-columns" id="plan-editor-columns">
+              {plan.terms.map((term) => (
+                <section class="plan-term-column" data-term-id={term.id}>
+                  <div class="mb-3 border-b border-york-stone/50 pb-2 dark:border-white/10">
+                    <p class="text-xs font-semibold uppercase tracking-widest text-york-red">{term.session}</p>
+                    <h2 class="font-display text-base font-semibold text-york-black dark:text-white">{term.label}</h2>
+                    <p class="text-xs text-york-muted">Checklist year {term.checklist_year}</p>
+                  </div>
+
+                  <ul class="plan-course-list" data-term-id={term.id} data-drop-zone>
+                    {
+                      term.courses.length > 0 ? (
+                        term.courses.map((course) => (
+                          <li
+                            class="plan-course-card"
+                            data-course-id={course.id}
+                            data-course-code={course.course_code}
+                          >
+                            <button
+                              type="button"
+                              class="plan-course-handle"
+                              draggable="true"
+                              aria-label={`Drag ${course.course_code} to another term`}
+                            >
+                              ⋮⋮
+                            </button>
+                            <div class="plan-course-body">
+                              <p class="plan-course-code">{course.course_code}</p>
+                              {
+                                course.credits != null && (
+                                  <p class="text-xs text-york-muted">{course.credits} credits</p>
+                                )
+                              }
+                            </div>
+                          </li>
+                        ))
+                      ) : (
+                        <li class="plan-course-empty">Drop courses here</li>
+                      )
+                    }
+                  </ul>
+                </section>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        <p class="mt-4 text-xs text-york-muted">
+          Drag by the handle on the left · click a course to highlight prerequisite arrows · red arrows mean the prerequisite is scheduled in the same term or later.
+        </p>
+      </div>
     )
   }
 
@@ -134,4 +157,16 @@ if (planId) {
       }
     }
   </script>
+
+  {
+    plan && (
+      <script>
+        import { initPlanEditor, readPlanFromPage } from "../../scripts/plan-editor.ts";
+        const planData = readPlanFromPage();
+        if (planData) {
+          initPlanEditor(planData);
+        }
+      </script>
+    )
+  }
 </DashboardLayout>

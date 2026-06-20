@@ -4,6 +4,7 @@ import { FACULTY_CHECKLISTS, getFacultyChecklist } from "../data/faculty-checkli
 import { checkDegreePlanTables, getPool } from "../db/index.js";
 import { parseChecklistFile } from "../services/checklistParser.js";
 import { inferChecklistMetadata } from "../services/inferChecklistMetadata.js";
+import { applyPlanLayoutMoves, buildPlanGraph } from "../services/planGraph.js";
 import { createPlanFromChecklist, getPlanById } from "../services/planGenerator.js";
 
 const upload = multer({
@@ -24,6 +25,47 @@ export const plansRouter = Router();
 
 plansRouter.get("/faculties", (_req, res) => {
   res.json({ faculties: FACULTY_CHECKLISTS });
+});
+
+plansRouter.get("/:planId/graph", async (req, res) => {
+  try {
+    const pool = getPool();
+    const plan = await getPlanById(pool, req.params.planId);
+    if (!plan) {
+      res.status(404).json({ error: "Plan not found" });
+      return;
+    }
+    const graph = await buildPlanGraph(pool, plan);
+    res.json({ plan, graph });
+  } catch (error) {
+    res.status(500).json({
+      error: error instanceof Error ? error.message : "Failed to load plan graph",
+    });
+  }
+});
+
+plansRouter.patch("/:planId/layout", async (req, res) => {
+  try {
+    const moves = req.body?.moves;
+    if (!Array.isArray(moves) || moves.length === 0) {
+      res.status(400).json({ error: "moves array is required" });
+      return;
+    }
+
+    const pool = getPool();
+    const plan = await applyPlanLayoutMoves(pool, req.params.planId, moves);
+    if (!plan) {
+      res.status(404).json({ error: "Plan not found" });
+      return;
+    }
+
+    const graph = await buildPlanGraph(pool, plan);
+    res.json({ plan, graph });
+  } catch (error) {
+    res.status(500).json({
+      error: error instanceof Error ? error.message : "Failed to update plan layout",
+    });
+  }
 });
 
 plansRouter.get("/:planId", async (req, res) => {

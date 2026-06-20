@@ -1,0 +1,28 @@
+{
+  "courses": [
+    {
+      "dept": "eecs",
+      "code": "1011",
+      "credit": 3.0,
+      "name": "Computational Thinking through Mechatronics",
+      "prereqs": "",
+      "desc": "First exposure to procedural programming and mechatronics. Course credit exclusions: LE/EECS 1541 3.00."
+    },
+    {
+      "dept": "eecs",
+      "code": "1021",
+      "credit": 3.0,
+      "name": "Introduction to Object-Oriented Programming",
+      "prereqs": "",
+      "desc": "Implements APIs and object-oriented design. Prerequisites: LE/EECS 1011 3.00 or LE/EECS 1012 3.00."
+    },
+    {
+      "dept": "eecs",
+      "code": "2030",
+      "credit": 3.0,
+      "name": "Object-Oriented Data Structures and Algorithms",
+      "prereqs": "",
+      "desc": "Data structures and algorithms in Java. Prerequisites: LE/EECS 1021 3.00; general EECS GPA prerequisite."
+    }
+  ]
+}

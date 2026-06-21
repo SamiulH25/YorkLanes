@@ -75,11 +75,15 @@ The import endpoint spawns `parse_checklist.py`. Options:
 1. **Single container** — Dockerfile installs Node + Python, copies `services/checklist-parser/`, runs `pip install -r requirements.txt`
 2. **Sidecar** — future: HTTP microservice instead of `execFile` (not implemented today)
 
-## Database
+## Database (maintainer)
 
-1. Link Supabase project in CI or run locally: `supabase link --project-ref edrbocogcqmqalexgajq`
-2. `supabase db push` on each release that includes new migrations
-3. Confirm with `supabase migration list` that local and remote match
+Migrations are applied by the **database maintainer**, not each developer:
+
+1. `supabase link --project-ref edrbocogcqmqalexgajq`
+2. `supabase db push` on each release that includes new migration files
+3. Confirm with `supabase migration list`
+
+See [`docs/maintainer.md`](./maintainer.md).
 
 Back up before destructive changes (Supabase Dashboard → Database → Backups).
 

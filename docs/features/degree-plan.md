@@ -112,7 +112,7 @@ Helpers: `readActivePlanGraphSnapshot()`, `listPlannedCourseCodes()`, `findUnmet
 - Parser accuracy varies by faculty PDF layout; scanned PDFs fail
 - Prerequisite lines need `courses` / `course_prerequisites` populated (scraper)
 - Re-import after parser upgrades to refresh stub/year logic
-- Completion persistence requires `plan_courses.completed` column (`npm run supabase:push`)
+- Completion persistence requires `plan_courses.completed` column — ask the maintainer to push migrations if missing
 
 ## Extending the feature
 

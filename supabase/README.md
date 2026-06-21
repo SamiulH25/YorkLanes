@@ -1,9 +1,11 @@
 # Supabase
 
-Local development and migration tooling for the YorkLanes database.
+> **Most developers:** you do not need this file. Copy `.env` from the maintainer and run `npm run dev`. See [`docs/development.md`](../docs/development.md).
+>
+> **Database maintainer:** CLI setup, migrations, and secrets — [`docs/maintainer.md`](../docs/maintainer.md).
 
 Remote project: `edrbocogcqmqalexgajq`  
-Dashboard: https://supabase.com/dashboard/project/edrbocogcqmqalexgajq
+Dashboard: https://supabase.com/dashboard/project/edrbocogcqmqalexgajq (maintainer access only)
 
 ## Folder layout
 
@@ -15,130 +17,50 @@ supabase/
 └── README.md            This file
 ```
 
-Generated locally (gitignored):
-
-```
-supabase/.temp/          Link state, CLI cache
-```
-
-## Prerequisites
-
-- Docker Desktop (runs local Supabase stack)
-- Node.js 20+
-
-## Quick start (local)
-
-From the repo root:
-
-```bash
-npm run supabase:start
-```
-
-This starts local Supabase on:
-
-| Service | URL |
-|---------|-----|
-| API | http://localhost:54321 |
-| Studio (DB UI) | http://localhost:54323 |
-| PostgreSQL | postgresql://postgres:postgres@localhost:54322/postgres |
-
-Apply migrations and seed:
-
-```bash
-npm run supabase:reset
-```
-
-Stop local stack:
-
-```bash
-npm run supabase:stop
-```
-
-## Link to hosted project (one time per machine)
-
-You need a [Supabase access token](https://supabase.com/dashboard/account/tokens).
+## Maintainer: link and push
 
 ```bash
 npx supabase login
 npx supabase link --project-ref edrbocogcqmqalexgajq
-```
-
-The CLI will prompt for your database password (from Project Settings > Database).
-
-## Push migrations to hosted project
-
-After linking:
-
-```bash
 npm run supabase:push
 ```
 
-This applies everything in `supabase/migrations/` to the remote database.
+## Maintainer: add a table or column
 
-## Add a new table or column
+1. Create `supabase/migrations/YYYYMMDDHHMMSS_description.sql`
+2. Optional local test: `npm run supabase:start` then `npm run supabase:reset`
+3. `npm run supabase:push`
+4. Notify developers to `git pull` (no CLI step on their side)
 
-1. Create a new file in `supabase/migrations/` with a timestamp prefix:
+## Environment variables (shared with team)
 
-   ```
-   supabase/migrations/20250620120000_add_assignments.sql
-   ```
-
-2. Write your SQL migration.
-
-3. Test locally:
-
-   ```bash
-   npm run supabase:reset
-   ```
-
-4. Push to remote:
-
-   ```bash
-   npm run supabase:push
-   ```
-
-5. Mirror the change in `apps/api/src/db/schema.sql` as a reference comment, or remove that file once the API reads only from Supabase migrations.
-
-## Environment variables
+The maintainer distributes these; developers do not fetch them from the dashboard.
 
 ### Frontend (`apps/web/.env.local`)
 
-Already configured for the JS client:
-
 ```
+PUBLIC_API_URL=http://localhost:3001
 SUPABASE_URL=https://edrbocogcqmqalexgajq.supabase.co
-SUPABASE_KEY=<publishable-or-anon-key>
-```
-
-For local Supabase during development, override with:
-
-```
-SUPABASE_URL=http://localhost:54321
-SUPABASE_KEY=<local-anon-key-from-supabase-start-output>
+SUPABASE_KEY=<anon-or-publishable-key>
 ```
 
 ### API (`apps/api/.env`)
 
-Use the direct Postgres connection string for Express + `pg`:
-
 ```
-# Hosted (Project Settings > Database > Connect > Session pooler > URI) — preferred
 SUPABASE_DB_URL=postgresql://postgres.[ref]:[password]@aws-1-ca-central-1.pooler.supabase.com:5432/postgres
-
-# Alternate name (also supported)
-DATABASE_URL=postgresql://postgres.[ref]:[password]@aws-0-[region].pooler.supabase.com:6543/postgres
+API_PORT=3001
+WEB_ORIGIN=http://localhost:4321
 ```
 
-For server-side writes that bypass RLS, use the service role key only in the API, never in the frontend.
+Never put the service role key in the frontend.
 
-## How this connects to the app
+## How the app connects
 
 | App part | Uses Supabase via |
 |----------|-------------------|
 | `apps/web/src/db/supabase.js` | `@supabase/supabase-js` (REST + RLS) |
-| `apps/web/src/pages/todos.astro` | Reads `todos` table (connection test) |
-| `apps/api/src/db/index.ts` | `pg` pool via `DATABASE_URL` (direct SQL) |
-| `services/scraper/` (future) | Writes to `courses` using service role or direct SQL |
+| `apps/api/src/db/index.ts` | `pg` pool via `SUPABASE_DB_URL` |
+| `services/scraper/` | Direct SQL import to `courses` |
 
 ## Migration history
 
@@ -155,14 +77,24 @@ For server-side writes that bypass RLS, use the service role key only in the API
 
 Full schema reference: [`docs/database.md`](../docs/database.md).
 
-## Useful commands
+## Optional: local Supabase (maintainer / offline)
+
+Requires Docker Desktop.
 
 ```bash
-npm run supabase:start     # Start local Docker stack
-npm run supabase:stop      # Stop local stack
-npm run supabase:status    # Show URLs and keys
-npm run supabase:reset     # Drop, migrate, seed
-npm run supabase:push      # Push migrations to linked remote project
-npm run supabase:diff      # Generate migration from schema changes
-npm run supabase:studio    # Open local Studio in browser
+npm run supabase:start    # API :54321, Studio :54323, Postgres :54322
+npm run supabase:reset    # Apply migrations + seed
+npm run supabase:stop
+```
+
+## CLI command reference
+
+```bash
+npm run supabase:start
+npm run supabase:stop
+npm run supabase:status
+npm run supabase:reset
+npm run supabase:push
+npm run supabase:diff
+npm run supabase:studio
 ```

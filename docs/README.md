@@ -2,13 +2,23 @@
 
 Technical documentation for contributors working on **YorkLanes** (YorkPath): an EECS4314 capstone student dashboard for York University.
 
+## Roles
+
+| If you are… | Start here |
+|-------------|------------|
+| Building features (most of the team) | [Development guide](./development.md) — copy env files from the maintainer, run `npm run dev` |
+| Owning the Supabase project / migrations | [Maintainer guide](./maintainer.md) — CLI, `supabase:push`, shared secrets |
+
+You do **not** need a Supabase login or dashboard access to develop locally.
+
 ## Reading order
 
 | Document | What you will learn |
 |----------|---------------------|
 | [Architecture](./architecture.md) | How the monorepo fits together, request flows, and where each feature lives |
-| [Development guide](./development.md) | Local setup, environment variables, scripts, and day-to-day workflow |
-| [Database](./database.md) | Postgres schema, migrations, and how the API vs web app connect |
+| [Development guide](./development.md) | Local setup, env files, scripts (no database login required) |
+| [Maintainer guide](./maintainer.md) | Database owner: migrations, Supabase CLI, sharing env with the team |
+| [Database](./database.md) | Postgres schema reference |
 | [Deployment](./deployment.md) | Production hosting, env configuration, and release checklist |
 | [Degree plan feature](./features/degree-plan.md) | Checklist import, parser, plan editor, prerequisite graph (most complete feature today) |
 
@@ -18,7 +28,7 @@ These live next to the code they describe:
 
 | Path | Topic |
 |------|-------|
-| [`supabase/README.md`](../supabase/README.md) | Supabase CLI, migrations, local stack |
+| [`supabase/README.md`](../supabase/README.md) | Supabase CLI reference (**maintainer only**) |
 | [`services/checklist-parser/README.md`](../services/checklist-parser/README.md) | Python PDF/DOCX checklist parser |
 | [`services/scraper/README.md`](../services/scraper/README.md) | Course catalogue scraper for `courses` table |
 | [`apps/api/src/routes/README.md`](../apps/api/src/routes/README.md) | Express route conventions |

@@ -80,20 +80,18 @@ RLS is **enabled** on plan tables. Current policies allow all operations (`using
 1. Scope `degree_plans` to `auth.uid()` or API-set `user_id`
 2. Replace open policies with `user_id = current_setting('app.user_id')::uuid` or Supabase Auth helpers
 
-## Workflow
+## Workflow (maintainer)
+
+Developers add migration files in PRs. The **database maintainer** applies them:
 
 ```bash
-# Create migration
-# supabase/migrations/20250621120000_my_change.sql
-
-# Push to hosted project (linked)
 npm run supabase:push
-
-# Verify
 npx supabase migration list
 ```
 
-If `migration list` shows a version as applied but the column is missing (schema drift), add a **new** migration with `ADD COLUMN IF NOT EXISTS` — do not delete rows from `supabase_migrations.schema_migrations` unless you know what you are doing.
+Full procedure: [`docs/maintainer.md`](./maintainer.md).
+
+If `migration list` shows a version as applied but a column is missing (schema drift), add a **new** migration with `ADD COLUMN IF NOT EXISTS`.
 
 ## Seed data
 
@@ -101,6 +99,6 @@ If `migration list` shows a version as applied but the column is missing (schema
 
 ## Related
 
-- [`supabase/README.md`](../supabase/README.md) — CLI commands
+- [`docs/maintainer.md`](./maintainer.md) — applying migrations (maintainer only)
 - [Development guide](./development.md) — env setup
 - [Degree plan](./features/degree-plan.md) — how plan rows are created

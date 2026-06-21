@@ -1,15 +1,22 @@
 # Development guide
 
+## Who does what
+
+| Role | You need |
+|------|----------|
+| **Feature developer** | Node.js, Python (for checklist import), `.env` files from the maintainer, `npm run dev` |
+| **Database maintainer** | Everything above **plus** Supabase dashboard + CLI — see [Maintainer guide](./maintainer.md) |
+
+You do **not** need a Supabase account, `supabase login`, Docker, or `npm run supabase:push` to work on the app. The hosted database is already running; your local API connects to it via env vars.
+
 ## Prerequisites
 
 | Tool | Version | Purpose |
 |------|---------|---------|
 | Node.js | 20+ | Web, API, npm workspaces |
 | Python | 3.10+ | Checklist parser (degree plan import) |
-| Supabase CLI | via `npm install` at root | Push migrations to hosted DB |
-| Docker | Optional | Local Supabase only (`npm run supabase:start`) |
 
-**Day-to-day dev uses hosted Supabase**, not Docker. Ask a maintainer for project credentials over a secure channel.
+Ask the **database maintainer** for a pre-filled `apps/api/.env` and `apps/web/.env.local`. Do not sign up for Supabase or open the dashboard unless you are the maintainer.
 
 ## First-time setup
 
@@ -21,28 +28,37 @@ npm install
 
 ### Environment files
 
+Copy the env files the maintainer sent you into:
+
+- `apps/api/.env`
+- `apps/web/.env.local`
+
+If you are bootstrapping from templates:
+
 ```bash
 cp .env.example apps/api/.env
 cp apps/web/.env.example apps/web/.env
 ```
 
-Create **`apps/web/.env.local`** (gitignored):
+Then **replace placeholders** with values from the maintainer (not from the Supabase dashboard yourself).
+
+**`apps/web/.env.local`** should look like:
 
 ```env
 PUBLIC_API_URL=http://localhost:3001
 SUPABASE_URL=https://edrbocogcqmqalexgajq.supabase.co
-SUPABASE_KEY=<anon-or-publishable-key>
+SUPABASE_KEY=<from-maintainer>
 ```
 
-Set **`apps/api/.env`**:
+**`apps/api/.env`** should look like:
 
 ```env
-SUPABASE_DB_URL=postgresql://postgres.edrbocogcqmqalexgajq:[PASSWORD]@aws-1-ca-central-1.pooler.supabase.com:5432/postgres
+SUPABASE_DB_URL=<from-maintainer>
 API_PORT=3001
 WEB_ORIGIN=http://localhost:4321
 ```
 
-Get `SUPABASE_DB_URL` from **Supabase Dashboard → Project Settings → Database → Connect → Session pooler → URI**.
+Never commit `.env` or `.env.local`.
 
 ### Python parser (required for checklist import)
 
@@ -60,18 +76,6 @@ If `python` is not on PATH, set in `apps/api/.env`:
 PYTHON_PATH=C:\Path\To\.venv\Scripts\python.exe
 ```
 
-### Database migrations
-
-One time per machine (needs Supabase login):
-
-```bash
-npx supabase login
-npx supabase link --project-ref edrbocogcqmqalexgajq
-npm run supabase:push
-```
-
-Re-run `npm run supabase:push` after pulling migration files from `main`.
-
 ### Run dev servers
 
 ```bash
@@ -86,7 +90,9 @@ npm run dev
 | API health | http://localhost:3001/health |
 | API plans | http://localhost:3001/api/plans/faculties |
 
-## npm scripts
+If the API prints `Database target: …` on startup and `/health` returns OK, you are connected. No migration step required on your machine.
+
+## npm scripts (developers)
 
 | Command | Description |
 |---------|-------------|
@@ -94,9 +100,9 @@ npm run dev
 | `npm run dev:web` | Astro only (4321) |
 | `npm run dev:api` | Express only (3001) |
 | `npm run build` | Build web + compile API TypeScript |
-| `npm run supabase:push` | Apply migrations to linked remote DB |
-| `npm run supabase:reset` | Reset **local** DB after `supabase:start` |
-| `npm run scraper:fixture` | Offline course JSON for testing |
+| `npm run scraper:fixture` | Offline course JSON (no DB write) |
+
+Commands like `npm run supabase:push` are **maintainer-only**. See [Maintainer guide](./maintainer.md).
 
 ## Project conventions
 
@@ -117,12 +123,13 @@ One router per feature in `apps/api/src/routes/`. Mount in `src/index.ts`. Keep 
 
 ### Database changes
 
-1. Add `supabase/migrations/YYYYMMDDHHMMSS_description.sql`
-2. `npm run supabase:reset` if using local Supabase, else test against hosted cautiously
-3. `npm run supabase:push`
-4. Update queries in `apps/api/src/services/`
+If your feature needs new tables or columns:
 
-Never edit an already-pushed migration file; add a new one instead.
+1. Add a migration file under `supabase/migrations/` in your PR
+2. Update API queries in `apps/api/src/services/`
+3. Ask the **maintainer** to run `npm run supabase:push` after merge (or coordinate before testing on shared hosted DB)
+
+You do not run migrations yourself unless you are the maintainer.
 
 ### Styling
 
@@ -133,7 +140,7 @@ Never edit an already-pushed migration file; add a new one instead.
 
 ## Adding a new feature (checklist)
 
-1. **Migration** — tables in `supabase/migrations/`
+1. **Migration** — SQL file in `supabase/migrations/` (maintainer applies)
 2. **API** — `apps/api/src/routes/<feature>.ts` + `src/services/<feature>.ts`
 3. **Types** — `apps/web/src/types/<feature>.ts`
 4. **Page** — `apps/web/src/pages/<feature>/index.astro`
@@ -144,22 +151,24 @@ Never edit an already-pushed migration file; add a new one instead.
 
 | Problem | What to check |
 |---------|----------------|
+| API won't start / DB error | `SUPABASE_DB_URL` in `apps/api/.env` — ask maintainer for a fresh copy |
 | Plan import fails | API terminal for `[plans/import]`; verify Python venv and `PYTHON_PATH` |
-| “Failed to load degree plan” | `GET /api/plans/:id` in browser or curl; often missing DB column → run `supabase:push` |
-| No prerequisite lines | `courses` / `course_prerequisites` empty — run scraper import |
-| CORS errors | `WEB_ORIGIN` in API `.env` must match Astro origin |
-| SSR fetch fails | `PUBLIC_API_URL` must be reachable from the machine running Astro |
+| “Failed to load degree plan” | `GET /api/plans/:id` in browser; if schema error, tell maintainer to push migrations |
+| No prerequisite lines | `courses` table may be empty — maintainer runs scraper import |
+| CORS errors | `WEB_ORIGIN` in API `.env` must match Astro origin (`http://localhost:4321`) |
+| SSR fetch fails | `PUBLIC_API_URL` must be `http://localhost:3001` |
 
 ## Testing
 
 | Area | How |
 |------|-----|
 | Checklist parser | `cd services/checklist-parser && python -m pytest` |
-| Scraper | `npm run scraper:test` |
+| Scraper (offline) | `npm run scraper:fixture` |
 | API | Manual curl / browser network tab (no automated suite yet) |
 
 ## Related docs
 
 - [Architecture](./architecture.md)
-- [Database](./database.md)
+- [Database](./database.md) — table reference (read-only for most devs)
+- [Maintainer guide](./maintainer.md) — database owner only
 - [Degree plan deep dive](./features/degree-plan.md)

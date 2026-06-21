@@ -70,9 +70,10 @@ YorkLanes/
 ### Prerequisites
 
 - Node.js 20+
-- Access to the team Supabase project (ask a maintainer for keys)
+- Python 3.10+ (degree plan checklist import)
+- **`.env` files from the database maintainer** — you do not need Supabase login or dashboard access
 
-**You do not need Docker or a local database.** The app connects to hosted Supabase in the cloud.
+The app uses a **shared hosted database** in the cloud. Your local API connects through connection strings in `apps/api/.env`.
 
 ### 1. Install dependencies
 
@@ -82,43 +83,32 @@ npm install
 
 ### 2. Configure environment
 
+Ask the **database maintainer** for `apps/api/.env` and `apps/web/.env.local`, or copy from templates and fill in values they provide:
+
 ```bash
 cp .env.example apps/api/.env
 cp apps/web/.env.example apps/web/.env
 ```
 
-Create **`apps/web/.env.local`** (gitignored):
+Create **`apps/web/.env.local`** (gitignored) with at least:
 
 ```
+PUBLIC_API_URL=http://localhost:3001
 SUPABASE_URL=https://edrbocogcqmqalexgajq.supabase.co
-SUPABASE_KEY=<publishable-or-anon-key>
+SUPABASE_KEY=<from-maintainer>
 ```
 
-Set **`apps/api/.env`**:
+Set **`apps/api/.env`** with at least:
 
 ```
-SUPABASE_DB_URL=<Postgres connection string from Supabase Dashboard > Database > Connect>
+SUPABASE_DB_URL=<from-maintainer>
+API_PORT=3001
+WEB_ORIGIN=http://localhost:4321
 ```
 
-(`DATABASE_URL` is also supported; `SUPABASE_DB_URL` is preferred.)
+Never commit `.env` or `.env.local`. Do not open the Supabase dashboard unless you are the maintainer — see [`docs/maintainer.md`](docs/maintainer.md).
 
-Get credentials from the [Supabase project dashboard](https://supabase.com/dashboard/project/edrbocogcqmqalexgajq). Share keys with teammates over a secure channel. Never commit `.env` or `.env.local`.
-
-**Do not share the service role key.** That bypasses Row Level Security and is for server-side use only.
-
-### 3. Apply schema to hosted Supabase (one time per machine)
-
-If migrations are not on the remote yet:
-
-```bash
-npx supabase login
-npx supabase link --project-ref edrbocogcqmqalexgajq
-npm run supabase:push
-```
-
-The `supabase/` folder holds migration SQL. You edit files there and push to cloud. It is **not** something you run locally day to day.
-
-### 4. Run development servers
+### 3. Run development servers
 
 ```bash
 npm run dev
@@ -149,7 +139,7 @@ Hosted Supabase **replaces** the need to run local Postgres or `docker compose`.
 1. **Frontend page:** `apps/web/src/pages/<feature>/index.astro` using `DashboardLayout.astro`
 2. **Nav link:** uncomment the entry in `apps/web/src/layouts/DashboardLayout.astro`
 3. **API route:** `apps/api/src/routes/<feature>.ts`, mount in `apps/api/src/index.ts`
-4. **Database:** new file in `supabase/migrations/`, then `npm run supabase:push`
+4. **Database:** add a migration file in `supabase/migrations/` — the **maintainer** runs `npm run supabase:push` after merge
 5. **Dashboard widget:** update `apps/api/src/routes/dashboard.ts` with real summary data
 6. **Types:** keep `apps/web/src/types/` and `apps/api/src/types/` in sync
 
@@ -170,7 +160,7 @@ See also:
 | `npm run dev:web` | Astro dev server only |
 | `npm run dev:api` | Express dev server only |
 | `npm run build` | Build both apps |
-| `npm run supabase:push` | Push migrations to hosted Supabase |
+| `npm run supabase:push` | Push migrations (**maintainer only**) |
 | `npm run supabase:start` | Optional: local Supabase stack (requires Docker) |
 | `npm run supabase:reset` | Optional: reset local Supabase after `supabase:start` |
 

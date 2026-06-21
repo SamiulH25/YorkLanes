@@ -10,6 +10,7 @@ export interface PlanCourseRow {
   sort_order: number;
   entry_kind: "course" | "stub";
   section_label: string | null;
+  completed: boolean;
 }
 
 export interface PlanTermRow {
@@ -74,38 +75,69 @@ function buildTerms(startingYear: number, parsed: ParsedChecklist): Array<{
     }>;
   }> = [];
 
+  const yearMap = new Map(parsed.years.map((year) => [year.year, year.courses]));
+  const maxChecklistYear = Math.max(4, ...parsed.years.map((year) => year.year), 1);
+
   let sortOrder = 0;
 
-  for (const yearBlock of parsed.years) {
-    const checklistYear = yearBlock.year;
+  for (let checklistYear = 1; checklistYear <= maxChecklistYear; checklistYear++) {
+    const yearCourses = yearMap.get(checklistYear) ?? [];
     const baseYear = startingYear + checklistYear - 1;
 
-    const fallLabel = `Fall ${baseYear}`;
-    const winterLabel = `Winter ${baseYear + 1}`;
+    const concrete = yearCourses.filter((course) => course.kind !== "stub");
+    const stubs = yearCourses.filter((course) => course.kind === "stub");
+    const fullYearCourses = concrete.filter((course) => course.schedule_note === "full_year");
+    const regularConcrete = concrete.filter((course) => course.schedule_note !== "full_year");
 
-    const fallCourses: typeof terms[0]["courses"] = [];
-    const winterCourses: typeof terms[0]["courses"] = [];
+    const fallCount = Math.max(1, Math.ceil(regularConcrete.length / 2));
+    const fallConcrete = regularConcrete.slice(0, fallCount);
+    const winterConcrete = regularConcrete.slice(fallCount);
 
-    yearBlock.courses.forEach((course, index) => {
+    const toEntry = (
+      course: (typeof yearCourses)[number],
+      index: number,
+    ): (typeof terms)[0]["courses"][number] => {
       const isStub = course.kind === "stub";
-      const entry = {
+      const isFullYear = course.schedule_note === "full_year";
+      const optionCodes = course.option_codes ?? [];
+      const optionsTitle =
+        optionCodes.length > 0
+          ? optionCodes.join(", ")
+          : (course.title ?? null);
+
+      return {
         code: course.code,
         credits: course.credits,
         checklistYear,
         sortOrder: index,
         entryKind: (isStub ? "stub" : "course") as "course" | "stub",
         sectionLabel: course.section_label ?? course.section ?? null,
-        title: isStub ? (course.section_label ?? course.section ?? course.code) : null,
+        title: isStub
+          ? (optionsTitle ?? course.section_label ?? course.section ?? course.code)
+          : isFullYear
+            ? "Full year course"
+            : (course.section_label ?? null),
       };
-      if (index % 2 === 0) {
-        fallCourses.push(entry);
-      } else {
-        winterCourses.push(entry);
-      }
-    });
+    };
+
+    const fallCourses = [
+      ...fallConcrete.map((course, index) => toEntry(course, index)),
+      ...fullYearCourses.map((course, index) => toEntry(course, fallConcrete.length + index)),
+    ];
+    const winterCourses = [
+      ...winterConcrete.map((course, index) =>
+        toEntry(course, fallConcrete.length + fullYearCourses.length + index),
+      ),
+      ...stubs.map((course, index) =>
+        toEntry(
+          course,
+          fallConcrete.length + fullYearCourses.length + winterConcrete.length + index,
+        ),
+      ),
+    ];
 
     terms.push({
-      label: fallLabel,
+      label: `Fall ${baseYear}`,
       session: "Fall",
       academicYear: baseYear,
       checklistYear,
@@ -114,7 +146,7 @@ function buildTerms(startingYear: number, parsed: ParsedChecklist): Array<{
     });
 
     terms.push({
-      label: winterLabel,
+      label: `Winter ${baseYear + 1}`,
       session: "Winter",
       academicYear: baseYear + 1,
       checklistYear,
@@ -267,7 +299,7 @@ export async function getPlanById(pool: Pool, planId: string): Promise<DegreePla
 
   for (const term of termsResult.rows) {
     const coursesResult = await pool.query<PlanCourseRow>(
-      `SELECT id, course_code, credits, title, checklist_year, sort_order, entry_kind, section_label
+      `SELECT id, course_code, credits, title, checklist_year, sort_order, entry_kind, section_label, completed
        FROM plan_courses WHERE term_id = $1 ORDER BY sort_order`,
       [term.id],
     );

@@ -15,6 +15,9 @@ export interface ParsedCourse {
   stub_type?: string;
   section?: string;
   section_label?: string;
+  option_codes?: string[];
+  title?: string | null;
+  schedule_note?: string;
 }
 
 export interface ParsedYear {

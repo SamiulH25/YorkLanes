@@ -1,12 +1,15 @@
 import type { Pool } from "pg";
 import type { DegreePlanRow, PlanCourseRow } from "./planGenerator.js";
 
+export type DependencyKind = "prerequisite" | "corequisite";
+
 export interface CourseDependencyEdge {
   from: string;
   to: string;
   from_course_id: string | null;
   to_course_id: string | null;
   satisfied: boolean;
+  kind: DependencyKind;
 }
 
 export interface CoursePlacement {
@@ -18,6 +21,7 @@ export interface CoursePlacement {
   sort_order: number;
   entry_kind: "course" | "stub";
   section_label: string | null;
+  completed: boolean;
 }
 
 export interface PlanGraphSnapshot {
@@ -28,9 +32,68 @@ export interface PlanGraphSnapshot {
 }
 
 const CONCRETE_COURSE_CODE = /^[A-Z]{2,6} \d{4}$/;
+const COURSE_CODE_IN_TEXT =
+  /(?:AP\/|FA\/|HH\/|SC\/|LE\/|SB\/|GL\/|ES\/)?([A-Z]{2,6})\s+(\d{4}[A-Z]?)/gi;
+
+const COREQ_STOP_WORDS = [
+  "prerequisite",
+  "credit exclusion",
+  "not open to",
+  "may not be",
+  "note:",
+  "previously offered",
+];
 
 function isConcreteCourseCode(code: string): boolean {
   return CONCRETE_COURSE_CODE.test(code);
+}
+
+function courseNumberFromCode(code: string): string {
+  const parts = code.split(/\s+/);
+  return parts[1] ?? "";
+}
+
+function normalizeCourseCode(subject: string, number: string): string {
+  return `${subject.toUpperCase()} ${number.toUpperCase()}`;
+}
+
+export function extractCorequisiteCodes(description: string | null, courseCode: string): string[] {
+  if (!description) return [];
+
+  const lower = description.toLowerCase();
+  const start = lower.search(/co-?requisites?:/);
+  if (start < 0) return [];
+
+  let stop = lower.length;
+  for (const keyword of COREQ_STOP_WORDS) {
+    const index = lower.indexOf(keyword, start + 1);
+    if (index >= 0 && index < stop) {
+      stop = index;
+    }
+  }
+
+  const snippet = description.slice(start, stop);
+  const selfNumber = courseNumberFromCode(courseCode);
+  const level = selfNumber[0]?.match(/\d/) ? Number(selfNumber[0]) : 9;
+
+  const codes: string[] = [];
+  const seen = new Set<string>();
+  let match: RegExpExecArray | null;
+  const pattern = new RegExp(COURSE_CODE_IN_TEXT.source, COURSE_CODE_IN_TEXT.flags);
+
+  while ((match = pattern.exec(snippet)) !== null) {
+    const number = match[2];
+    if (!number[0]?.match(/\d/)) continue;
+    if (Number(number[0]) > level) continue;
+    if (number.toUpperCase() === selfNumber.toUpperCase()) continue;
+    const code = normalizeCourseCode(match[1], number);
+    if (!seen.has(code)) {
+      seen.add(code);
+      codes.push(code);
+    }
+  }
+
+  return codes;
 }
 
 function buildPlacements(plan: DegreePlanRow): CoursePlacement[] {
@@ -47,6 +110,7 @@ function buildPlacements(plan: DegreePlanRow): CoursePlacement[] {
         sort_order: course.sort_order,
         entry_kind: course.entry_kind ?? "course",
         section_label: course.section_label,
+        completed: course.completed ?? false,
       });
     }
   }
@@ -54,17 +118,49 @@ function buildPlacements(plan: DegreePlanRow): CoursePlacement[] {
   return placements;
 }
 
-function termOrderForCourse(plan: DegreePlanRow, courseId: string): number | null {
+function buildCompletedIds(plan: DegreePlanRow): Set<string> {
+  const ids = new Set<string>();
   for (const term of plan.terms) {
-    if (term.courses.some((course) => course.id === courseId)) {
-      return term.sort_order;
+    for (const course of term.courses) {
+      if (course.completed) {
+        ids.add(course.id);
+      }
     }
   }
-  return null;
+  return ids;
+}
+
+function isPrerequisiteSatisfied(
+  fromTerm: number | undefined,
+  toTerm: number | undefined,
+  fromCourseId: string | null,
+  completedIds: Set<string>,
+): boolean {
+  if (fromCourseId && completedIds.has(fromCourseId)) {
+    return true;
+  }
+  return fromTerm !== undefined && toTerm !== undefined && fromTerm < toTerm;
+}
+
+function isCorequisiteSatisfied(
+  fromTerm: number | undefined,
+  toTerm: number | undefined,
+  fromCourseId: string | null,
+  toCourseId: string | null,
+  completedIds: Set<string>,
+): boolean {
+  if (fromCourseId && completedIds.has(fromCourseId)) {
+    return true;
+  }
+  if (toCourseId && completedIds.has(toCourseId)) {
+    return true;
+  }
+  return fromTerm !== undefined && toTerm !== undefined && fromTerm === toTerm;
 }
 
 export async function buildPlanGraph(pool: Pool, plan: DegreePlanRow): Promise<PlanGraphSnapshot> {
   const placements = buildPlacements(plan);
+  const completedIds = buildCompletedIds(plan);
   const courseCodes = [
     ...new Set(
       placements
@@ -83,6 +179,12 @@ export async function buildPlanGraph(pool: Pool, plan: DegreePlanRow): Promise<P
     return { plan_id: plan.id, placements, dependencies: [], course_codes: [] };
   }
 
+  const catalogResult = await pool.query<{ code: string; description: string | null }>(
+    `SELECT code, description FROM courses WHERE code = ANY($1::text[])`,
+    [courseCodes],
+  );
+  const descriptions = new Map(catalogResult.rows.map((row) => [row.code, row.description]));
+
   const prereqResult = await pool.query<{ code: string; prerequisite_code: string }>(
     `SELECT c.code, cp.prerequisite_code
      FROM courses c
@@ -92,27 +194,52 @@ export async function buildPlanGraph(pool: Pool, plan: DegreePlanRow): Promise<P
   );
 
   const dependencies: CourseDependencyEdge[] = [];
+  const edgeKeys = new Set<string>();
 
-  for (const row of prereqResult.rows) {
-    if (!courseCodes.includes(row.prerequisite_code)) {
-      continue;
+  function addEdge(
+    kind: DependencyKind,
+    fromCode: string,
+    toCode: string,
+  ): void {
+    if (!courseCodes.includes(fromCode)) {
+      return;
     }
 
-    const toCourseId = codeToCourseId.get(row.code) ?? null;
-    const fromCourseId = codeToCourseId.get(row.prerequisite_code) ?? null;
+    const key = `${kind}:${fromCode}->${toCode}`;
+    if (edgeKeys.has(key)) {
+      return;
+    }
+    edgeKeys.add(key);
+
+    const toCourseId = codeToCourseId.get(toCode) ?? null;
+    const fromCourseId = codeToCourseId.get(fromCode) ?? null;
     const toTerm = toCourseId ? courseIdToTermOrder.get(toCourseId) : undefined;
     const fromTerm = fromCourseId ? courseIdToTermOrder.get(fromCourseId) : undefined;
 
     const satisfied =
-      fromTerm !== undefined && toTerm !== undefined ? fromTerm < toTerm : false;
+      kind === "prerequisite"
+        ? isPrerequisiteSatisfied(fromTerm, toTerm, fromCourseId, completedIds)
+        : isCorequisiteSatisfied(fromTerm, toTerm, fromCourseId, toCourseId, completedIds);
 
     dependencies.push({
-      from: row.prerequisite_code,
-      to: row.code,
+      from: fromCode,
+      to: toCode,
       from_course_id: fromCourseId,
       to_course_id: toCourseId,
       satisfied,
+      kind,
     });
+  }
+
+  for (const row of prereqResult.rows) {
+    addEdge("prerequisite", row.prerequisite_code, row.code);
+  }
+
+  for (const code of courseCodes) {
+    const coreqs = extractCorequisiteCodes(descriptions.get(code) ?? null, code);
+    for (const coreqCode of coreqs) {
+      addEdge("corequisite", coreqCode, code);
+    }
   }
 
   return {
@@ -172,10 +299,7 @@ export async function applyPlanLayoutMoves(
       );
     }
 
-    await client.query(
-      `UPDATE degree_plans SET updated_at = NOW() WHERE id = $1`,
-      [planId],
-    );
+    await client.query(`UPDATE degree_plans SET updated_at = NOW() WHERE id = $1`, [planId]);
 
     await client.query("COMMIT");
   } catch (error) {
@@ -184,6 +308,31 @@ export async function applyPlanLayoutMoves(
   } finally {
     client.release();
   }
+
+  const { getPlanById } = await import("./planGenerator.js");
+  return getPlanById(pool, planId);
+}
+
+export async function setPlanCourseCompletion(
+  pool: Pool,
+  planId: string,
+  courseId: string,
+  completed: boolean,
+): Promise<DegreePlanRow | null> {
+  const owner = await pool.query<{ plan_id: string }>(
+    `SELECT pt.plan_id
+     FROM plan_courses pc
+     INNER JOIN plan_terms pt ON pt.id = pc.term_id
+     WHERE pc.id = $1`,
+    [courseId],
+  );
+
+  if (owner.rows.length === 0 || owner.rows[0].plan_id !== planId) {
+    return null;
+  }
+
+  await pool.query(`UPDATE plan_courses SET completed = $2 WHERE id = $1`, [courseId, completed]);
+  await pool.query(`UPDATE degree_plans SET updated_at = NOW() WHERE id = $1`, [planId]);
 
   const { getPlanById } = await import("./planGenerator.js");
   return getPlanById(pool, planId);

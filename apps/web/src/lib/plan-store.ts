@@ -13,6 +13,7 @@ export interface CoursePlacement {
   sort_order: number;
   entry_kind?: "course" | "stub";
   section_label?: string | null;
+  completed?: boolean;
 }
 
 export interface CourseDependencyEdge {
@@ -21,6 +22,7 @@ export interface CourseDependencyEdge {
   from_course_id: string | null;
   to_course_id: string | null;
   satisfied: boolean;
+  kind: "prerequisite" | "corequisite";
 }
 
 export interface PlanGraphSnapshot {
@@ -45,6 +47,7 @@ export function buildPlacementsFromPlan(plan: DegreePlan): CoursePlacement[] {
         sort_order: course.sort_order,
         entry_kind: course.entry_kind ?? "course",
         section_label: course.section_label,
+        completed: course.completed ?? false,
       });
     }
   }
@@ -82,6 +85,24 @@ export function listPlannedCourseCodes(snapshot: PlanGraphSnapshot): string[] {
 
 export function listPlanStubs(snapshot: PlanGraphSnapshot): CoursePlacement[] {
   return snapshot.placements.filter((p) => p.entry_kind === "stub");
+}
+
+export function findUnmetPrerequisites(snapshot: PlanGraphSnapshot): CourseDependencyEdge[] {
+  return snapshot.dependencies.filter(
+    (edge) => !edge.satisfied && edge.kind === "prerequisite",
+  );
+}
+
+export function countUnmetPrerequisitesForCourse(
+  snapshot: PlanGraphSnapshot,
+  courseId: string,
+): number {
+  return snapshot.dependencies.filter(
+    (edge) =>
+      edge.kind === "prerequisite" &&
+      !edge.satisfied &&
+      edge.to_course_id === courseId,
+  ).length;
 }
 
 export function findUnsatisfiedDependencies(snapshot: PlanGraphSnapshot): CourseDependencyEdge[] {

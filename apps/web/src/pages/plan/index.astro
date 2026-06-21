@@ -83,7 +83,10 @@ if (planId) {
 
         <div class="plan-editor-toolbar">
           <p id="plan-dep-summary" class="text-york-muted" />
-          <p id="plan-selected-course" class="font-medium text-york-black dark:text-white" />
+          <div class="text-right">
+            <p id="plan-selected-course" class="font-medium text-york-black dark:text-white" />
+            <p id="plan-link-legend" class="hidden mt-1 text-xs text-york-muted" />
+          </div>
         </div>
         <p id="plan-editor-status" class="mb-3 text-xs text-york-muted" />
 
@@ -115,6 +118,19 @@ if (planId) {
                             data-course-code={course.course_code}
                             data-entry-kind={course.entry_kind ?? "course"}
                           >
+                            {
+                              !isStub && (
+                                <label class="plan-course-complete-wrap" title="Mark as completed">
+                                  <input
+                                    type="checkbox"
+                                    class="plan-course-complete"
+                                    checked={course.completed ?? false}
+                                    aria-label={`Mark ${course.course_code} as completed`}
+                                  />
+                                </label>
+                              )
+                            }
+                            <span class="plan-course-warning" hidden aria-label="Unmet prerequisites">!</span>
                             <button
                               type="button"
                               class="plan-course-handle"
@@ -144,6 +160,11 @@ if (planId) {
                                 )
                               }
                               {
+                                course.title && !isStub && (
+                                  <p class="text-xs text-york-muted">{course.title}</p>
+                                )
+                              }
+                              {
                                 course.credits != null && (
                                   <p class="text-xs text-york-muted">{course.credits} credits</p>
                                 )
@@ -164,7 +185,7 @@ if (planId) {
         </div>
 
         <p class="mt-4 text-xs text-york-muted">
-          Drag by the handle · red arrows show ordering issues · click a course to see its prerequisite chain.
+          Click a course to show prerequisite (blue) and co-requisite (amber dashed) links · click elsewhere to hide · tick courses you have already completed.
         </p>
       </div>
     )

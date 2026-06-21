@@ -15,6 +15,7 @@ export interface PlanCourse {
   sort_order: number;
   entry_kind: "course" | "stub";
   section_label: string | null;
+  completed?: boolean;
 }
 
 export interface PlanTerm {

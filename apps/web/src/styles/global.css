@@ -91,17 +91,46 @@
     @apply border-york-red/40 bg-york-red/5 dark:bg-york-red/10;
   }
 
+  .plan-course-card--related-prereq {
+    @apply border-sky-400/60 ring-1 ring-sky-400/30;
+  }
+
+  .plan-course-card--related-coreq {
+    @apply border-amber-400/60 ring-1 ring-amber-400/30;
+  }
+
+  .plan-course-card--warning {
+    @apply border-york-red/70;
+  }
+
+  .plan-course-card--completed {
+    @apply opacity-70;
+  }
+
+  .plan-course-card--completed .plan-course-code {
+    @apply line-through decoration-york-muted/80;
+  }
+
+  .plan-course-complete-wrap {
+    @apply flex shrink-0 items-center border-r border-york-stone/30 px-2 dark:border-white/10;
+  }
+
+  .plan-course-complete {
+    @apply h-4 w-4 cursor-pointer rounded border-york-stone/60 text-york-red focus:ring-york-red/40;
+  }
+
+  .plan-course-warning {
+    @apply absolute -right-1 -top-1 flex h-5 w-5 items-center justify-center rounded-full
+      bg-york-red text-[11px] font-bold text-white shadow-sm;
+  }
+
   .plan-course-card {
-    @apply flex items-stretch gap-0 overflow-hidden rounded-lg border border-york-stone/40
+    @apply relative flex items-stretch gap-0 overflow-hidden rounded-lg border border-york-stone/40
       bg-york-cream/80 transition-shadow dark:border-white/10 dark:bg-york-navy/50;
   }
 
   .plan-course-card--selected {
     @apply border-york-red ring-2 ring-york-red/30;
-  }
-
-  .plan-course-card--related {
-    @apply border-york-red/50;
   }
 
   .plan-course-card--stub {

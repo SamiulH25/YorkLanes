@@ -53,6 +53,23 @@ export async function fetchPlanGraph(planId: string): Promise<PlanGraphResponse>
   return response.json() as Promise<PlanGraphResponse>;
 }
 
+export async function updatePlanCourseCompletion(
+  planId: string,
+  courseId: string,
+  completed: boolean,
+): Promise<PlanGraphResponse> {
+  const response = await fetch(`${API_URL}/api/plans/${planId}/courses/${courseId}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ completed }),
+  });
+  const payload = await response.json();
+  if (!response.ok) {
+    throw new Error(payload.error ?? "Failed to update course completion");
+  }
+  return payload as PlanGraphResponse;
+}
+
 export async function updatePlanLayout(
   planId: string,
   moves: PlanLayoutMove[],
@@ -73,6 +90,8 @@ export const PLAN_STORAGE_KEY = "yorklanes-plan-id";
 
 export {
   cachePlanGraphSnapshot,
+  countUnmetPrerequisitesForCourse,
+  findUnmetPrerequisites,
   findUnsatisfiedDependencies,
   listPlannedCourseCodes,
   listPlanStubs,

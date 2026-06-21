@@ -18,6 +18,7 @@ from pathlib import Path
 
 # AP/ADMS 1000 3.00 | ADMS 3120 3.0 | LE/EECS 1011 3.00
 COURSE_PATTERN = re.compile(
+    r"(?<![A-Za-z])"
     r"(?:AP/|FA/|HH/|SC/|LE/|SB/|GL/|ES/)?"
     r"([A-Z]{2,6})\s+(\d{4})"
     r"(?:\s+([\d.]+))?",
@@ -25,8 +26,12 @@ COURSE_PATTERN = re.compile(
 )
 
 YEAR_HEADER_PATTERN = re.compile(
-    r"(?:year\s*(\d)|(\d)(?:st|nd|rd|th)\s+year|"
-    r"(first|second|third|fourth)\s+year\s+courses?)",
+    r"(?:"
+    r"year\s*(four|[1-4])|"
+    r"year\s*(\d)|"
+    r"(\d)(?:st|nd|rd|th)\s+year|"
+    r"(first|second|third|fourth)\s+year(?:\s+courses?)?"
+    r")",
     re.IGNORECASE,
 )
 
@@ -38,15 +43,26 @@ SECTION_YEAR_HINTS: list[tuple[re.Pattern[str], int]] = [
     (re.compile(r"free\s+choice", re.I), 4),
 ]
 
+# Section labels only — checklist year comes from explicit year headers, not these hints.
+SECTION_LABEL_HINTS: list[tuple[re.Pattern[str], str]] = [
+    (re.compile(r"general\s+education", re.I), "General Education"),
+    (re.compile(r"required\s+core|major\s*[–-]", re.I), "Required Core"),
+    (re.compile(r"stream|specialization", re.I), "Stream / Specialization"),
+    (re.compile(r"outside\s+the\s+major|credits\s+outside", re.I), "Outside the Major"),
+    (re.compile(r"free\s+choice", re.I), "Free Choice"),
+]
+
 # Checklist sections that should become a single placeholder instead of importing every listed course.
+# More specific patterns must come first.
 STUB_SECTION_RULES: list[tuple[re.Pattern[str], str, str]] = [
-    (re.compile(r"complementar", re.I), "COMPLEMENTARY", "Complementary Studies"),
+    (re.compile(r"science\s+complementar|natural\s+science\s+complementar", re.I), "COMPLEMENTARY", "Science Complementary"),
     (re.compile(r"general\s+education|\bgen\s+ed\b", re.I), "GENERAL_ED", "General Education"),
     (re.compile(r"free\s+choice", re.I), "FREE_CHOICE", "Free Choice"),
-    (re.compile(r"\belectives?\b", re.I), "ELECTIVE", "Electives"),
     (re.compile(r"outside\s+the\s+major|credits\s+outside", re.I), "OUTSIDE_MAJOR", "Outside the Major"),
     (re.compile(r"breadth\s+requirement", re.I), "BREADTH", "Breadth Requirement"),
     (re.compile(r"humanities\s+requirement|social\s+science\s+requirement|natural\s+science\s+requirement", re.I), "BREADTH", "Breadth Requirement"),
+    (re.compile(r"complementar", re.I), "COMPLEMENTARY", "Complementary Studies"),
+    (re.compile(r"\belectives?\b", re.I), "ELECTIVE", "Electives"),
 ]
 
 REQUIRED_SECTION_RULES: list[re.Pattern[str]] = [
@@ -68,7 +84,17 @@ CREDIT_REQUIREMENT_PATTERN = re.compile(
 
 COURSE_CODE_PATTERN = re.compile(r"^[A-Z]{2,6} \d{4}$")
 
-YEAR_WORDS = {"first": 1, "second": 2, "third": 3, "fourth": 4}
+YEAR_WORDS = {"first": 1, "second": 2, "third": 3, "fourth": 4, "four": 4}
+
+FULL_YEAR_PATTERN = re.compile(r"full[\s-]?year", re.I)
+
+FOOTER_LINE_PATTERN = re.compile(
+    r"(general\s+prerequisite|prerequisite:|grade\s+point|cross-listed|"
+    r"note:\s*\"?major\"?|completed\s+major|common\)\s+prerequisite)",
+    re.I,
+)
+
+BULLET_ONLY_PATTERN = re.compile(r"^[\uf0a8\u2022•\-\s]+$")
 
 SUBJECT_BLOCKLIST = frozenset(
     {
@@ -78,7 +104,6 @@ SUBJECT_BLOCKLIST = frozenset(
         "AND",
         "FROM",
         "WITH",
-        "NATS",
         "NOTE",
         "YEAR",
         "MUST",
@@ -93,6 +118,8 @@ SUBJECT_BLOCKLIST = frozenset(
         "ONLY",
         "ALSO",
         "THES",
+        "MOST",
+        "LEVEL",
     }
 )
 
@@ -113,12 +140,14 @@ def parse_year_header(line: str) -> int | None:
     match = YEAR_HEADER_PATTERN.search(line)
     if not match:
         return None
-    if match.group(1):
-        return int(match.group(1))
-    if match.group(2):
-        return int(match.group(2))
-    if match.group(3):
-        return YEAR_WORDS.get(match.group(3).lower())
+    for group in match.groups():
+        if not group:
+            continue
+        if group.isdigit():
+            return int(group)
+        word = group.lower()
+        if word in YEAR_WORDS:
+            return YEAR_WORDS[word]
     return None
 
 
@@ -127,6 +156,79 @@ def parse_section_year_hint(line: str) -> int | None:
         if pattern.search(line):
             return year
     return None
+
+
+def parse_section_label_hint(line: str) -> str | None:
+    for pattern, label in SECTION_LABEL_HINTS:
+        if pattern.search(line):
+            return label
+    return None
+
+
+def course_level(code: str) -> int:
+    parts = code.split()
+    if len(parts) < 2 or not parts[1][:1].isdigit():
+        return 0
+    return int(parts[1][0])
+
+
+def should_treat_as_option_choice(code: str, checklist_year: int) -> bool:
+    """Courses well below the checklist year level are usually pick-one options."""
+    if checklist_year < 3:
+        return False
+    return course_level(code) < checklist_year
+
+
+def is_likely_required_course_line(
+    line: str,
+    line_courses: list[dict],
+    checklist_year: int,
+) -> bool:
+    """Single upper-level course rows are core requirements, not option lists."""
+    if len(line_courses) != 1:
+        return False
+    code = line_courses[0]["code"]
+    if course_level(code) >= max(1, checklist_year):
+        return True
+    if re.search(r"stream\s*[:\-–]", line, re.I) and course_level(code) >= 3:
+        return True
+    return False
+
+
+def is_option_list_line(
+    line: str,
+    line_courses: list[dict],
+    checklist_year: int,
+) -> bool:
+    if not line_courses:
+        return False
+    if is_likely_required_course_line(line, line_courses, checklist_year):
+        return False
+    if len(line_courses) >= 2:
+        return True
+    if LIST_REFERENCE_PATTERN.search(line):
+        return True
+    if len(line_courses) == 1 and should_treat_as_option_choice(line_courses[0]["code"], checklist_year):
+        return True
+    if len(line_courses) >= 3:
+        return True
+    return False
+
+
+def apply_course_line_metadata(course: dict, line: str) -> dict:
+    if FULL_YEAR_PATTERN.search(line):
+        course["schedule_note"] = "full_year"
+        course["section_label"] = course.get("section_label") or "Full year course"
+    return course
+
+
+def format_option_codes(codes: list[str], limit: int = 12) -> str:
+    if not codes:
+        return ""
+    if len(codes) <= limit:
+        return ", ".join(codes)
+    shown = ", ".join(codes[:limit])
+    return f"{shown}, +{len(codes) - limit} more"
 
 
 def detect_stub_section(line: str) -> tuple[str, str] | None:
@@ -160,7 +262,9 @@ def make_stub_course(
     section: str,
     credits: float | None,
     raw: str,
+    option_codes: list[str] | None = None,
 ) -> dict:
+    options = option_codes or []
     return {
         "code": stub_type,
         "credits": credits,
@@ -169,6 +273,8 @@ def make_stub_course(
         "kind": "stub",
         "stub_type": stub_type,
         "section_label": label,
+        "option_codes": options,
+        "title": format_option_codes(options) if options else None,
     }
 
 
@@ -232,17 +338,49 @@ def extract_courses_from_text(text: str) -> dict:
     in_stub_section = False
     active_stub: dict | None = None
 
+    def append_option_code(code: str, stub_type: str = "COMPLEMENTARY", label: str | None = None) -> None:
+        nonlocal active_stub, in_stub_section
+        if active_stub is None:
+            active_stub = make_stub_course(
+                stub_type,
+                label or "Complementary Studies",
+                current_section,
+                parse_credit_requirement(current_section),
+                current_section,
+                [],
+            )
+            in_stub_section = True
+        options = active_stub.setdefault("option_codes", [])
+        if code not in options:
+            options.append(code)
+        active_stub["title"] = format_option_codes(options)
+
     def append_course(course: dict) -> None:
         code = course["code"]
-        if course.get("kind") == "stub":
-            stub_key = f"{code}:{course.get('section_label', '')}:{course.get('section', '')}"
-            if stub_key in seen_stub_keys:
+        if course.get("kind") != "stub":
+            if should_treat_as_option_choice(code, current_year):
+                append_option_code(code)
                 return
-            seen_stub_keys.add(stub_key)
-        else:
             if code in seen_codes:
                 return
             seen_codes.add(code)
+        else:
+            stub_key = f"{current_year}:{code}:{course.get('section_label', '')}"
+            if stub_key in seen_stub_keys:
+                return
+            seen_stub_keys.add(stub_key)
+            # Merge consecutive complementary placeholders in the same year.
+            year_list = year_buckets.setdefault(current_year, [])
+            if year_list and year_list[-1].get("kind") == "stub" and year_list[-1].get("code") == code:
+                existing = year_list[-1]
+                for opt in course.get("option_codes", []):
+                    opts = existing.setdefault("option_codes", [])
+                    if opt not in opts:
+                        opts.append(opt)
+                if course.get("credits") is not None and existing.get("credits") is None:
+                    existing["credits"] = course["credits"]
+                existing["title"] = format_option_codes(existing.get("option_codes", []))
+                return
         course.setdefault("kind", "course")
         course["section"] = current_section
         year_buckets.setdefault(current_year, []).append(course)
@@ -259,12 +397,25 @@ def extract_courses_from_text(text: str) -> dict:
         finalize_active_stub()
         current_section = line[:80]
         credits = parse_credit_requirement(line)
-        active_stub = make_stub_course(stub_type, label, current_section, credits, line)
+        active_stub = make_stub_course(stub_type, label, current_section, credits, line, [])
         in_stub_section = True
+
+    def absorb_line_into_stub(line: str, line_courses: list[dict]) -> None:
+        nonlocal active_stub
+        if active_stub is None:
+            return
+        if active_stub.get("credits") is None:
+            credits = parse_credit_requirement(line)
+            if credits is not None:
+                active_stub["credits"] = credits
+        for course in line_courses:
+            append_option_code(course["code"], active_stub["stub_type"], active_stub["section_label"])
 
     for raw_line in text.splitlines():
         line = raw_line.strip()
-        if not line or SKIP_LINE_PATTERN.search(line):
+        if not line or BULLET_ONLY_PATTERN.fullmatch(line):
+            continue
+        if SKIP_LINE_PATTERN.search(line) or FOOTER_LINE_PATTERN.search(line):
             continue
 
         year_num = parse_year_header(line)
@@ -282,27 +433,30 @@ def extract_courses_from_text(text: str) -> dict:
         if is_required_section(line) and COURSE_PATTERN.search(line) is None:
             finalize_active_stub()
             current_section = line[:80]
-            section_year = parse_section_year_hint(line)
-            if section_year is not None:
-                current_year = section_year
+            label_hint = parse_section_label_hint(line)
+            if label_hint:
+                current_section = label_hint
             continue
 
-        section_year = parse_section_year_hint(line)
-        if section_year is not None and COURSE_PATTERN.search(line) is None:
+        section_label = parse_section_label_hint(line)
+        if section_label is not None and COURSE_PATTERN.search(line) is None:
             if detect_stub_section(line) is None:
                 finalize_active_stub()
-            current_year = section_year
-            current_section = line[:80]
+            current_section = section_label
             continue
 
         line_courses = extract_courses_from_line(line)
 
         if in_stub_section:
-            if active_stub is not None and active_stub.get("credits") is None:
-                credits = parse_credit_requirement(line)
-                if credits is not None:
-                    active_stub["credits"] = credits
-            continue
+            if is_likely_required_course_line(line, line_courses, current_year):
+                finalize_active_stub()
+            elif is_option_list_line(line, line_courses, current_year):
+                absorb_line_into_stub(line, line_courses)
+                continue
+            elif not line_courses:
+                continue
+            else:
+                finalize_active_stub()
 
         if should_collapse_line_to_stub(line, len(line_courses), in_stub_section):
             stub_type = "ELECTIVE"
@@ -313,6 +467,7 @@ def extract_courses_from_text(text: str) -> dict:
                     label = candidate_label
                     break
             credits = parse_credit_requirement(line) or parse_credit_requirement(current_section)
+            option_codes = [course["code"] for course in line_courses]
             append_course(
                 make_stub_course(
                     stub_type,
@@ -320,11 +475,13 @@ def extract_courses_from_text(text: str) -> dict:
                     current_section,
                     credits,
                     line,
+                    option_codes,
                 )
             )
             continue
 
         for course in line_courses:
+            apply_course_line_metadata(course, line)
             append_course(course)
 
     finalize_active_stub()

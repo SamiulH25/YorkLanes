@@ -2,7 +2,12 @@ import {
   cachePlanGraphSnapshot,
   type PlanGraphSnapshot,
 } from "../lib/plan-store";
-import { fetchPlanGraph, updatePlanLayout, type PlanLayoutMove } from "../lib/plans";
+import {
+  fetchPlanGraph,
+  updatePlanCourseCompletion,
+  updatePlanLayout,
+  type PlanLayoutMove,
+} from "../lib/plans";
 import type { DegreePlan } from "../types/plan";
 
 interface EditorState {
@@ -126,12 +131,18 @@ function shouldDrawEdge(
   edge: PlanGraphSnapshot["dependencies"][number],
   state: EditorState,
 ): boolean {
-  if (!edge.satisfied) return true;
   if (!state.selectedCourseId) return false;
   return (
     edge.from_course_id === state.selectedCourseId ||
     edge.to_course_id === state.selectedCourseId
   );
+}
+
+function clearSelection(state: EditorState): void {
+  state.selectedCourseId = null;
+  highlightSelection(state);
+  drawDependencies(state);
+  updateSelectionLegend(state);
 }
 
 function assignLanes(layouts: EdgeLayout[]): Map<EdgeLayout, number> {
@@ -189,31 +200,121 @@ function updateDependencySummary(state: EditorState): void {
   if (!el || !state.graph) return;
 
   const total = state.graph.dependencies.length;
-  const violations = state.graph.dependencies.filter((d) => !d.satisfied).length;
+  const violations = state.graph.dependencies.filter(
+    (d) => !d.satisfied && d.kind === "prerequisite",
+  ).length;
+  const coreqIssues = state.graph.dependencies.filter(
+    (d) => !d.satisfied && d.kind === "corequisite",
+  ).length;
 
   if (total === 0) {
-    el.textContent = "No prerequisite links in catalog for these courses yet.";
+    el.textContent = "No prerequisite or co-requisite links in catalog for these courses yet.";
     return;
   }
 
-  el.textContent =
-    violations === 0
-      ? `${total} prerequisite link${total === 1 ? "" : "s"} — all satisfied · click a course to inspect`
-      : `${violations} of ${total} prerequisite link${total === 1 ? "" : "s"} out of order · click a course to inspect`;
+  const parts: string[] = [];
+  if (violations > 0) {
+    parts.push(`${violations} unmet prerequisite${violations === 1 ? "" : "s"}`);
+  }
+  if (coreqIssues > 0) {
+    parts.push(`${coreqIssues} co-req scheduling issue${coreqIssues === 1 ? "" : "s"}`);
+  }
+  if (parts.length === 0) {
+    el.textContent = `${total} catalog link${total === 1 ? "" : "s"} — click a course to inspect`;
+    return;
+  }
+  el.textContent = `${parts.join(" · ")} — click a course for details`;
+}
+
+function updateSelectionLegend(state: EditorState): void {
+  const el = document.getElementById("plan-link-legend");
+  if (!el) return;
+
+  if (!state.selectedCourseId || !state.graph) {
+    el.classList.add("hidden");
+    el.textContent = "";
+    return;
+  }
+
+  const prereqs = state.graph.dependencies.filter(
+    (edge) =>
+      edge.kind === "prerequisite" && edge.to_course_id === state.selectedCourseId,
+  );
+  const coreqs = state.graph.dependencies.filter(
+    (edge) =>
+      edge.kind === "corequisite" &&
+      (edge.from_course_id === state.selectedCourseId ||
+        edge.to_course_id === state.selectedCourseId),
+  );
+
+  el.classList.remove("hidden");
+  el.textContent = `Blue = prerequisite (${prereqs.length}) · Amber dashed = co-requisite (${coreqs.length})`;
+}
+
+function updateWarningBadges(state: EditorState): void {
+  if (!state.graph) return;
+
+  const unmet = new Map<string, number>();
+  for (const edge of state.graph.dependencies) {
+    if (!edge.satisfied && edge.kind === "prerequisite" && edge.to_course_id) {
+      unmet.set(edge.to_course_id, (unmet.get(edge.to_course_id) ?? 0) + 1);
+    }
+  }
+
+  document.querySelectorAll<HTMLElement>(".plan-course-card").forEach((card) => {
+    const id = card.dataset.courseId ?? "";
+    const count = unmet.get(id) ?? 0;
+    card.classList.toggle("plan-course-card--warning", count > 0);
+    const badge = card.querySelector<HTMLElement>(".plan-course-warning");
+    if (badge) {
+      badge.hidden = count === 0;
+      badge.title = count > 0 ? `${count} unmet prerequisite${count === 1 ? "" : "s"}` : "";
+      badge.textContent = count > 0 ? "!" : "";
+    }
+  });
+}
+
+function updateCompletedStyles(state: EditorState): void {
+  const completedIds = new Set<string>();
+  if (state.graph) {
+    for (const placement of state.graph.placements) {
+      if (placement.completed) {
+        completedIds.add(placement.course_id);
+      }
+    }
+  }
+
+  document.querySelectorAll<HTMLElement>(".plan-course-card").forEach((card) => {
+    const id = card.dataset.courseId ?? "";
+    const isCompleted = completedIds.has(id);
+    card.classList.toggle("plan-course-card--completed", isCompleted);
+    const checkbox = card.querySelector<HTMLInputElement>(".plan-course-complete");
+    if (checkbox) {
+      checkbox.checked = isCompleted;
+    }
+  });
 }
 
 function highlightSelection(state: EditorState): void {
   const cards = document.querySelectorAll<HTMLElement>(".plan-course-card");
-  const relatedIds = new Set<string>();
+  const prereqRelated = new Set<string>();
+  const coreqRelated = new Set<string>();
 
   if (state.selectedCourseId && state.graph) {
-    relatedIds.add(state.selectedCourseId);
     for (const edge of state.graph.dependencies) {
-      if (edge.from_course_id === state.selectedCourseId) {
-        if (edge.to_course_id) relatedIds.add(edge.to_course_id);
+      if (edge.to_course_id === state.selectedCourseId && edge.kind === "prerequisite") {
+        if (edge.from_course_id) prereqRelated.add(edge.from_course_id);
       }
-      if (edge.to_course_id === state.selectedCourseId) {
-        if (edge.from_course_id) relatedIds.add(edge.from_course_id);
+      if (edge.from_course_id === state.selectedCourseId && edge.kind === "prerequisite") {
+        if (edge.to_course_id) prereqRelated.add(edge.to_course_id);
+      }
+      if (edge.kind === "corequisite") {
+        if (edge.from_course_id === state.selectedCourseId && edge.to_course_id) {
+          coreqRelated.add(edge.to_course_id);
+        }
+        if (edge.to_course_id === state.selectedCourseId && edge.from_course_id) {
+          coreqRelated.add(edge.from_course_id);
+        }
       }
     }
   }
@@ -221,9 +322,11 @@ function highlightSelection(state: EditorState): void {
   cards.forEach((card) => {
     const id = card.dataset.courseId ?? "";
     const selected = id === state.selectedCourseId;
-    const related = relatedIds.has(id) && !selected;
+    const isPrereq = prereqRelated.has(id) && !selected;
+    const isCoreq = coreqRelated.has(id) && !selected;
     card.classList.toggle("plan-course-card--selected", selected);
-    card.classList.toggle("plan-course-card--related", related);
+    card.classList.toggle("plan-course-card--related-prereq", isPrereq);
+    card.classList.toggle("plan-course-card--related-coreq", isCoreq);
   });
 
   const selectedEl = document.getElementById("plan-selected-course");
@@ -261,9 +364,10 @@ export function drawDependencies(state: EditorState): void {
   }
 
   const defs = document.createElementNS("http://www.w3.org/2000/svg", "defs");
-  defs.appendChild(createMarker("arrow-ok", "#9ca3af"));
-  defs.appendChild(createMarker("arrow-bad", "#e85d6f"));
-  defs.appendChild(createMarker("arrow-highlight", "#ff6b7a"));
+  defs.appendChild(createMarker("arrow-prereq", "#60a5fa"));
+  defs.appendChild(createMarker("arrow-prereq-warn", "#f87171"));
+  defs.appendChild(createMarker("arrow-coreq", "#fbbf24"));
+  defs.appendChild(createMarker("arrow-coreq-warn", "#fb923c"));
   svg.appendChild(defs);
 
   if (!state.graph) return;
@@ -294,13 +398,9 @@ export function drawDependencies(state: EditorState): void {
 
   const lanes = assignLanes(layouts);
   const sortedLayouts = [...layouts].sort((a, b) => {
-    const aSelected =
-      state.selectedCourseId === a.edge.from_course_id ||
-      state.selectedCourseId === a.edge.to_course_id;
-    const bSelected =
-      state.selectedCourseId === b.edge.from_course_id ||
-      state.selectedCourseId === b.edge.to_course_id;
-    if (aSelected !== bSelected) return aSelected ? 1 : -1;
+    if (a.edge.kind !== b.edge.kind) {
+      return a.edge.kind === "corequisite" ? 1 : -1;
+    }
     if (a.edge.satisfied !== b.edge.satisfied) return a.edge.satisfied ? -1 : 1;
     return 0;
   });
@@ -309,6 +409,7 @@ export function drawDependencies(state: EditorState): void {
     const { edge, fromRect, toRect, fromCol, toCol } = layout;
     const anchors = computeAnchors(fromRect, toRect, fromCol, toCol);
     const lane = lanes.get(layout) ?? 0;
+    const isCoreq = edge.kind === "corequisite";
 
     const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
     path.setAttribute("d", linkPath(anchors.from, anchors.to, lane));
@@ -316,29 +417,30 @@ export function drawDependencies(state: EditorState): void {
     path.setAttribute("stroke-linecap", "round");
     path.setAttribute("stroke-linejoin", "round");
     path.setAttribute("vector-effect", "non-scaling-stroke");
+    path.setAttribute("data-kind", edge.kind);
 
-    const selected =
-      state.selectedCourseId === edge.from_course_id ||
-      state.selectedCourseId === edge.to_course_id;
-
-    if (selected) {
-      path.setAttribute("stroke", "#ff6b7a");
-      path.setAttribute("stroke-width", "2.5");
-      path.setAttribute("marker-end", "url(#arrow-highlight)");
-      path.setAttribute("opacity", "1");
-    } else if (!edge.satisfied) {
-      path.setAttribute("stroke", "#e85d6f");
-      path.setAttribute("stroke-width", "2");
-      path.setAttribute("marker-end", "url(#arrow-bad)");
-      path.setAttribute("opacity", "0.95");
-      if (fromCol > toCol) {
-        path.setAttribute("stroke-dasharray", "6 4");
+    if (isCoreq) {
+      path.setAttribute("stroke-width", "2.25");
+      path.setAttribute("stroke-dasharray", "7 5");
+      if (edge.satisfied) {
+        path.setAttribute("stroke", "#fbbf24");
+        path.setAttribute("marker-end", "url(#arrow-coreq)");
+        path.setAttribute("opacity", "0.95");
+      } else {
+        path.setAttribute("stroke", "#fb923c");
+        path.setAttribute("marker-end", "url(#arrow-coreq-warn)");
+        path.setAttribute("opacity", "1");
       }
+    } else if (edge.satisfied) {
+      path.setAttribute("stroke", "#60a5fa");
+      path.setAttribute("stroke-width", "2.25");
+      path.setAttribute("marker-end", "url(#arrow-prereq)");
+      path.setAttribute("opacity", "0.95");
     } else {
-      path.setAttribute("stroke", "#9ca3af");
-      path.setAttribute("stroke-width", "1.75");
-      path.setAttribute("marker-end", "url(#arrow-ok)");
-      path.setAttribute("opacity", "0.7");
+      path.setAttribute("stroke", "#f87171");
+      path.setAttribute("stroke-width", "2.5");
+      path.setAttribute("marker-end", "url(#arrow-prereq-warn)");
+      path.setAttribute("opacity", "1");
     }
 
     path.setAttribute("data-from", edge.from);
@@ -347,6 +449,8 @@ export function drawDependencies(state: EditorState): void {
   }
 
   highlightSelection(state);
+  updateWarningBadges(state);
+  updateCompletedStyles(state);
 }
 
 function moveCourseInDom(courseId: string, targetList: HTMLElement, insertIndex: number): void {
@@ -374,6 +478,34 @@ function computeInsertIndex(list: HTMLElement, clientY: number): number {
     if (clientY < mid) return i;
   }
   return cards.length;
+}
+
+async function toggleCourseCompletion(
+  state: EditorState,
+  courseId: string,
+  completed: boolean,
+): Promise<void> {
+  state.saving = true;
+  setStatus(completed ? "Marking complete…" : "Marking incomplete…");
+
+  try {
+    const response = await updatePlanCourseCompletion(state.plan.id, courseId, completed);
+    state.plan = response.plan;
+    state.graph = {
+      ...response.graph,
+      plan: response.plan,
+      updated_at: new Date().toISOString(),
+    };
+    cachePlanGraphSnapshot(state.graph);
+    updateDependencySummary(state);
+    setStatus(completed ? "Marked complete" : "Marked incomplete");
+    drawDependencies(state);
+  } catch (error) {
+    setStatus(error instanceof Error ? error.message : "Failed to update completion", true);
+    updateCompletedStyles(state);
+  } finally {
+    state.saving = false;
+  }
 }
 
 async function persistLayout(state: EditorState): Promise<void> {
@@ -487,22 +619,41 @@ function bindSelection(state: EditorState): void {
   if (!root) return;
 
   root.addEventListener("click", (event) => {
-    const handle = (event.target as HTMLElement).closest(".plan-course-handle");
-    if (handle) return;
+    const target = event.target as HTMLElement;
+    if (target.closest(".plan-course-handle")) return;
+    if (target.closest(".plan-course-complete")) return;
 
-    const body = (event.target as HTMLElement).closest(".plan-course-body");
-    const card = body?.closest<HTMLElement>(".plan-course-card");
-    if (!card) {
-      state.selectedCourseId = null;
+    const card = target.closest(".plan-course-body")?.closest<HTMLElement>(".plan-course-card");
+    if (card?.dataset.courseId) {
+      state.selectedCourseId = card.dataset.courseId;
       highlightSelection(state);
       drawDependencies(state);
+      updateSelectionLegend(state);
       return;
     }
 
-    const courseId = card.dataset.courseId ?? null;
-    state.selectedCourseId = state.selectedCourseId === courseId ? null : courseId;
-    highlightSelection(state);
-    drawDependencies(state);
+    if (state.selectedCourseId) {
+      clearSelection(state);
+    }
+  });
+}
+
+function bindCompletionToggles(state: EditorState): void {
+  const root = document.getElementById("plan-editor");
+  if (!root) return;
+
+  root.addEventListener("change", (event) => {
+    const input = event.target as HTMLInputElement;
+    if (!input.classList.contains("plan-course-complete")) return;
+
+    const card = input.closest<HTMLElement>(".plan-course-card");
+    const courseId = card?.dataset.courseId;
+    if (!courseId || state.saving) {
+      input.checked = !input.checked;
+      return;
+    }
+
+    void toggleCourseCompletion(state, courseId, input.checked);
   });
 }
 
@@ -533,8 +684,9 @@ async function loadGraph(state: EditorState): Promise<void> {
     };
     cachePlanGraphSnapshot(state.graph);
     updateDependencySummary(state);
-    setStatus("Drag courses by the handle · red arrows show ordering issues · click a course for its prereqs");
+    setStatus("Click a course to see prereqs · tick completed courses you have already taken");
     drawDependencies(state);
+    updateSelectionLegend(state);
   } catch (error) {
     setStatus(
       error instanceof Error ? error.message : "Could not load prerequisite graph",
@@ -566,6 +718,7 @@ export function initPlanEditor(plan: DegreePlan): void {
 
   bindDragAndDrop(state);
   bindSelection(state);
+  bindCompletionToggles(state);
   bindRedrawOnLayoutChange(state);
   void loadGraph(state);
 }

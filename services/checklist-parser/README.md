@@ -31,8 +31,10 @@ Examples extracted from official checklists:
 
 - Checklist layout varies by faculty. Test with your programme PDF.
 - Scanned PDFs (image only) will not parse. Use text-based exports.
-- Complex rules ("pick 6 credits from list") collapse into **placeholder stubs** (`COMPLEMENTARY`, `GENERAL_ED`, `ELECTIVE`, etc.) instead of importing every listed course.
-- Re-import a checklist after parser updates to refresh stub handling on existing plans.
+- Complex rules ("pick 6 credits from list") collapse into **placeholder stubs** with listed option codes in the subheader.
+- **Full-year courses** (e.g. ENG 4000 6.00) are tagged and placed in the fall term for that checklist year.
+- Prerequisite footnotes and cross-list notes at the end of PDF pages are ignored.
+- Re-import a checklist after parser updates to refresh plans.
 
 ## Official checklist sources
 

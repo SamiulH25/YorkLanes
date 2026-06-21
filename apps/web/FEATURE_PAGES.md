@@ -1,15 +1,23 @@
 # Feature Pages
 
-Create one folder per major feature under `src/pages/`. Each owner builds their page here and adds a nav link in `src/layouts/DashboardLayout.astro`.
+Add one folder per major feature under `src/pages/`. Each owner adds a nav link in `src/layouts/DashboardLayout.astro`.
 
-| Folder to create | Feature | Owner |
-|------------------|---------|-------|
-| `courses/` | Course Explorer | Jericho |
-| `plan/` | Degree Plan Editor | Samiul |
-| `schedule/` | Schedule Builder | Nabeela |
-| `progress/` | Progress Tracker | Thor |
-| `finance/` | Finance Module | Taziz |
-| `assignments/` | Assignment Calendar | Sarah |
+| Folder | Feature | Owner | Status |
+|--------|---------|-------|--------|
+| `plan/` | Degree Plan Editor | Samiul | **Built** — see [`docs/features/degree-plan.md`](../../docs/features/degree-plan.md) |
+| `courses/` | Course Explorer | Jericho | Planned |
+| `schedule/` | Schedule Builder | Nabeela | Planned |
+| `progress/` | Progress Tracker | Thor | Planned |
+| `finance/` | Finance Module | Taziz | Planned |
+| `assignments/` | Assignment Calendar | Sarah | Planned |
+
+## New feature checklist
+
+1. `apps/web/src/pages/<feature>/index.astro` using `DashboardLayout.astro`
+2. `apps/api/src/routes/<feature>.ts` mounted in `apps/api/src/index.ts`
+3. `supabase/migrations/` SQL file (maintainer applies after merge)
+4. Uncomment nav in `DashboardLayout.astro`
+5. Update dashboard `quickLinks` in `apps/api/src/routes/dashboard.ts`
 
 ## Example starter page
 
@@ -18,12 +26,12 @@ Create one folder per major feature under `src/pages/`. Each owner builds their 
 import DashboardLayout from "../../layouts/DashboardLayout.astro";
 ---
 
-<DashboardLayout title="Course Explorer | YorkLanes">
+<DashboardLayout title="Course Explorer | YorkLanes" activeNav="dashboard">
   <Fragment slot="header">
-    <h1 class="text-2xl font-bold">Course Explorer</h1>
+    <h1 class="heading-page">Course Explorer</h1>
   </Fragment>
   <p>Feature UI goes here.</p>
 </DashboardLayout>
 ```
 
-Also create the matching API route in `apps/api/src/routes/` and mount it in `apps/api/src/index.ts`.
+See [`CONTRIBUTING.md`](../../CONTRIBUTING.md) for branch workflow and env setup.

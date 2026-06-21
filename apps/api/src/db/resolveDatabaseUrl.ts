@@ -11,8 +11,7 @@ export function resolveDatabaseUrl(): string {
   const databaseUrl = process.env.DATABASE_URL?.trim();
   if (!databaseUrl) {
     throw new Error(
-      "No database configured. Set SUPABASE_DB_URL in apps/api/.env to your hosted Supabase Postgres URI " +
-        "(Supabase Dashboard > Project Settings > Database > Connect > Session pooler).",
+      "No database configured. Set SUPABASE_DB_URL in apps/api/.env (ask the database maintainer for the connection string).",
     );
   }
 

@@ -1,3 +1,4 @@
 # Checklist parser dependencies (Python 3.10+)
 pdfplumber>=0.11.0
 python-docx>=1.1.0
+pytest>=8.0.0

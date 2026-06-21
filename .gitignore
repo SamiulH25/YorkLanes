@@ -9,6 +9,8 @@ dist/
 .env
 .env.local
 .env.*.local
+apps/api/.env
+apps/web/.env.local
 
 # Logs
 *.log

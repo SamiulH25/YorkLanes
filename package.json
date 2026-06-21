@@ -11,6 +11,8 @@
     "dev": "concurrently \"npm run dev -w apps/api\" \"npm run dev -w apps/web\"",
     "dev:web": "npm run dev -w apps/web",
     "dev:api": "npm run dev -w apps/api",
+    "setup": "node scripts/verify-env.mjs",
+    "check": "npm run build -w apps/api && npm run check -w apps/web",
     "build": "npm run build -w apps/web && npm run build -w apps/api",
     "build:web": "npm run build -w apps/web",
     "build:api": "npm run build -w apps/api",

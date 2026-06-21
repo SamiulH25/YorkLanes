@@ -1,5 +1,6 @@
-# Local PostgreSQL (legacy alternative to Supabase local).
-# Prefer: npm run supabase:start from repo root.
+# Local PostgreSQL (legacy — not used for team onboarding).
+# The team uses hosted Supabase. Do not use this unless you know you need it.
+# Prefer: shared env from maintainer + npm run dev
 # Start with: docker compose up -d
 
 services:

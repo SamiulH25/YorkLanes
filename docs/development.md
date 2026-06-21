@@ -36,8 +36,8 @@ Copy the env files the maintainer sent you into:
 If you are bootstrapping from templates:
 
 ```bash
-cp .env.example apps/api/.env
-cp apps/web/.env.example apps/web/.env
+cp apps/api/.env.example apps/api/.env
+cp apps/web/.env.example apps/web/.env.local
 ```
 
 Then **replace placeholders** with values from the maintainer (not from the Supabase dashboard yourself).
@@ -58,7 +58,7 @@ API_PORT=3001
 WEB_ORIGIN=http://localhost:4321
 ```
 
-Never commit `.env` or `.env.local`.
+Never commit `.env` or `.env.local`. Run `npm run setup` from the repo root to verify.
 
 ### Python parser (required for checklist import)
 
@@ -97,9 +97,11 @@ If the API prints `Database target: …` on startup and `/health` returns OK, yo
 | Command | Description |
 |---------|-------------|
 | `npm run dev` | API + web concurrently |
+| `npm run setup` | Verify env files and Python parser |
+| `npm run check` | Typecheck API + Astro before PRs |
 | `npm run dev:web` | Astro only (4321) |
 | `npm run dev:api` | Express only (3001) |
-| `npm run build` | Build web + compile API TypeScript |
+| `npm run build` | Compile API + Astro check (full web build needs SSR adapter) |
 | `npm run scraper:fixture` | Offline course JSON (no DB write) |
 
 Commands like `npm run supabase:push` are **maintainer-only**. See [Maintainer guide](./maintainer.md).

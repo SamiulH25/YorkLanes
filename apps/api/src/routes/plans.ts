@@ -123,9 +123,7 @@ plansRouter.post("/import", upload.single("checklist"), async (req, res) => {
     if (!tableCheck.ok) {
       res.status(503).json({
         error: tableCheck.error ?? "Degree plan database is not ready",
-        hint:
-          tableCheck.hint ??
-          "Set SUPABASE_DB_URL in apps/api/.env to your hosted Postgres URI, then run npm run supabase:push",
+        hint: "Ask the database maintainer to run npm run supabase:push.",
       });
       return;
     }
@@ -180,9 +178,9 @@ plansRouter.post("/import", upload.single("checklist"), async (req, res) => {
     const message = error instanceof Error ? error.message : "Failed to import checklist";
     const hint =
       message.includes("row-level security") || message.includes("permission denied")
-        ? "Database RLS blocked the insert. Run npm run supabase:push to apply the latest migrations."
+        ? "Ask the database maintainer to run npm run supabase:push."
         : message.includes("degree_plans")
-          ? "Run npm run supabase:push from the repo root to create degree plan tables."
+          ? "Ask the database maintainer to apply degree plan migrations."
           : undefined;
 
     console.error("[plans/import]", error);

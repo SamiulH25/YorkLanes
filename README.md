@@ -6,7 +6,7 @@ YorkLanes replaces the fragmented York student workflow (degree checklists, cour
 
 **EECS4314 Group 7** — monorepo with a York-themed dashboard, **degree plan editor** (checklist import + prerequisite graph), and stub pages for upcoming features.
 
-**Developer docs:** [`docs/README.md`](docs/README.md) — architecture, setup, database, deployment, and feature deep-dives.
+**Developer docs:** [`docs/README.md`](docs/README.md) · **Onboarding:** [`CONTRIBUTING.md`](CONTRIBUTING.md)
 
 **Repository:** https://github.com/SamiulH25/YorkLanes
 
@@ -36,16 +36,17 @@ YorkLanes replaces the fragmented York student workflow (degree checklists, cour
 
 ## What is NOT built (by design)
 
-| Feature | Owner | Start here |
-|---------|-------|------------|
-| Google OAuth | Foundation | `apps/api/src/middleware/auth.ts` |
-| Course Explorer | Jericho | `apps/web/src/pages/courses/`, `apps/api/src/routes/courses.ts` |
-| Degree Plan Editor | Samiul | **Built** — see [`docs/features/degree-plan.md`](docs/features/degree-plan.md) |
-| Schedule Builder | Nabeela | `apps/web/src/pages/schedule/`, `apps/api/src/routes/schedules.ts` |
-| Progress Tracker | Thor | `apps/web/src/pages/progress/`, `apps/api/src/routes/progress.ts` |
-| Finance Module | Taziz | `apps/web/src/pages/finance/`, `apps/api/src/routes/finance.ts` |
-| Assignment Calendar | Sarah | `apps/web/src/pages/assignments/`, `apps/api/src/routes/assignments.ts` |
-| Course scraper | Shared | `services/scraper/README.md` |
+| Feature | Owner | Create at |
+|---------|-------|-----------|
+| Google OAuth | Foundation | `apps/api/src/routes/auth.ts` |
+| Course Explorer | Jericho | `apps/web/src/pages/courses/` |
+| Schedule Builder | Nabeela | `apps/web/src/pages/schedule/` |
+| Progress Tracker | Thor | `apps/web/src/pages/progress/` |
+| Finance Module | Taziz | `apps/web/src/pages/finance/` |
+| Assignment Calendar | Sarah | `apps/web/src/pages/assignments/` |
+| Course scraper data | Shared | `services/scraper/README.md` |
+
+Degree plan is **built** — see [`docs/features/degree-plan.md`](docs/features/degree-plan.md).
 
 ## Repository layout
 
@@ -83,32 +84,27 @@ npm install
 
 ### 2. Configure environment
 
-Ask the **database maintainer** for `apps/api/.env` and `apps/web/.env.local`, or copy from templates and fill in values they provide:
+Ask the **database maintainer** for pre-filled env files, or copy templates:
 
 ```bash
-cp .env.example apps/api/.env
-cp apps/web/.env.example apps/web/.env
+cp apps/api/.env.example apps/api/.env
+cp apps/web/.env.example apps/web/.env.local
 ```
 
-Create **`apps/web/.env.local`** (gitignored) with at least:
+Fill in values the maintainer provides. Never commit `.env` or `.env.local`.
 
-```
-PUBLIC_API_URL=http://localhost:3001
-SUPABASE_URL=https://edrbocogcqmqalexgajq.supabase.co
-SUPABASE_KEY=<from-maintainer>
-```
+### 3. Python parser + verify
 
-Set **`apps/api/.env`** with at least:
-
-```
-SUPABASE_DB_URL=<from-maintainer>
-API_PORT=3001
-WEB_ORIGIN=http://localhost:4321
+```bash
+cd services/checklist-parser
+python -m venv .venv
+.venv\Scripts\activate
+pip install -r requirements.txt
+cd ../..
+npm run setup
 ```
 
-Never commit `.env` or `.env.local`. Do not open the Supabase dashboard unless you are the maintainer — see [`docs/maintainer.md`](docs/maintainer.md).
-
-### 3. Run development servers
+### 4. Run development servers
 
 ```bash
 npm run dev
@@ -120,7 +116,7 @@ npm run dev
 | Dashboard | http://localhost:4321/dashboard |
 | Backend API | http://localhost:3001 |
 | Health check | http://localhost:3001/health |
-| Supabase test page | http://localhost:4321/todos |
+| Degree plan | http://localhost:4321/plan/setup |
 
 Use the **moon/sun button** in the dashboard header to toggle dark mode.
 
@@ -145,6 +141,7 @@ Hosted Supabase **replaces** the need to run local Postgres or `docker compose`.
 
 See also:
 
+- **[`CONTRIBUTING.md`](CONTRIBUTING.md)** — onboarding checklist for new developers
 - **[`docs/README.md`](docs/README.md)** — full developer documentation
 - `supabase/README.md`
 - `apps/api/src/routes/README.md`
@@ -156,10 +153,12 @@ See also:
 
 | Command | Description |
 |---------|-------------|
+| `npm run setup` | Verify env files and Python parser |
+| `npm run check` | Typecheck API + Astro (run before PRs) |
 | `npm run dev` | Run API and web together |
 | `npm run dev:web` | Astro dev server only |
 | `npm run dev:api` | Express dev server only |
-| `npm run build` | Build both apps |
+| `npm run build` | Compile API + Astro typecheck |
 | `npm run supabase:push` | Push migrations (**maintainer only**) |
 | `npm run supabase:start` | Optional: local Supabase stack (requires Docker) |
 | `npm run supabase:reset` | Optional: reset local Supabase after `supabase:start` |

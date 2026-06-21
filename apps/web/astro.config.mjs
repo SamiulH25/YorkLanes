@@ -9,8 +9,13 @@ export default defineConfig({
   },
   env: {
     schema: {
-      SUPABASE_URL: envField.string({ context: "server", access: "secret" }),
-      SUPABASE_KEY: envField.string({ context: "server", access: "secret" }),
+      PUBLIC_API_URL: envField.string({
+        context: "client",
+        access: "public",
+        default: "http://localhost:3001",
+      }),
+      SUPABASE_URL: envField.string({ context: "server", access: "secret", optional: true }),
+      SUPABASE_KEY: envField.string({ context: "server", access: "secret", optional: true }),
     },
   },
 });

@@ -35,7 +35,7 @@ export interface AssignmentPreview {
 
 export interface QuickLink {
   label: string;
-  href: string;
+  href?: string;
   featureOwner: string;
   status: "not-started" | "in-progress" | "ready";
 }

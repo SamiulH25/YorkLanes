@@ -18,6 +18,11 @@ const statusClass: Record<QuickLink["status"], string> = {
   "in-progress": "text-york-gold",
   ready: "text-emerald-600 dark:text-emerald-400",
 };
+
+const cardClass =
+  "flex h-full flex-col rounded-xl border border-york-stone/50 bg-york-cream/50 p-4 transition-all dark:border-white/10 dark:bg-york-navy/40";
+const cardHoverClass =
+  "group hover:-translate-y-0.5 hover:border-york-red/40 hover:shadow-card dark:hover:border-york-red/30";
 ---
 
 <section class="surface rounded-2xl p-6">
@@ -29,18 +34,27 @@ const statusClass: Record<QuickLink["status"], string> = {
     {
       links.map((link) => (
         <li>
-          <a
-            href={link.href}
-            class="group flex h-full flex-col rounded-xl border border-york-stone/50 bg-york-cream/50 p-4 transition-all hover:-translate-y-0.5 hover:border-york-red/40 hover:shadow-card dark:border-white/10 dark:bg-york-navy/40 dark:hover:border-york-red/30"
-          >
-            <span class="font-medium text-york-black group-hover:text-york-red dark:text-white dark:group-hover:text-york-red">
-              {link.label}
-            </span>
-            <span class:list={["mt-2 text-xs font-medium", statusClass[link.status]]}>
-              {statusLabel[link.status]}
-            </span>
-            <span class="mt-auto pt-3 text-[11px] text-york-muted">{link.featureOwner}</span>
-          </a>
+          {
+            link.href ? (
+              <a href={link.href} class:list={[cardClass, cardHoverClass, "group"]}>
+                <span class="font-medium text-york-black group-hover:text-york-red dark:text-white dark:group-hover:text-york-red">
+                  {link.label}
+                </span>
+                <span class:list={["mt-2 text-xs font-medium", statusClass[link.status]]}>
+                  {statusLabel[link.status]}
+                </span>
+                <span class="mt-auto pt-3 text-[11px] text-york-muted">{link.featureOwner}</span>
+              </a>
+            ) : (
+              <div class:list={[cardClass, "opacity-80"]} aria-disabled="true">
+                <span class="font-medium text-york-black dark:text-white">{link.label}</span>
+                <span class:list={["mt-2 text-xs font-medium", statusClass[link.status]]}>
+                  {statusLabel[link.status]}
+                </span>
+                <span class="mt-auto pt-3 text-[11px] text-york-muted">{link.featureOwner}</span>
+              </div>
+            )
+          }
         </li>
       ))
     }

@@ -16,7 +16,7 @@ import { plansRouter } from "./routes/plans.js";
 // import { authRouter } from "./routes/auth.js";  // TODO: enable after OAuth setup
 
 const app = express();
-const port = Number(process.env.API_PORT) || 3001;
+const port = Number(process.env.PORT ?? process.env.API_PORT) || 3001;
 
 app.use(cors({ origin: process.env.WEB_ORIGIN ?? "http://localhost:4321", credentials: true }));
 app.use(express.json());

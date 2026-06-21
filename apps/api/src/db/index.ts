@@ -59,7 +59,7 @@ export async function checkDegreePlanTables(): Promise<{ ok: boolean; error?: st
       return {
         ok: false,
         error: "Degree plan tables are missing on the connected database.",
-        hint: "Run npm run supabase:push from the repo root against your hosted Supabase project.",
+        hint: "Ask the database maintainer to run npm run supabase:push from the repo root.",
       };
     }
 
@@ -76,7 +76,7 @@ export async function checkDegreePlanTables(): Promise<{ ok: boolean; error?: st
         ok: false,
         error: message,
         hint:
-          "Set SUPABASE_DB_URL in apps/api/.env to your hosted Postgres URI (Supabase Dashboard > Database > Connect).",
+          "Set SUPABASE_DB_URL in apps/api/.env (ask the database maintainer for the connection string).",
       };
     }
 

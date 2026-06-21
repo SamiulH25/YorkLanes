@@ -40,12 +40,12 @@ dashboardRouter.get("/summary", (_req, res) => {
       message: "Finance module not connected. Taziz: implement and wire here.",
     },
     quickLinks: [
-      { label: "Course Explorer", href: "/courses", featureOwner: "Jericho", status: "not-started" },
-      { label: "Degree Plan", href: "/plan", featureOwner: "Samiul", status: "in-progress" },
-      { label: "Schedule Builder", href: "/schedule", featureOwner: "Nabeela", status: "not-started" },
-      { label: "Progress Tracker", href: "/progress", featureOwner: "Thor", status: "not-started" },
-      { label: "Finance", href: "/finance", featureOwner: "Taziz", status: "not-started" },
-      { label: "Assignments", href: "/assignments", featureOwner: "Sarah", status: "not-started" },
+      { label: "Degree Plan", href: "/plan", featureOwner: "Samiul", status: "ready" },
+      { label: "Course Explorer", featureOwner: "Jericho", status: "not-started" },
+      { label: "Schedule Builder", featureOwner: "Nabeela", status: "not-started" },
+      { label: "Progress Tracker", featureOwner: "Thor", status: "not-started" },
+      { label: "Finance", featureOwner: "Taziz", status: "not-started" },
+      { label: "Assignments", featureOwner: "Sarah", status: "not-started" },
     ],
   };
 

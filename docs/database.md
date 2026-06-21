@@ -7,10 +7,9 @@ PostgreSQL hosted on **Supabase** (`edrbocogcqmqalexgajq`). Schema is versioned 
 | Consumer | Env variable | Library |
 |----------|--------------|---------|
 | Express API | `SUPABASE_DB_URL` (preferred) or `DATABASE_URL` | `pg` pool in `apps/api/src/db/index.ts` |
-| Astro (optional) | `SUPABASE_URL` + `SUPABASE_KEY` in `.env.local` | `@supabase/supabase-js` |
-| Python scraper | `SUPABASE_DB_URL` or `DATABASE_URL` | `psycopg2` / similar in scraper |
+| Astro web | `PUBLIC_API_URL` in `.env.local` | `fetch` to Express API |
 
-The API uses **direct SQL** with a session pooler URI. The web app’s Supabase JS client is used for the todos connection test page; feature pages primarily talk to Express.
+All feature pages talk to Express; the API talks to Postgres directly.
 
 ## Entity relationship (simplified)
 

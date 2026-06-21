@@ -34,7 +34,7 @@ These live next to the code they describe:
 | [`services/checklist-parser/README.md`](../services/checklist-parser/README.md) | Python PDF/DOCX checklist parser |
 | [`services/scraper/README.md`](../services/scraper/README.md) | Course catalogue scraper for `courses` table |
 | [`apps/api/src/routes/README.md`](../apps/api/src/routes/README.md) | Express route conventions |
-| [`apps/web/FEATURE_PAGES.md`](../apps/web/FEATURE_PAGES.md) | How to add a new Astro feature page |
+| [`scripts/README.md`](../scripts/README.md) | Dev tools (`npm run doctor`, `smoke`, etc.) |
 
 ## Repository map
 

@@ -53,7 +53,7 @@ See [`apps/web/FEATURE_PAGES.md`](apps/web/FEATURE_PAGES.md) for feature ownersh
 | File | Purpose |
 |------|---------|
 | `apps/api/.env` | API + Postgres (`SUPABASE_DB_URL` from maintainer) |
-| `apps/web/.env.local` | Web (`PUBLIC_API_URL`, Supabase keys from maintainer) |
+| `apps/web/.env.local` | Web (`PUBLIC_API_URL` from maintainer) |
 
 Templates: `apps/api/.env.example`, `apps/web/.env.example`
 
@@ -63,9 +63,13 @@ Templates: `apps/api/.env.example`, `apps/web/.env.example`
 |---------|------|
 | `npm run dev` | Daily development |
 | `npm run setup` | After receiving env files |
+| `npm run doctor` | After `npm run dev` — checks API + database |
+| `npm run smoke` | Quick API endpoint test |
+| `npm run test:parser` | After checklist parser changes |
 | `npm run check` | Before PR — TypeScript + Astro check |
-| `npm run build` | Release / CI |
-| `cd services/checklist-parser && python -m pytest` | After parser changes |
+| `npm run tools` | List all dev commands |
+
+See [`scripts/README.md`](scripts/README.md) for details.
 
 ## Getting help
 

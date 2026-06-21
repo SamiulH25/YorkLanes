@@ -1,3 +1,6 @@
+/**
+ * Checklist upload form on /plan/setup — drag-drop file, POST /api/plans/import.
+ */
 const ACCEPTED_EXTENSIONS = [".pdf", ".docx", ".doc"];
 
 interface PlanSetupOptions {

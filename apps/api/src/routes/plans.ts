@@ -1,3 +1,12 @@
+/**
+ * Degree plan REST routes.
+ *
+ * POST /import  — upload checklist PDF/DOCX, parse, save plan
+ * GET  /:id     — plan with terms and courses
+ * GET  /:id/graph — placements + prerequisite edges (from courses catalogue)
+ * PATCH /:id/layout — drag-and-drop term moves
+ * PATCH /:id/courses/:courseId — mark course completed
+ */
 import { Router } from "express";
 import multer from "multer";
 import { FACULTY_CHECKLISTS, getFacultyChecklist } from "../data/faculty-checklists.js";

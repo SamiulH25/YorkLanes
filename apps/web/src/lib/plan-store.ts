@@ -1,3 +1,8 @@
+/**
+ * Client-side plan graph cache — other features can read the active plan without re-fetching.
+ *
+ * SessionStorage keys: yorklanes-plan-id, yorklanes-plan-graph:{planId}
+ */
 import type { DegreePlan, PlanCourse, PlanTerm } from "../types/plan";
 
 /** Shared cache key prefix — other features read via readPlanGraphSnapshot(). */

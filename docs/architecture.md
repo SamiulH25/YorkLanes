@@ -16,7 +16,6 @@ flowchart TB
     AstroPages
     ClientJS
     SessionStore
-    SupabaseJS["@supabase/supabase-js optional"]
   end
 
   subgraph api [apps/api]
@@ -41,7 +40,6 @@ flowchart TB
   PG --> Postgres
   Express -->|spawn PYTHON| Parser
   Scraper -->|optional import| Postgres
-  SupabaseJS -.->|todos test page| Postgres
 ```
 
 ## Design principles
@@ -65,7 +63,7 @@ flowchart TB
 | Interactive UI | `src/scripts/plan-editor.ts`, `plan-setup.ts` |
 | Styles | `src/styles/global.css` (includes `.plan-*` editor classes) |
 
-Astro runs on port **4321**. Server-side code can read `SUPABASE_URL` / `SUPABASE_KEY` (see `astro.config.mjs` env schema). Feature pages call the Express API using `PUBLIC_API_URL`.
+Astro runs on port **4321**. Feature pages call the Express API using `PUBLIC_API_URL` from `.env.local`.
 
 ### `apps/api` (Express + TypeScript)
 

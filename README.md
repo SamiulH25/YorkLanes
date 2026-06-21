@@ -154,6 +154,9 @@ See also:
 | Command | Description |
 |---------|-------------|
 | `npm run setup` | Verify env files and Python parser |
+| `npm run doctor` | Setup + API health check |
+| `npm run smoke` | Test API endpoints |
+| `npm run tools` | List dev commands |
 | `npm run check` | Typecheck API + Astro (run before PRs) |
 | `npm run dev` | Run API and web together |
 | `npm run dev:web` | Astro dev server only |

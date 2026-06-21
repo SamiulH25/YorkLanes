@@ -1,3 +1,9 @@
+/**
+ * Prerequisite graph for the plan editor.
+ *
+ * Edges from course_prerequisites (catalogue) + co-reqs parsed from course descriptions.
+ * Satisfaction = earlier term, or course marked completed in the plan.
+ */
 import type { Pool } from "pg";
 import type { DegreePlanRow, PlanCourseRow } from "./planGenerator.js";
 

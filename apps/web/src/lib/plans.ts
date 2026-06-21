@@ -1,3 +1,6 @@
+/**
+ * API client for degree plans. All plan data flows through the Express API (not Supabase JS).
+ */
 import type { DegreePlan, FacultyChecklistInfo } from "../types/plan";
 import type { PlanGraphSnapshot } from "./plan-store";
 

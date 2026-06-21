@@ -1,3 +1,7 @@
+/**
+ * Spawns the Python checklist parser (services/checklist-parser/parse_checklist.py).
+ * Set PYTHON_PATH in apps/api/.env if python is not on PATH.
+ */
 import { execFile } from "node:child_process";
 import { mkdtemp, unlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";

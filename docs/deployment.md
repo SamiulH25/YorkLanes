@@ -41,8 +41,6 @@ Vercel: use `@astrojs/vercel`. Match adapter docs to your host.
 | Variable | Context | Example |
 |----------|---------|---------|
 | `PUBLIC_API_URL` | Build + runtime | `https://api.yorklanes.example.com` |
-| `SUPABASE_URL` | Server | `https://edrbocogcqmqalexgajq.supabase.co` |
-| `SUPABASE_KEY` | Server | Anon/publishable key (not service role) |
 
 `PUBLIC_*` vars are embedded in client bundles — only expose what the browser needs.
 

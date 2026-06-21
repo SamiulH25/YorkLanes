@@ -1,3 +1,11 @@
+/**
+ * Saves and loads degree plans in Postgres.
+ *
+ * buildTerms() splits each checklist year into Fall/Winter columns:
+ *   - concrete courses halved between terms
+ *   - full-year courses → fall only
+ *   - stubs (electives/complementary) → winter
+ */
 import type { Pool } from "pg";
 import { planCourseSelectSql, planCoursesHaveCompletedColumn } from "../db/planCourseSchema.js";
 import type { ParsedChecklist } from "./checklistParser.js";

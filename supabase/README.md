@@ -40,8 +40,6 @@ The maintainer distributes these; developers do not fetch them from the dashboar
 
 ```
 PUBLIC_API_URL=http://localhost:3001
-SUPABASE_URL=https://edrbocogcqmqalexgajq.supabase.co
-SUPABASE_KEY=<anon-or-publishable-key>
 ```
 
 ### API (`apps/api/.env`)
@@ -58,7 +56,6 @@ Never put the service role key in the frontend.
 
 | App part | Uses Supabase via |
 |----------|-------------------|
-| `apps/web/src/db/supabase.js` | `@supabase/supabase-js` (REST + RLS) |
 | `apps/api/src/db/index.ts` | `pg` pool via `SUPABASE_DB_URL` |
 | `services/scraper/` | Direct SQL import to `courses` |
 

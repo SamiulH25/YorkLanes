@@ -46,8 +46,6 @@ Then **replace placeholders** with values from the maintainer (not from the Supa
 
 ```env
 PUBLIC_API_URL=http://localhost:3001
-SUPABASE_URL=https://edrbocogcqmqalexgajq.supabase.co
-SUPABASE_KEY=<from-maintainer>
 ```
 
 **`apps/api/.env`** should look like:
@@ -96,11 +94,15 @@ If the API prints `Database target: …` on startup and `/health` returns OK, yo
 
 | Command | Description |
 |---------|-------------|
-| `npm run dev` | API + web concurrently |
+| `npm run tools` | List dev helper commands |
 | `npm run setup` | Verify env files and Python parser |
-| `npm run check` | Typecheck API + Astro before PRs |
+| `npm run doctor` | Setup + live API/DB health check |
+| `npm run smoke` | Test key API endpoints |
+| `npm run test:parser` | Checklist parser pytest suite |
+| `npm run dev` | API + web concurrently |
 | `npm run dev:web` | Astro only (4321) |
 | `npm run dev:api` | Express only (3001) |
+| `npm run check` | Typecheck API + Astro before PRs |
 | `npm run build` | Compile API + Astro check (full web build needs SSR adapter) |
 | `npm run scraper:fixture` | Offline course JSON (no DB write) |
 

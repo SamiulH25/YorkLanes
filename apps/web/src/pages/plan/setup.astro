@@ -1,13 +1,12 @@
 ---
 import DashboardLayout from "../../layouts/DashboardLayout.astro";
-import { FACULTY_CHECKLISTS } from "../../data/faculty-checklists";
 import { fetchFaculties } from "../../lib/plans";
 
 export const prerender = false;
 
 const apiUrl = import.meta.env.PUBLIC_API_URL ?? "http://localhost:3001";
 
-let faculties = FACULTY_CHECKLISTS;
+let faculties: Awaited<ReturnType<typeof fetchFaculties>> = [];
 let loadError: string | null = null;
 
 try {

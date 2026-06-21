@@ -1,3 +1,9 @@
+/**
+ * Interactive degree plan editor — drag-and-drop, course selection, SVG dependency lines.
+ *
+ * Data: plan JSON embedded in the page (#plan-data), graph from GET /api/plans/:id/graph
+ * Entry: initPlanEditor() called from apps/web/src/pages/plan/index.astro
+ */
 import {
   cachePlanGraphSnapshot,
   type PlanGraphSnapshot,

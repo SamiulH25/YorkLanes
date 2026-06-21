@@ -47,8 +47,6 @@ WEB_ORIGIN=http://localhost:4321
 
 ```env
 PUBLIC_API_URL=http://localhost:3001
-SUPABASE_URL=https://edrbocogcqmqalexgajq.supabase.co
-SUPABASE_KEY=<anon-or-publishable-key>
 ```
 
 Developers paste these files locally and run `npm run dev`. No further database setup.

@@ -1,3 +1,7 @@
+/**
+ * Faculty checklist download links shown on /plan/setup.
+ * Keep in sync with GET /api/plans/faculties (this file is the source of truth).
+ */
 export interface FacultyChecklistInfo {
   key: string;
   name: string;

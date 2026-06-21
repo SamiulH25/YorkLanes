@@ -72,7 +72,7 @@
   }
 
   .plan-deps-layer {
-    @apply pointer-events-none absolute left-0 top-0 z-0;
+    @apply pointer-events-none absolute left-0 top-0 z-[5] overflow-visible;
   }
 
   .plan-editor-columns {
@@ -80,7 +80,7 @@
   }
 
   .plan-term-column {
-    @apply surface w-64 shrink-0 rounded-2xl p-4;
+    @apply surface relative z-10 w-64 shrink-0 rounded-2xl p-4;
   }
 
   .plan-course-list {
@@ -110,6 +110,10 @@
 
   .plan-course-card--stub .plan-course-code {
     @apply text-sm font-medium italic text-stone-700 dark:text-stone-200;
+  }
+
+  .plan-stub-options {
+    @apply mt-1 text-[11px] leading-snug text-york-muted;
   }
 
   .plan-course-handle {

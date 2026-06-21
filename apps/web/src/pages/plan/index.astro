@@ -128,7 +128,16 @@ if (planId) {
                                 isStub ? (
                                   <>
                                     <p class="plan-course-code">{displayLabel}</p>
-                                    <p class="text-xs text-york-muted">Checklist placeholder</p>
+                                    {
+                                      course.title && course.title !== displayLabel && (
+                                        <p class="plan-stub-options">{course.title}</p>
+                                      )
+                                    }
+                                    {
+                                      !course.title && (
+                                        <p class="text-xs text-york-muted">Pick from checklist options</p>
+                                      )
+                                    }
                                   </>
                                 ) : (
                                   <p class="plan-course-code">{course.course_code}</p>
@@ -155,7 +164,7 @@ if (planId) {
         </div>
 
         <p class="mt-4 text-xs text-york-muted">
-          Drag by the handle on the left · click a course to highlight prerequisite arrows · red arrows mean the prerequisite is scheduled in the same term or later.
+          Drag by the handle · red arrows show ordering issues · click a course to see its prerequisite chain.
         </p>
       </div>
     )

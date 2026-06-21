@@ -25,20 +25,155 @@ function getSvg(): SVGSVGElement | null {
   return document.getElementById("plan-deps-svg") as SVGSVGElement | null;
 }
 
-function relativeRect(container: HTMLElement, el: HTMLElement) {
-  const c = container.getBoundingClientRect();
-  const e = el.getBoundingClientRect();
+interface CardRect {
+  left: number;
+  top: number;
+  width: number;
+  height: number;
+  centerX: number;
+  centerY: number;
+}
+
+interface Anchor {
+  x: number;
+  y: number;
+}
+
+interface EdgeLayout {
+  edge: PlanGraphSnapshot["dependencies"][number];
+  fromRect: CardRect;
+  toRect: CardRect;
+  fromCol: number;
+  toCol: number;
+}
+
+function getCardRect(stage: HTMLElement, card: HTMLElement): CardRect {
+  const stageRect = stage.getBoundingClientRect();
+  const rect = card.getBoundingClientRect();
+  const left = rect.left - stageRect.left;
+  const top = rect.top - stageRect.top;
   return {
-    left: e.left - c.left + container.scrollLeft,
-    top: e.top - c.top + container.scrollTop,
-    width: e.width,
-    height: e.height,
+    left,
+    top,
+    width: rect.width,
+    height: rect.height,
+    centerX: left + rect.width / 2,
+    centerY: top + rect.height / 2,
   };
 }
 
-function curvePath(fromX: number, fromY: number, toX: number, toY: number): string {
+function getTermColumnIndex(stage: HTMLElement, card: HTMLElement): number {
+  const column = card.closest(".plan-term-column") as HTMLElement | null;
+  if (!column) return 0;
+  const columns = [...stage.querySelectorAll<HTMLElement>(".plan-term-column")];
+  return columns.indexOf(column);
+}
+
+function computeAnchors(
+  from: CardRect,
+  to: CardRect,
+  fromCol: number,
+  toCol: number,
+): { from: Anchor; to: Anchor } {
+  const pad = 4;
+
+  if (fromCol < toCol) {
+    return {
+      from: { x: from.left + from.width - pad, y: from.centerY },
+      to: { x: to.left + pad, y: to.centerY },
+    };
+  }
+
+  if (fromCol > toCol) {
+    return {
+      from: { x: from.left + pad, y: from.centerY },
+      to: { x: to.left + to.width - pad, y: to.centerY },
+    };
+  }
+
+  if (from.top <= to.top) {
+    return {
+      from: { x: from.centerX, y: from.top + from.height - pad },
+      to: { x: to.centerX, y: to.top + pad },
+    };
+  }
+
+  return {
+    from: { x: from.centerX, y: from.top + pad },
+    to: { x: to.centerX, y: to.top + to.height - pad },
+  };
+}
+
+/** Horizontal-tangent cubic — reads cleanly across term columns. */
+function linkPath(from: Anchor, to: Anchor, lane: number): string {
+  const dx = to.x - from.x;
+  const laneOffset = lane * 14;
+  const fromY = from.y + laneOffset;
+  const toY = to.y + laneOffset;
+  const bend = Math.max(36, Math.abs(dx) * 0.42);
+
+  if (Math.abs(dx) > 24) {
+    const c1x = from.x + (dx >= 0 ? bend : -bend);
+    const c2x = to.x - (dx >= 0 ? bend : -bend);
+    return `M ${from.x} ${fromY} C ${c1x} ${fromY}, ${c2x} ${toY}, ${to.x} ${toY}`;
+  }
+
   const midY = (fromY + toY) / 2;
-  return `M ${fromX} ${fromY} C ${fromX} ${midY}, ${toX} ${midY}, ${toX} ${toY}`;
+  return `M ${from.x} ${fromY} C ${from.x} ${midY}, ${to.x} ${midY}, ${to.x} ${toY}`;
+}
+
+function shouldDrawEdge(
+  edge: PlanGraphSnapshot["dependencies"][number],
+  state: EditorState,
+): boolean {
+  if (!edge.satisfied) return true;
+  if (!state.selectedCourseId) return false;
+  return (
+    edge.from_course_id === state.selectedCourseId ||
+    edge.to_course_id === state.selectedCourseId
+  );
+}
+
+function assignLanes(layouts: EdgeLayout[]): Map<EdgeLayout, number> {
+  const lanes = new Map<EdgeLayout, number>();
+  const buckets = new Map<string, EdgeLayout[]>();
+
+  for (const layout of layouts) {
+    const key = `${layout.fromCol}:${layout.toCol}`;
+    const bucket = buckets.get(key) ?? [];
+    bucket.push(layout);
+    buckets.set(key, bucket);
+  }
+
+  for (const bucket of buckets.values()) {
+    bucket.sort((a, b) => a.fromRect.centerY - b.fromRect.centerY);
+    const mid = (bucket.length - 1) / 2;
+    bucket.forEach((layout, index) => {
+      lanes.set(layout, index - mid);
+    });
+  }
+
+  return lanes;
+}
+
+function createMarker(
+  id: string,
+  color: string,
+): SVGMarkerElement {
+  const marker = document.createElementNS("http://www.w3.org/2000/svg", "marker");
+  marker.setAttribute("id", id);
+  marker.setAttribute("viewBox", "0 0 10 10");
+  marker.setAttribute("markerWidth", "6");
+  marker.setAttribute("markerHeight", "6");
+  marker.setAttribute("refX", "8");
+  marker.setAttribute("refY", "5");
+  marker.setAttribute("orient", "auto");
+  marker.setAttribute("markerUnits", "strokeWidth");
+  const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
+  path.setAttribute("d", "M 0 0 L 10 5 L 0 10 z");
+  path.setAttribute("fill", color);
+  marker.appendChild(path);
+  return marker;
 }
 
 function setStatus(message: string, isError = false): void {
@@ -63,8 +198,8 @@ function updateDependencySummary(state: EditorState): void {
 
   el.textContent =
     violations === 0
-      ? `${total} prerequisite link${total === 1 ? "" : "s"} — all satisfied`
-      : `${violations} of ${total} prerequisite link${total === 1 ? "" : "s"} out of order`;
+      ? `${total} prerequisite link${total === 1 ? "" : "s"} — all satisfied · click a course to inspect`
+      : `${violations} of ${total} prerequisite link${total === 1 ? "" : "s"} out of order · click a course to inspect`;
 }
 
 function highlightSelection(state: EditorState): void {
@@ -126,33 +261,18 @@ export function drawDependencies(state: EditorState): void {
   }
 
   const defs = document.createElementNS("http://www.w3.org/2000/svg", "defs");
-  for (const [id, color] of [
-    ["arrow-ok", "#6b7280"],
-    ["arrow-bad", "#c41230"],
-    ["arrow-highlight", "#c41230"],
-  ] as const) {
-    const marker = document.createElementNS("http://www.w3.org/2000/svg", "marker");
-    marker.setAttribute("id", id);
-    marker.setAttribute("markerWidth", "8");
-    marker.setAttribute("markerHeight", "8");
-    marker.setAttribute("refX", "6");
-    marker.setAttribute("refY", "4");
-    marker.setAttribute("orient", "auto");
-    const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
-    path.setAttribute("d", "M0,0 L8,4 L0,8 Z");
-    path.setAttribute("fill", color);
-    marker.appendChild(path);
-    defs.appendChild(marker);
-  }
+  defs.appendChild(createMarker("arrow-ok", "#9ca3af"));
+  defs.appendChild(createMarker("arrow-bad", "#e85d6f"));
+  defs.appendChild(createMarker("arrow-highlight", "#ff6b7a"));
   svg.appendChild(defs);
 
   if (!state.graph) return;
 
-  const canvas = getCanvas();
-  if (!canvas) return;
+  const layouts: EdgeLayout[] = [];
 
   for (const edge of state.graph.dependencies) {
     if (!edge.from_course_id || !edge.to_course_id) continue;
+    if (!shouldDrawEdge(edge, state)) continue;
 
     const fromCard = stage.querySelector<HTMLElement>(
       `[data-course-id="${edge.from_course_id}"]`,
@@ -163,34 +283,62 @@ export function drawDependencies(state: EditorState): void {
     if (!fromCard || !toCard) continue;
     if (fromCard.dataset.entryKind === "stub" || toCard.dataset.entryKind === "stub") continue;
 
-    const fromRect = relativeRect(canvas, fromCard);
-    const toRect = relativeRect(canvas, toCard);
-    const fromX = fromRect.left + fromRect.width / 2;
-    const fromY = fromRect.top + fromRect.height;
-    const toX = toRect.left + toRect.width / 2;
-    const toY = toRect.top;
+    layouts.push({
+      edge,
+      fromRect: getCardRect(stage, fromCard),
+      toRect: getCardRect(stage, toCard),
+      fromCol: getTermColumnIndex(stage, fromCard),
+      toCol: getTermColumnIndex(stage, toCard),
+    });
+  }
+
+  const lanes = assignLanes(layouts);
+  const sortedLayouts = [...layouts].sort((a, b) => {
+    const aSelected =
+      state.selectedCourseId === a.edge.from_course_id ||
+      state.selectedCourseId === a.edge.to_course_id;
+    const bSelected =
+      state.selectedCourseId === b.edge.from_course_id ||
+      state.selectedCourseId === b.edge.to_course_id;
+    if (aSelected !== bSelected) return aSelected ? 1 : -1;
+    if (a.edge.satisfied !== b.edge.satisfied) return a.edge.satisfied ? -1 : 1;
+    return 0;
+  });
+
+  for (const layout of sortedLayouts) {
+    const { edge, fromRect, toRect, fromCol, toCol } = layout;
+    const anchors = computeAnchors(fromRect, toRect, fromCol, toCol);
+    const lane = lanes.get(layout) ?? 0;
 
     const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
-    path.setAttribute("d", curvePath(fromX, fromY, toX, toY));
+    path.setAttribute("d", linkPath(anchors.from, anchors.to, lane));
     path.setAttribute("fill", "none");
-    path.setAttribute("stroke-width", "2");
+    path.setAttribute("stroke-linecap", "round");
+    path.setAttribute("stroke-linejoin", "round");
+    path.setAttribute("vector-effect", "non-scaling-stroke");
 
     const selected =
       state.selectedCourseId === edge.from_course_id ||
       state.selectedCourseId === edge.to_course_id;
 
     if (selected) {
-      path.setAttribute("stroke", "#c41230");
+      path.setAttribute("stroke", "#ff6b7a");
+      path.setAttribute("stroke-width", "2.5");
       path.setAttribute("marker-end", "url(#arrow-highlight)");
       path.setAttribute("opacity", "1");
-    } else if (edge.satisfied) {
-      path.setAttribute("stroke", "#9ca3af");
-      path.setAttribute("marker-end", "url(#arrow-ok)");
-      path.setAttribute("opacity", "0.55");
-    } else {
-      path.setAttribute("stroke", "#c41230");
+    } else if (!edge.satisfied) {
+      path.setAttribute("stroke", "#e85d6f");
+      path.setAttribute("stroke-width", "2");
       path.setAttribute("marker-end", "url(#arrow-bad)");
-      path.setAttribute("opacity", "0.85");
+      path.setAttribute("opacity", "0.95");
+      if (fromCol > toCol) {
+        path.setAttribute("stroke-dasharray", "6 4");
+      }
+    } else {
+      path.setAttribute("stroke", "#9ca3af");
+      path.setAttribute("stroke-width", "1.75");
+      path.setAttribute("marker-end", "url(#arrow-ok)");
+      path.setAttribute("opacity", "0.7");
     }
 
     path.setAttribute("data-from", edge.from);
@@ -385,7 +533,7 @@ async function loadGraph(state: EditorState): Promise<void> {
     };
     cachePlanGraphSnapshot(state.graph);
     updateDependencySummary(state);
-    setStatus("Drag courses by the handle · click a card to highlight prerequisites");
+    setStatus("Drag courses by the handle · red arrows show ordering issues · click a course for its prereqs");
     drawDependencies(state);
   } catch (error) {
     setStatus(

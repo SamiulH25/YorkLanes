@@ -122,11 +122,11 @@ SUPABASE_KEY=<local-anon-key-from-supabase-start-output>
 Use the direct Postgres connection string for Express + `pg`:
 
 ```
-# Hosted (Project Settings > Database > Connection string > URI)
-DATABASE_URL=postgresql://postgres.[ref]:[password]@aws-0-[region].pooler.supabase.com:6543/postgres
+# Hosted (Project Settings > Database > Connect > Session pooler > URI) — preferred
+SUPABASE_DB_URL=postgresql://postgres.[ref]:[password]@aws-1-ca-central-1.pooler.supabase.com:5432/postgres
 
-# Local Supabase
-DATABASE_URL=postgresql://postgres:postgres@localhost:54322/postgres
+# Alternate name (also supported)
+DATABASE_URL=postgresql://postgres.[ref]:[password]@aws-0-[region].pooler.supabase.com:6543/postgres
 ```
 
 For server-side writes that bypass RLS, use the service role key only in the API, never in the frontend.
@@ -147,6 +147,13 @@ For server-side writes that bypass RLS, use the service role key only in the API
 | `20250619000001_todos_quickstart.sql` | Supabase quickstart `todos` table |
 | `20250619000002_yorklanes_core_schema.sql` | Users, programmes, courses |
 | `20250619000003_yorklanes_rls.sql` | Row Level Security policies |
+| `20250619190000_degree_plans.sql` | Degree plan tables |
+| `20250619200000_fix_degree_plans_rls.sql` | Dev-friendly plan RLS |
+| `20250619210000_plan_course_stubs.sql` | Stub entries for elective sections |
+| `20250619220000_plan_course_completed.sql` | Course completion flag |
+| `20250619230000_add_plan_course_completed.sql` | Re-apply completion column if drift |
+
+Full schema reference: [`docs/database.md`](../docs/database.md).
 
 ## Useful commands
 

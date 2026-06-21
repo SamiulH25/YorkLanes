@@ -1,6 +1,6 @@
 # API Routes
 
-This folder holds Express routers. Only dashboard scaffolding exists today.
+Express routers mounted from `src/index.ts`. Handlers should stay thin; put logic in `src/services/`.
 
 ## Existing routes
 
@@ -8,16 +8,25 @@ This folder holds Express routers. Only dashboard scaffolding exists today.
 |------|------|---------|
 | `health.ts` | `GET /health` | Service health check |
 | `dashboard.ts` | `GET /api/dashboard/summary` | Dashboard widget data |
+| `plans.ts` | `/api/plans/*` | Degree plan import, CRUD, graph, layout — see [`docs/features/degree-plan.md`](../../../docs/features/degree-plan.md) |
 
-## Add new route files here
+### Plans endpoints (summary)
 
-Create one router per feature and mount it in `src/index.ts`.
+| Method | Path |
+|--------|------|
+| `GET` | `/api/plans/faculties` |
+| `POST` | `/api/plans/import` |
+| `GET` | `/api/plans/:planId` |
+| `GET` | `/api/plans/:planId/graph` |
+| `PATCH` | `/api/plans/:planId/layout` |
+| `PATCH` | `/api/plans/:planId/courses/:courseId` |
+
+## Planned routes
 
 | Feature | Owner | Suggested file | Mount path |
 |---------|-------|----------------|------------|
 | Google OAuth | All (foundation) | `auth.ts` | `/auth` |
 | Course Explorer | Jericho | `courses.ts` | `/api/courses` |
-| Degree Plan Editor | Samiul | `plans.ts` | `/api/plans` |
 | Schedule Builder | Nabeela | `schedules.ts` | `/api/schedules` |
 | Progress Tracker | Thor | `progress.ts` | `/api/progress` |
 | Finance Module | Taziz | `finance.ts` | `/api/finance` |
@@ -44,3 +53,5 @@ Then in `src/index.ts`:
 import { coursesRouter } from "./routes/courses.js";
 app.use("/api/courses", coursesRouter);
 ```
+
+Full architecture: [`docs/architecture.md`](../../../docs/architecture.md).

@@ -4,7 +4,9 @@ York University student dashboard designed to help students navigate their chaot
 
 YorkLanes replaces the fragmented York student workflow (degree checklists, course catalogue, Visual Schedule Builder, spreadsheets, generic calendars) with one web dashboard for degree planning, scheduling, progress tracking, finances, and assignments.
 
-**EECS4314 Group 7** This repo contains **dashboard scaffolding only**. Individual features are stubbed with clear expansion points for each team member.
+**EECS4314 Group 7** — monorepo with a York-themed dashboard, **degree plan editor** (checklist import + prerequisite graph), and stub pages for upcoming features.
+
+**Developer docs:** [`docs/README.md`](docs/README.md) — architecture, setup, database, deployment, and feature deep-dives.
 
 **Repository:** https://github.com/SamiulH25/YorkLanes
 
@@ -25,10 +27,12 @@ YorkLanes replaces the fragmented York student workflow (degree checklists, cour
 - York U themed dashboard with **dark mode** toggle (persists in localStorage)
 - Sidebar layout, welcome header, and bento-style widget grid
 - Placeholder widgets: degree progress, deadlines, student budget, feature tools
+- **Degree plan editor** — upload faculty checklist (PDF/DOCX), term layout, drag-and-drop, prerequisite/co-requisite lines, completion tracking
 - Login and onboarding page shells (OAuth not wired yet)
-- Express API with health check and dashboard summary endpoint
-- Supabase migrations for core schema (`users`, `programmes`, `courses`, etc.)
-- Expansion READMEs and `EXPAND HERE` comments throughout the codebase
+- Express API with health check, dashboard summary, and plans routes
+- Python checklist parser and course scraper services
+- Supabase migrations for core schema, degree plans, and course catalogue
+- Expansion READMEs, [`docs/`](docs/README.md), and `EXPAND HERE` comments throughout the codebase
 
 ## What is NOT built (by design)
 
@@ -36,7 +40,7 @@ YorkLanes replaces the fragmented York student workflow (degree checklists, cour
 |---------|-------|------------|
 | Google OAuth | Foundation | `apps/api/src/middleware/auth.ts` |
 | Course Explorer | Jericho | `apps/web/src/pages/courses/`, `apps/api/src/routes/courses.ts` |
-| Degree Plan Editor | Samiul | `apps/web/src/pages/plan/`, `apps/api/src/routes/plans.ts` |
+| Degree Plan Editor | Samiul | **Built** — see [`docs/features/degree-plan.md`](docs/features/degree-plan.md) |
 | Schedule Builder | Nabeela | `apps/web/src/pages/schedule/`, `apps/api/src/routes/schedules.ts` |
 | Progress Tracker | Thor | `apps/web/src/pages/progress/`, `apps/api/src/routes/progress.ts` |
 | Finance Module | Taziz | `apps/web/src/pages/finance/`, `apps/api/src/routes/finance.ts` |
@@ -48,12 +52,15 @@ YorkLanes replaces the fragmented York student workflow (degree checklists, cour
 ```
 YorkLanes/
 ├── apps/
-│   ├── web/              Astro frontend (dashboard UI, Supabase JS client)
+│   ├── web/              Astro frontend (dashboard UI, plan editor)
 │   └── api/              Express REST API (direct Postgres via pg)
+├── docs/                 Developer documentation (start at docs/README.md)
+├── services/
+│   ├── checklist-parser/ Python degree checklist parser
+│   └── scraper/          Python course catalogue scraper
 ├── supabase/
 │   ├── migrations/       Schema source of truth (pushed to hosted Supabase)
 │   └── seed.sql          Dev seed data
-├── services/scraper/     Python scraper placeholder (future)
 ├── package.json          npm workspaces root
 └── .env.example
 ```
@@ -90,8 +97,10 @@ SUPABASE_KEY=<publishable-or-anon-key>
 Set **`apps/api/.env`**:
 
 ```
-DATABASE_URL=<Postgres connection string from Supabase Dashboard > Database > Connect>
+SUPABASE_DB_URL=<Postgres connection string from Supabase Dashboard > Database > Connect>
 ```
+
+(`DATABASE_URL` is also supported; `SUPABASE_DB_URL` is preferred.)
 
 Get credentials from the [Supabase project dashboard](https://supabase.com/dashboard/project/edrbocogcqmqalexgajq). Share keys with teammates over a secure channel. Never commit `.env` or `.env.local`.
 
@@ -130,7 +139,7 @@ Use the **moon/sun button** in the dashboard header to toggle dark mode.
 | App part | How it connects |
 |----------|-----------------|
 | `apps/web/src/db/supabase.js` | Supabase JS client (REST + RLS) |
-| `apps/api/src/db/index.ts` | `pg` pool via `DATABASE_URL` (direct SQL) |
+| `apps/api/src/db/index.ts` | `pg` pool via `SUPABASE_DB_URL` / `DATABASE_URL` (direct SQL) |
 | `supabase/migrations/` | Versioned schema pushed to hosted Postgres |
 
 Hosted Supabase **replaces** the need to run local Postgres or `docker compose`. Local Supabase (`npm run supabase:start`) and `docker-compose.yml` exist only as optional offline alternatives.
@@ -146,9 +155,11 @@ Hosted Supabase **replaces** the need to run local Postgres or `docker compose`.
 
 See also:
 
+- **[`docs/README.md`](docs/README.md)** — full developer documentation
 - `supabase/README.md`
 - `apps/api/src/routes/README.md`
 - `apps/web/FEATURE_PAGES.md`
+- `docs/features/degree-plan.md`
 - `apps/web/src/components/dashboard/README.md`
 
 ## Scripts

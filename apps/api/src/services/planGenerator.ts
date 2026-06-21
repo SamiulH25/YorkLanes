@@ -1,4 +1,5 @@
 import type { Pool } from "pg";
+import { planCourseSelectSql, planCoursesHaveCompletedColumn } from "../db/planCourseSchema.js";
 import type { ParsedChecklist } from "./checklistParser.js";
 
 export interface PlanCourseRow {
@@ -297,9 +298,11 @@ export async function getPlanById(pool: Pool, planId: string): Promise<DegreePla
 
   const terms: PlanTermRow[] = [];
 
+  const includeCompleted = await planCoursesHaveCompletedColumn(pool);
+
   for (const term of termsResult.rows) {
     const coursesResult = await pool.query<PlanCourseRow>(
-      `SELECT id, course_code, credits, title, checklist_year, sort_order, entry_kind, section_label, completed
+      `SELECT ${planCourseSelectSql(includeCompleted)}
        FROM plan_courses WHERE term_id = $1 ORDER BY sort_order`,
       [term.id],
     );

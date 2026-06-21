@@ -26,7 +26,16 @@ export async function fetchFaculties(): Promise<FacultyChecklistInfo[]> {
 export async function fetchPlan(planId: string): Promise<DegreePlan> {
   const response = await fetch(`${API_URL}/api/plans/${planId}`);
   if (!response.ok) {
-    throw new Error("Failed to load degree plan");
+    let message = "Failed to load degree plan";
+    try {
+      const payload = (await response.json()) as { error?: string };
+      if (payload.error) {
+        message = payload.error;
+      }
+    } catch {
+      // ignore non-JSON error bodies
+    }
+    throw new Error(message);
   }
   return response.json() as Promise<DegreePlan>;
 }

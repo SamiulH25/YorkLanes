@@ -72,15 +72,15 @@
   }
 
   .plan-deps-layer {
-    @apply pointer-events-none absolute left-0 top-0 z-[5] overflow-visible;
+    @apply pointer-events-none absolute left-0 top-0 z-30 overflow-visible;
   }
 
   .plan-editor-columns {
-    @apply relative z-10 flex min-w-max gap-4;
+    @apply relative z-0 flex min-w-max gap-4;
   }
 
   .plan-term-column {
-    @apply surface relative z-10 w-64 shrink-0 rounded-2xl p-4;
+    @apply surface relative z-0 w-64 shrink-0 rounded-2xl p-4;
   }
 
   .plan-course-list {

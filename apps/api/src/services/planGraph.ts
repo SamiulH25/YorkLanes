@@ -319,6 +319,8 @@ export async function setPlanCourseCompletion(
   courseId: string,
   completed: boolean,
 ): Promise<DegreePlanRow | null> {
+  const { planCoursesHaveCompletedColumn } = await import("../db/planCourseSchema.js");
+
   const owner = await pool.query<{ plan_id: string }>(
     `SELECT pt.plan_id
      FROM plan_courses pc
@@ -331,7 +333,9 @@ export async function setPlanCourseCompletion(
     return null;
   }
 
-  await pool.query(`UPDATE plan_courses SET completed = $2 WHERE id = $1`, [courseId, completed]);
+  if (await planCoursesHaveCompletedColumn(pool)) {
+    await pool.query(`UPDATE plan_courses SET completed = $2 WHERE id = $1`, [courseId, completed]);
+  }
   await pool.query(`UPDATE degree_plans SET updated_at = NOW() WHERE id = $1`, [planId]);
 
   const { getPlanById } = await import("./planGenerator.js");

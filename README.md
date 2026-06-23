@@ -17,9 +17,9 @@ YorkLanes replaces the fragmented York student workflow (degree checklists, cour
 | Frontend | Astro.js, TypeScript, Tailwind CSS |
 | Backend | Node.js, Express.js, TypeScript |
 | Database | PostgreSQL via **hosted Supabase** |
-| Client DB access | `@supabase/supabase-js` (web app) |
 | Auth (planned) | Google OAuth 2.0 (Passport.js or Firebase Auth) |
-| Scraper (future) | Python (BeautifulSoup / Scrapy) |
+| Checklist parser | Python (`services/checklist-parser/`) |
+| Course scraper | Python (`services/scraper/`) |
 | Deploy (planned) | Vercel (web), Render (API) |
 
 ## What is built today
@@ -124,7 +124,7 @@ Use the **moon/sun button** in the dashboard header to toggle dark mode.
 
 | App part | How it connects |
 |----------|-----------------|
-| `apps/web/src/db/supabase.js` | Supabase JS client (REST + RLS) |
+| `apps/web` | `fetch` to Express via `PUBLIC_API_URL` |
 | `apps/api/src/db/index.ts` | `pg` pool via `SUPABASE_DB_URL` / `DATABASE_URL` (direct SQL) |
 | `supabase/migrations/` | Versioned schema pushed to hosted Postgres |
 

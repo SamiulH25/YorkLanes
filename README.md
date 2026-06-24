@@ -1,185 +1,126 @@
-# YorkLanes (YorkPath)
+# YorkLanes
 
-York University student dashboard designed to help students navigate their chaotic student lives.
+Student dashboard for York University — EECS4314, Group 7.
 
-YorkLanes replaces the fragmented York student workflow (degree checklists, course catalogue, Visual Schedule Builder, spreadsheets, generic calendars) with one web dashboard for degree planning, scheduling, progress tracking, finances, and assignments.
+Repo: [github.com/SamiulH25/YorkLanes](https://github.com/SamiulH25/YorkLanes)
 
-**EECS4314 Group 7** — monorepo with a York-themed dashboard, **degree plan editor** (checklist import + prerequisite graph), and stub pages for upcoming features.
+York students juggle degree checklists, the course catalogue, VSB, spreadsheets, and random calendars. YorkLanes pulls the useful parts into one place. Right now the **degree plan editor** is the main working feature: upload your faculty checklist (PDF or DOCX), get a term-by-term layout, drag courses around, and see prerequisite links.
 
-**Developer docs:** [`docs/README.md`](docs/README.md) · **Onboarding:** [`CONTRIBUTING.md`](CONTRIBUTING.md)
+Everything else on the dashboard is scaffolded for teammates to build.
 
-**Repository:** https://github.com/SamiulH25/YorkLanes
+**New to the repo?** Read [CONTRIBUTING.md](CONTRIBUTING.md) first.
 
-## Tech stack
+**Going deeper?** [docs/README.md](docs/README.md)
 
-| Layer | Technology |
-|-------|------------|
-| Frontend | Astro.js, TypeScript, Tailwind CSS |
-| Backend | Node.js, Express.js, TypeScript |
-| Database | PostgreSQL via **hosted Supabase** |
-| Auth (planned) | Google OAuth 2.0 (Passport.js or Firebase Auth) |
-| Checklist parser | Python (`services/checklist-parser/`) |
-| Course scraper | Python (`services/scraper/`) |
-| Deploy (planned) | Vercel (web), Render (API) |
+---
 
-## What is built today
+## Stack
 
-- York U themed dashboard with **dark mode** toggle (persists in localStorage)
-- Sidebar layout, welcome header, and bento-style widget grid
-- Placeholder widgets: degree progress, deadlines, student budget, feature tools
-- **Degree plan editor** — upload faculty checklist (PDF/DOCX), term layout, drag-and-drop, prerequisite/co-requisite lines, completion tracking
-- Login and onboarding page shells (OAuth not wired yet)
-- Express API with health check, dashboard summary, and plans routes
-- Python checklist parser and course scraper services
-- Supabase migrations for core schema, degree plans, and course catalogue
-- Expansion READMEs, [`docs/`](docs/README.md), and `EXPAND HERE` comments throughout the codebase
+- **Web** — Astro, TypeScript, Tailwind (`apps/web`)
+- **API** — Express, TypeScript, `pg` (`apps/api`)
+- **Database** — Postgres on hosted Supabase (`supabase/migrations/`)
+- **Parser** — Python, for checklist import (`services/checklist-parser/`)
+- **Scraper** — Python, for the course catalogue (`services/scraper/`)
 
-## What is NOT built (by design)
+Auth (Google OAuth) and production deploy are not wired up yet.
 
-| Feature | Owner | Create at |
-|---------|-------|-----------|
-| Google OAuth | Foundation | `apps/api/src/routes/auth.ts` |
-| Course Explorer | Jericho | `apps/web/src/pages/courses/` |
-| Schedule Builder | Nabeela | `apps/web/src/pages/schedule/` |
-| Progress Tracker | Thor | `apps/web/src/pages/progress/` |
-| Finance Module | Taziz | `apps/web/src/pages/finance/` |
-| Assignment Calendar | Sarah | `apps/web/src/pages/assignments/` |
-| Course scraper data | Shared | `services/scraper/README.md` |
+---
 
-Degree plan is **built** — see [`docs/features/degree-plan.md`](docs/features/degree-plan.md).
+## Project status
 
-## Repository layout
+| Area | Status | Owner |
+|------|--------|-------|
+| Degree plan editor | Working | Samiul |
+| Dashboard shell + widgets | Placeholders | Shared |
+| Course explorer | Not started | Jericho |
+| Schedule builder | Not started | Nabeela |
+| Progress tracker | Not started | Thor |
+| Finance | Not started | Taziz |
+| Assignments | Not started | Sarah |
+| Google OAuth | Not started | Foundation |
+
+Plan editor details: [docs/features/degree-plan.md](docs/features/degree-plan.md)
+
+---
+
+## Repo layout
 
 ```
-YorkLanes/
-├── apps/
-│   ├── web/              Astro frontend (dashboard UI, plan editor)
-│   └── api/              Express REST API (direct Postgres via pg)
-├── docs/                 Developer documentation (start at docs/README.md)
-├── services/
-│   ├── checklist-parser/ Python degree checklist parser
-│   └── scraper/          Python course catalogue scraper
-├── supabase/
-│   ├── migrations/       Schema source of truth (pushed to hosted Supabase)
-│   └── seed.sql          Dev seed data
-├── package.json          npm workspaces root
-└── .env.example
+apps/web/          Frontend (pages, components, client scripts)
+apps/api/          REST API and business logic
+services/          Python parser + scraper
+supabase/          SQL migrations
+docs/              Architecture and feature write-ups
+scripts/           Dev helpers (setup, doctor, smoke)
 ```
 
-## Quick start
+---
 
-### Prerequisites
+## Run it locally
 
-- Node.js 20+
-- Python 3.10+ (degree plan checklist import)
-- **`.env` files from the database maintainer** — you do not need Supabase login or dashboard access
-
-The app uses a **shared hosted database** in the cloud. Your local API connects through connection strings in `apps/api/.env`.
-
-### 1. Install dependencies
+You need **Node 20+**, **Python 3.10+** (for checklist import), and env files from whoever maintains the database. You do **not** need a Supabase account or Docker for normal dev.
 
 ```bash
+git clone https://github.com/SamiulH25/YorkLanes.git
+cd YorkLanes
 npm install
 ```
 
-### 2. Configure environment
-
-Ask the **database maintainer** for pre-filled env files, or copy templates:
+Copy env templates and fill in values the maintainer gives you:
 
 ```bash
 cp apps/api/.env.example apps/api/.env
 cp apps/web/.env.example apps/web/.env.local
 ```
 
-Fill in values the maintainer provides. Never commit `.env` or `.env.local`.
-
-### 3. Python parser + verify
+Set up the checklist parser once:
 
 ```bash
 cd services/checklist-parser
 python -m venv .venv
-.venv\Scripts\activate
+.venv\Scripts\activate          # Windows
+# source .venv/bin/activate     # macOS / Linux
 pip install -r requirements.txt
 cd ../..
 npm run setup
-```
-
-### 4. Run development servers
-
-```bash
 npm run dev
 ```
 
-| Service | URL |
-|---------|-----|
-| Frontend | http://localhost:4321 |
-| Dashboard | http://localhost:4321/dashboard |
-| Backend API | http://localhost:3001 |
-| Health check | http://localhost:3001/health |
-| Degree plan | http://localhost:4321/plan/setup |
+Open [localhost:4321/dashboard](http://localhost:4321/dashboard). API health: [localhost:3001/health](http://localhost:3001/health). Try a checklist import at [localhost:4321/plan/setup](http://localhost:4321/plan/setup).
 
-Use the **moon/sun button** in the dashboard header to toggle dark mode.
+With the dev servers running, `npm run doctor` checks that the API can reach the database.
 
-## Database architecture
+---
 
-| App part | How it connects |
-|----------|-----------------|
-| `apps/web` | `fetch` to Express via `PUBLIC_API_URL` |
-| `apps/api/src/db/index.ts` | `pg` pool via `SUPABASE_DB_URL` / `DATABASE_URL` (direct SQL) |
-| `supabase/migrations/` | Versioned schema pushed to hosted Postgres |
+## How data flows
 
-Hosted Supabase **replaces** the need to run local Postgres or `docker compose`. Local Supabase (`npm run supabase:start`) and `docker-compose.yml` exist only as optional offline alternatives.
+The browser calls the Express API (`PUBLIC_API_URL` in `apps/web/.env.local`). The API runs SQL against Postgres (`SUPABASE_DB_URL` in `apps/api/.env`). Schema changes live in `supabase/migrations/` and get applied by the maintainer — not by every developer.
 
-## How to add a new feature
+---
 
-1. **Frontend page:** `apps/web/src/pages/<feature>/index.astro` using `DashboardLayout.astro`
-2. **Nav link:** uncomment the entry in `apps/web/src/layouts/DashboardLayout.astro`
-3. **API route:** `apps/api/src/routes/<feature>.ts`, mount in `apps/api/src/index.ts`
-4. **Database:** add a migration file in `supabase/migrations/` — the **maintainer** runs `npm run supabase:push` after merge
-5. **Dashboard widget:** update `apps/api/src/routes/dashboard.ts` with real summary data
-6. **Types:** keep `apps/web/src/types/` and `apps/api/src/types/` in sync
+## Common commands
 
-See also:
+```bash
+npm run dev          # API + web
+npm run setup        # check env + Python parser
+npm run doctor       # setup + API health (dev must be running)
+npm run check        # typecheck before a PR
+npm run tools        # list all helpers
+```
 
-- **[`CONTRIBUTING.md`](CONTRIBUTING.md)** — onboarding checklist for new developers
-- **[`docs/README.md`](docs/README.md)** — full developer documentation
-- `supabase/README.md`
-- `apps/api/src/routes/README.md`
-- `apps/web/FEATURE_PAGES.md`
-- `docs/features/degree-plan.md`
-- `apps/web/src/components/dashboard/README.md`
+Maintainer-only: `npm run supabase:push`
 
-## Scripts
-
-| Command | Description |
-|---------|-------------|
-| `npm run setup` | Verify env files and Python parser |
-| `npm run doctor` | Setup + API health check |
-| `npm run smoke` | Test API endpoints |
-| `npm run tools` | List dev commands |
-| `npm run check` | Typecheck API + Astro (run before PRs) |
-| `npm run dev` | Run API and web together |
-| `npm run dev:web` | Astro dev server only |
-| `npm run dev:api` | Express dev server only |
-| `npm run build` | Compile API + Astro typecheck |
-| `npm run supabase:push` | Push migrations (**maintainer only**) |
-| `npm run supabase:start` | Optional: local Supabase stack (requires Docker) |
-| `npm run supabase:reset` | Optional: reset local Supabase after `supabase:start` |
+---
 
 ## Team
 
-EECS4314 Group 7:
+Taziz Ahsan · Nabeela Ansari · Sarah Asghar · Samiul Hossain · Thor Laski · Jericho Marc Mendoza
 
-- Taziz Ahsan
-- Nabeela Ansari
-- Sarah Asghar
-- Samiul Hossain
-- Thor Laski
-- Jericho Marc Mendoza
+---
 
-## External references
+## York links
 
-- [York program search / calendars](https://futurestudents.yorku.ca/program-search)
-- [Degree checklists](https://www.yorku.ca/laps/degree-checklist/2025-2026/)
+- [Program search](https://futurestudents.yorku.ca/program-search)
+- [Degree checklists (LA&PS)](https://www.yorku.ca/laps/degree-checklist/2025-2026/)
 - [Course catalogue](https://w2prod.sis.yorku.ca/Apps/WebObjects/cdm)
 - [Visual Schedule Builder](https://registrar.yorku.ca/enrol/guide/vsb)

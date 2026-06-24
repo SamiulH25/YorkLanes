@@ -1,8 +1,6 @@
 # YorkLanes developer documentation
 
-Technical documentation for contributors working on **YorkLanes** (YorkPath): an EECS4314 capstone student dashboard for York University.
-
-**New here?** Start with [`CONTRIBUTING.md`](../CONTRIBUTING.md), then the development guide below.
+Technical notes for the capstone repo. **Start with [CONTRIBUTING.md](../CONTRIBUTING.md)** if you are setting up for the first time.
 
 ## Roles
 

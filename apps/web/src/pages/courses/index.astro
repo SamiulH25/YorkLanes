@@ -1,0 +1,23 @@
+---
+import DashboardLayout from "../../layouts/DashboardLayout.astro";
+
+---
+
+<DashboardLayout title="Degree Plan | YorkLanes" activeNav="courses">
+  <Fragment slot="header">
+    <div class="flex flex-wrap items-start justify-between gap-4">
+      <div>
+        <p class="text-xs font-medium text-york-muted">Course Explorer</p>
+        <h1 class="heading-page">{"Find Course Details"}</h1>
+      </div>
+    </div>
+  </Fragment>
+  
+  <div class="surface mx-auto max-w-lg rounded-2xl p-8 text-center">
+    <p class="text-xs font-medium uppercase tracking-widest text-york-red">Get started</p>
+    <h2 class="mt-2 font-display text-xl font-semibold text-york-black dark:text-white">Search for Courses Codes and Names</h2>
+    <p class="mt-2 text-sm leading-relaxed text-stone-600 dark:text-stone-300">
+      This page will be used to easily locate courses and, for example, learn about their prerequisites.
+    </p>
+  </div>
+</DashboardLayout>

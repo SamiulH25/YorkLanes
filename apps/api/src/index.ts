@@ -10,6 +10,7 @@ import "dotenv/config";
 import cors from "cors";
 import express from "express";
 import { getDatabaseTarget } from "./db/index.js";
+import { coursesRouter } from "./routes/courses.js";
 import { dashboardRouter } from "./routes/dashboard.js";
 import { healthRouter } from "./routes/health.js";
 import { plansRouter } from "./routes/plans.js";
@@ -21,6 +22,7 @@ app.use(cors({ origin: process.env.WEB_ORIGIN ?? "http://localhost:4321", creden
 app.use(express.json());
 
 app.use("/health", healthRouter);
+app.use("/api/courses", coursesRouter);
 app.use("/api/dashboard", dashboardRouter);
 app.use("/api/plans", plansRouter);
 

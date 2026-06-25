@@ -21,6 +21,7 @@ This is the onboarding guide for Group 7. The [README](README.md) has the projec
 4. Run `npm run setup` — it checks your env files and Python install.
 5. Run `npm run dev` and open http://localhost:4321/dashboard.
 6. In another terminal, run `npm run doctor` to confirm the API talks to the database.
+7. Pick your feature from [docs/tasks/README.md](docs/tasks/README.md) and open the linked page in the browser.
 
 If setup fails, read the error message first, then ask the maintainer. Do not run `supabase push` unless you are the maintainer.
 
@@ -54,7 +55,7 @@ If you added a migration file under `supabase/migrations/`, say so in the PR and
 
 ## Adding a feature
 
-Pick your folder from [apps/web/FEATURE_PAGES.md](apps/web/FEATURE_PAGES.md), then:
+Your task guide is in `docs/tasks/` — start there. General checklist:
 
 1. Page at `apps/web/src/pages/<feature>/index.astro` — use `DashboardLayout.astro`
 2. Route at `apps/api/src/routes/<feature>.ts` — mount it in `apps/api/src/index.ts`

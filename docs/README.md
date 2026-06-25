@@ -21,6 +21,7 @@ You do **not** need a Supabase login or dashboard access to develop locally.
 | [Database](./database.md) | Postgres schema reference |
 | [Deployment](./deployment.md) | Production hosting, env configuration, and release checklist |
 | [Degree plan feature](./features/degree-plan.md) | Checklist import, parser, plan editor, prerequisite graph (most complete feature today) |
+| [Feature tasks](./tasks/README.md) | First PR scope per teammate — start here after setup |
 
 ## Service-specific READMEs
 

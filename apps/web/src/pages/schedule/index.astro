@@ -1,0 +1,39 @@
+---
+/** Schedule builder — Nabeela. Task guide: docs/tasks/schedule.md */
+import DashboardLayout from "../../layouts/DashboardLayout.astro";
+import FeatureStarter from "../../components/FeatureStarter.astro";
+import { fetchSchedules } from "../../lib/schedules";
+
+export const prerender = false;
+
+let apiMessage: string | undefined;
+let loadError: string | null = null;
+
+try {
+  const data = await fetchSchedules();
+  apiMessage = data.message;
+} catch (error) {
+  loadError = error instanceof Error ? error.message : "API unavailable";
+}
+---
+
+<DashboardLayout title="Schedule | YorkLanes" activeNav="schedule">
+  <Fragment slot="header">
+    <h1 class="heading-page">Schedule builder</h1>
+  </Fragment>
+
+  {loadError && <p class="mb-4 text-sm text-york-red">{loadError}</p>}
+
+  <FeatureStarter
+    featureName="Schedule builder"
+    owner="Nabeela"
+    taskDoc="docs/tasks/schedule.md"
+    apiHint="Build a weekly grid from courses in your degree plan. Start with saving one time block via POST."
+    apiMessage={apiMessage}
+    steps={[
+      "Add schedules table migration",
+      "POST /api/schedules to save an entry",
+      "Show entries in a week view",
+    ]}
+  />
+</DashboardLayout>

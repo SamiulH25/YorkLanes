@@ -1,7 +1,23 @@
 ---
+/** Auth UI — Foundation. Task guide: docs/tasks/auth.md */
 import BaseLayout from "../layouts/BaseLayout.astro";
 import YorkMark from "../components/YorkMark.astro";
 import ThemeToggle from "../components/ThemeToggle.astro";
+
+export const prerender = false;
+
+const apiUrl = import.meta.env.PUBLIC_API_URL ?? "http://localhost:3001";
+let authNote = "OAuth not wired yet. Button goes to dashboard for now.";
+
+try {
+  const res = await fetch(`${apiUrl}/api/auth/status`);
+  if (res.ok) {
+    const data = (await res.json()) as { message?: string };
+    if (data.message) authNote = data.message;
+  }
+} catch {
+  authNote = "Start npm run dev to check auth status from the API.";
+}
 ---
 
 <BaseLayout title="Sign In | YorkLanes">
@@ -36,7 +52,10 @@ import ThemeToggle from "../components/ThemeToggle.astro";
           Continue with Google
         </a>
 
-        <p class="mt-4 text-center text-xs text-york-muted">OAuth not wired yet. Button goes to dashboard for now.</p>
+        <p class="mt-4 text-center text-xs text-york-muted">{authNote}</p>
+        <p class="mt-2 text-center text-xs text-york-muted">
+          Implementation guide: <code class="rounded bg-york-stone/30 px-1 dark:bg-white/10">docs/tasks/auth.md</code>
+        </p>
       </div>
 
       <p class="relative mt-8 text-center text-xs text-york-muted">

@@ -1,0 +1,45 @@
+---
+/**
+ * Shared layout for feature pages that are still being built.
+ * Pass taskDoc as a repo-relative path shown to the owner.
+ */
+interface Props {
+  featureName: string;
+  owner: string;
+  taskDoc: string;
+  apiHint: string;
+  apiMessage?: string;
+  steps: string[];
+}
+
+const { featureName, owner, taskDoc, apiHint, apiMessage, steps } = Astro.props;
+---
+
+<div class="mx-auto max-w-2xl">
+  <div class="surface rounded-2xl p-8">
+    <p class="text-xs font-medium uppercase tracking-widest text-york-red">{featureName}</p>
+    <p class="mt-1 text-sm text-york-muted">Owner: {owner}</p>
+
+    {
+      apiMessage && (
+        <p class="mt-4 rounded-lg border border-york-stone/50 bg-york-cream/50 px-3 py-2 text-sm dark:border-white/10 dark:bg-york-navy/40">
+          API: {apiMessage}
+        </p>
+      )
+    }
+
+    <p class="mt-4 text-sm leading-relaxed text-stone-600 dark:text-stone-300">
+      {apiHint}
+    </p>
+
+    <p class="mt-4 text-sm">
+      <span class="text-york-muted">Task guide:</span>
+      <code class="ml-1 rounded bg-york-stone/30 px-1.5 py-0.5 text-xs dark:bg-white/10">{taskDoc}</code>
+    </p>
+
+    <p class="mt-6 text-sm font-medium text-york-black dark:text-white">Suggested first PR</p>
+    <ol class="mt-2 list-decimal space-y-2 pl-5 text-sm text-stone-600 dark:text-stone-300">
+      {steps.map((step) => <li>{step}</li>)}
+    </ol>
+  </div>
+</div>

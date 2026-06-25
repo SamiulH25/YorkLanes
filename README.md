@@ -32,12 +32,12 @@ Auth (Google OAuth) and production deploy are not wired up yet.
 |------|--------|-------|
 | Degree plan editor | Working | Samiul |
 | Dashboard shell + widgets | Placeholders | Shared |
-| Course explorer | Not started | Jericho |
-| Schedule builder | Not started | Nabeela |
-| Progress tracker | Not started | Thor |
-| Finance | Not started | Taziz |
-| Assignments | Not started | Sarah |
-| Google OAuth | Not started | Foundation |
+| Course explorer | Stub — [docs/tasks/courses.md](docs/tasks/courses.md) | Jericho |
+| Schedule builder | Stub — [docs/tasks/schedule.md](docs/tasks/schedule.md) | Nabeela |
+| Progress tracker | Stub — [docs/tasks/progress.md](docs/tasks/progress.md) | Thor |
+| Finance | Stub — [docs/tasks/finance.md](docs/tasks/finance.md) | Taziz |
+| Assignments | Stub — [docs/tasks/assignments.md](docs/tasks/assignments.md) | Sarah |
+| Google OAuth | Stub — [docs/tasks/auth.md](docs/tasks/auth.md) | Foundation |
 
 Plan editor details: [docs/features/degree-plan.md](docs/features/degree-plan.md)
 

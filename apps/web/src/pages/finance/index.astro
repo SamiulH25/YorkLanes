@@ -1,0 +1,39 @@
+---
+/** Finance module — Taziz. Task guide: docs/tasks/finance.md */
+import DashboardLayout from "../../layouts/DashboardLayout.astro";
+import FeatureStarter from "../../components/FeatureStarter.astro";
+import { fetchFinance } from "../../lib/finance";
+
+export const prerender = false;
+
+let apiMessage: string | undefined;
+let loadError: string | null = null;
+
+try {
+  const data = await fetchFinance();
+  apiMessage = data.message;
+} catch (error) {
+  loadError = error instanceof Error ? error.message : "API unavailable";
+}
+---
+
+<DashboardLayout title="Finance | YorkLanes" activeNav="finance">
+  <Fragment slot="header">
+    <h1 class="heading-page">Student finances</h1>
+  </Fragment>
+
+  {loadError && <p class="mb-4 text-sm text-york-red">{loadError}</p>}
+
+  <FeatureStarter
+    featureName="Finance"
+    owner="Taziz"
+    taskDoc="docs/tasks/finance.md"
+    apiHint="Track tuition, OSAP, and day-to-day spending. Store amounts in cents."
+    apiMessage={apiMessage}
+    steps={[
+      "Migration for finance_entries",
+      "POST an expense, GET list + total",
+      "Wire FinanceWidget on the dashboard",
+    ]}
+  />
+</DashboardLayout>

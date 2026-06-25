@@ -1,0 +1,46 @@
+---
+/**
+ * Course explorer — Jericho
+ * Task guide: docs/tasks/courses.md
+ */
+import DashboardLayout from "../../layouts/DashboardLayout.astro";
+import FeatureStarter from "../../components/FeatureStarter.astro";
+import { fetchCourses } from "../../lib/courses";
+
+export const prerender = false;
+
+let apiMessage: string | undefined;
+let loadError: string | null = null;
+
+try {
+  const data = await fetchCourses();
+  apiMessage = data.message;
+} catch (error) {
+  loadError = error instanceof Error ? error.message : "API unavailable";
+}
+---
+
+<DashboardLayout title="Course Explorer | YorkLanes" activeNav="courses">
+  <Fragment slot="header">
+    <h1 class="heading-page">Course Explorer</h1>
+  </Fragment>
+
+  {
+    loadError && (
+      <p class="mb-4 text-sm text-york-red">Could not reach API: {loadError}. Run npm run dev.</p>
+    )
+  }
+
+  <FeatureStarter
+    featureName="Course explorer"
+    owner="Jericho"
+    taskDoc="docs/tasks/courses.md"
+    apiHint="Search York catalogue courses and show prerequisites. Data comes from the courses table (populated by services/scraper)."
+    apiMessage={apiMessage}
+    steps={[
+      "Query courses in apps/api/src/routes/courses.ts",
+      "Render the list on this page",
+      "Add search by department or code",
+    ]}
+  />
+</DashboardLayout>

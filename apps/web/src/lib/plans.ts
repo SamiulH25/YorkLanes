@@ -3,8 +3,9 @@
  */
 import type { DegreePlan, FacultyChecklistInfo } from "../types/plan";
 import type { PlanGraphSnapshot } from "./plan-store";
+import { getApiUrl } from "./api-url";
 
-const API_URL = import.meta.env.PUBLIC_API_URL ?? "http://localhost:3001";
+const API_URL = getApiUrl();
 
 export interface PlanLayoutMove {
   courseId: string;
@@ -47,6 +48,7 @@ export async function importChecklist(formData: FormData): Promise<{ plan: Degre
   const response = await fetch(`${API_URL}/api/plans/import`, {
     method: "POST",
     body: formData,
+    credentials: "include",
   });
 
   const payload = await response.json();

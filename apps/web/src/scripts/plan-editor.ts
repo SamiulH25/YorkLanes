@@ -226,10 +226,10 @@ function updateDependencySummary(state: EditorState): void {
     parts.push(`${coreqIssues} co-req scheduling issue${coreqIssues === 1 ? "" : "s"}`);
   }
   if (parts.length === 0) {
-    el.textContent = `${total} catalog link${total === 1 ? "" : "s"} — click a course to inspect`;
+    el.textContent = `${total} catalog link${total === 1 ? "" : "s"}. Click a course to inspect.`;
     return;
   }
-  el.textContent = `${parts.join(" · ")} — click a course for details`;
+  el.textContent = `${parts.join(" · ")}. Click a course for details.`;
 }
 
 function updateSelectionLegend(state: EditorState): void {

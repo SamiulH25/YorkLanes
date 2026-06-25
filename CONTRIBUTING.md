@@ -19,8 +19,9 @@ This is the onboarding guide for Group 7. The [README](README.md) has the projec
    ```
 
 4. Run `npm run setup` — it checks your env files and Python install.
-5. Run `npm run dev` and open http://localhost:4321/dashboard.
+5. Run `npm run start:dev` and open http://localhost:4321/dashboard.
 6. In another terminal, run `npm run doctor` to confirm the API talks to the database.
+7. Pick your feature from [docs/tasks/README.md](docs/tasks/README.md) and open the linked page in the browser.
 
 If setup fails, read the error message first, then ask the maintainer. Do not run `supabase push` unless you are the maintainer.
 
@@ -54,7 +55,7 @@ If you added a migration file under `supabase/migrations/`, say so in the PR and
 
 ## Adding a feature
 
-Pick your folder from [apps/web/FEATURE_PAGES.md](apps/web/FEATURE_PAGES.md), then:
+Your task guide is in `docs/tasks/` — start there. General checklist:
 
 1. Page at `apps/web/src/pages/<feature>/index.astro` — use `DashboardLayout.astro`
 2. Route at `apps/api/src/routes/<feature>.ts` — mount it in `apps/api/src/index.ts`
@@ -71,8 +72,8 @@ Use the degree plan as a reference: [docs/features/degree-plan.md](docs/features
 
 | File | What goes in it |
 |------|-----------------|
-| `apps/api/.env` | `SUPABASE_DB_URL`, `WEB_ORIGIN`, `API_PORT` |
-| `apps/web/.env.local` | `PUBLIC_API_URL` (usually `http://localhost:3001`) |
+| `apps/api/.env` | `SUPABASE_DB_URL`, `WEB_ORIGIN`, `API_PORT`, OAuth vars (see `docs/tasks/auth.md`) |
+| `apps/web/.env.local` | `PUBLIC_API_URL` — use `http://localhost:4321` in dev (proxies `/api` to the API) |
 
 Templates: `apps/api/.env.example`, `apps/web/.env.example`
 
@@ -84,7 +85,9 @@ Never commit real env files.
 
 **Every day**
 
-- `npm run dev` — start API (3001) and web (4321)
+- `npm run start:dev` — start API (3001) and web (4321) with hot reload
+- `npm run start:prod` — build both apps and run in production mode locally
+- `npm run dev` — alias for `start:dev`
 
 **After pulling or changing env**
 
@@ -97,7 +100,7 @@ Never commit real env files.
 
 **When debugging the API**
 
-- `npm run smoke` — hits `/health`, `/api/plans/faculties`, `/api/dashboard/summary`
+- `npm run smoke` — hits `/health`, `/api/auth/status`, `/api/plans/faculties`, `/api/dashboard/summary`
 
 **Parser work**
 
@@ -125,8 +128,9 @@ More detail: [scripts/README.md](scripts/README.md)
 
 ## Docs worth bookmarking
 
+- **[docs/DEVELOPER_GUIDE.md](docs/DEVELOPER_GUIDE.md)** — full map of folders, pages, routes, and scripts
 - [docs/architecture.md](docs/architecture.md) — how the pieces connect
-- [docs/development.md](docs/development.md) — conventions and file patterns
+- [docs/development.md](docs/development.md) — short setup reference
 - [apps/api/src/routes/README.md](apps/api/src/routes/README.md) — API route layout
 
 ---

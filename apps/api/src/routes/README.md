@@ -1,57 +1,38 @@
 # API Routes
 
-Express routers mounted from `src/index.ts`. Handlers should stay thin; put logic in `src/services/`.
+One router per feature in this folder. Mount in `src/index.ts`.
 
-## Existing routes
+## Live routes
 
-| File | Path | Purpose |
-|------|------|---------|
-| `health.ts` | `GET /health` | Service health check |
-| `dashboard.ts` | `GET /api/dashboard/summary` | Dashboard widget data |
-| `plans.ts` | `/api/plans/*` | Degree plan import, CRUD, graph, layout — see [`docs/features/degree-plan.md`](../../../docs/features/degree-plan.md) |
+| File | Path | Owner |
+|------|------|-------|
+| `health.ts` | `GET /health` | Shared |
+| `auth.ts` | `GET /api/auth/status` | Foundation — [docs/tasks/auth.md](../../../docs/tasks/auth.md) |
+| `dashboard.ts` | `GET /api/dashboard/summary` | Shared |
+| `plans.ts` | `/api/plans/*` | Samiul — [docs/features/degree-plan.md](../../../docs/features/degree-plan.md) |
+| `courses.ts` | `GET /api/courses` | Jericho — [docs/tasks/courses.md](../../../docs/tasks/courses.md) |
+| `schedules.ts` | `GET /api/schedules` | Nabeela — [docs/tasks/schedule.md](../../../docs/tasks/schedule.md) |
+| `progress.ts` | `GET /api/progress` | Thor — [docs/tasks/progress.md](../../../docs/tasks/progress.md) |
+| `finance.ts` | `GET /api/finance` | Taziz — [docs/tasks/finance.md](../../../docs/tasks/finance.md) |
+| `assignments.ts` | `GET /api/assignments` | Sarah — [docs/tasks/assignments.md](../../../docs/tasks/assignments.md) |
 
-### Plans endpoints (summary)
+Stub routes return JSON with `status: "stub"` and `nextSteps` until the owner implements real logic.
 
-| Method | Path |
-|--------|------|
-| `GET` | `/api/plans/faculties` |
-| `POST` | `/api/plans/import` |
-| `GET` | `/api/plans/:planId` |
-| `GET` | `/api/plans/:planId/graph` |
-| `PATCH` | `/api/plans/:planId/layout` |
-| `PATCH` | `/api/plans/:planId/courses/:courseId` |
-
-## Planned routes
-
-| Feature | Owner | Suggested file | Mount path |
-|---------|-------|----------------|------------|
-| Google OAuth | All (foundation) | `auth.ts` | `/auth` |
-| Course Explorer | Jericho | `courses.ts` | `/api/courses` |
-| Schedule Builder | Nabeela | `schedules.ts` | `/api/schedules` |
-| Progress Tracker | Thor | `progress.ts` | `/api/progress` |
-| Finance Module | Taziz | `finance.ts` | `/api/finance` |
-| Assignment Calendar | Sarah | `assignments.ts` | `/api/assignments` |
-
-## Pattern
+## Add a route
 
 ```ts
 import { Router } from "express";
-import { requireAuth } from "../middleware/auth.js";
 
-export const coursesRouter = Router();
-coursesRouter.use(requireAuth);
-
-coursesRouter.get("/", async (_req, res) => {
-  // query PostgreSQL via getPool() from ../db/index.js
-  res.json([]);
+export const myRouter = Router();
+myRouter.get("/", async (_req, res) => {
+  res.json({ ok: true });
 });
 ```
 
-Then in `src/index.ts`:
-
 ```ts
-import { coursesRouter } from "./routes/courses.js";
-app.use("/api/courses", coursesRouter);
+// src/index.ts
+import { myRouter } from "./routes/my.js";
+app.use("/api/my", myRouter);
 ```
 
-Full architecture: [`docs/architecture.md`](../../../docs/architecture.md).
+Architecture: [docs/architecture.md](../../../docs/architecture.md)

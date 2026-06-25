@@ -1,0 +1,39 @@
+---
+/** Progress tracker — Thor. Task guide: docs/tasks/progress.md */
+import DashboardLayout from "../../layouts/DashboardLayout.astro";
+import FeatureStarter from "../../components/FeatureStarter.astro";
+import { fetchProgress } from "../../lib/progress";
+
+export const prerender = false;
+
+let apiMessage: string | undefined;
+let loadError: string | null = null;
+
+try {
+  const data = await fetchProgress();
+  apiMessage = data.message;
+} catch (error) {
+  loadError = error instanceof Error ? error.message : "API unavailable";
+}
+---
+
+<DashboardLayout title="Progress | YorkLanes" activeNav="progress">
+  <Fragment slot="header">
+    <h1 class="heading-page">Degree progress</h1>
+  </Fragment>
+
+  {loadError && <p class="mb-4 text-sm text-york-red">{loadError}</p>}
+
+  <FeatureStarter
+    featureName="Progress tracker"
+    owner="Thor"
+    taskDoc="docs/tasks/progress.md"
+    apiHint="Percent of your imported plan marked complete. Reads the completed flag on plan_courses."
+    apiMessage={apiMessage}
+    steps={[
+      "Load a plan by planId in the API route",
+      "Return percentComplete from completed courses",
+      "Hook into ProgressWidget on the dashboard",
+    ]}
+  />
+</DashboardLayout>

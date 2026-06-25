@@ -6,7 +6,7 @@ Runnable from the repo root via `npm run …`.
 |---------|--------|--------------|
 | `npm run tools` | `tools.mjs help` | List all dev commands |
 | `npm run setup` | `tools.mjs setup` | Verify `apps/api/.env`, `apps/web/.env.local`, Python parser |
-| `npm run doctor` | `tools.mjs doctor` | Setup + `/health` check (**run `npm run dev` first**) |
+| `npm run doctor` | `tools.mjs doctor` | Setup + `/health` check (**run `npm run start:dev` first**) |
 | `npm run smoke` | `tools.mjs smoke` | Hit health, faculties, dashboard API routes |
 | `npm run test:parser` | `tools.mjs parser` | `pytest` in `services/checklist-parser/` |
 
@@ -16,7 +16,7 @@ Runnable from the repo root via `npm run …`.
 npm install
 # copy env files from maintainer
 npm run setup
-npm run dev          # separate terminal
+npm run start:dev    # separate terminal
 npm run doctor       # confirm API + DB
 npm run smoke        # optional endpoint check
 npm run check        # before opening a PR

@@ -12,17 +12,24 @@
  * - quickLinks    -> add links to feature pages as they are built in apps/web
  */
 import { Router } from "express";
+import { getPool } from "../db/index.js";
+import { findUserById } from "../services/users.js";
 import type { DashboardSummary } from "../types/dashboard.js";
-// import { requireAuth } from "../middleware/auth.js";  // TODO: enable after OAuth
 
 export const dashboardRouter = Router();
 
-// dashboardRouter.use(requireAuth);  // TODO: protect route after OAuth
+dashboardRouter.get("/summary", async (req, res) => {
+  let displayName = "Student";
+  if (req.session.userId) {
+    const user = await findUserById(getPool(), req.session.userId);
+    if (user) {
+      displayName = user.display_name;
+    }
+  }
 
-dashboardRouter.get("/summary", (_req, res) => {
   const summary: DashboardSummary = {
     user: {
-      displayName: "Student",
+      displayName,
       programme: null,
       startingYear: null,
     },
@@ -41,11 +48,11 @@ dashboardRouter.get("/summary", (_req, res) => {
     },
     quickLinks: [
       { label: "Degree Plan", href: "/plan", featureOwner: "Samiul", status: "ready" },
-      { label: "Course Explorer", featureOwner: "Jericho", status: "not-started" },
-      { label: "Schedule Builder", featureOwner: "Nabeela", status: "not-started" },
-      { label: "Progress Tracker", featureOwner: "Thor", status: "not-started" },
-      { label: "Finance", featureOwner: "Taziz", status: "not-started" },
-      { label: "Assignments", featureOwner: "Sarah", status: "not-started" },
+      { label: "Course Explorer", href: "/courses", featureOwner: "Jericho", status: "in-progress" },
+      { label: "Schedule Builder", href: "/schedule", featureOwner: "Nabeela", status: "in-progress" },
+      { label: "Progress Tracker", href: "/progress", featureOwner: "Thor", status: "in-progress" },
+      { label: "Finance", href: "/finance", featureOwner: "Taziz", status: "in-progress" },
+      { label: "Assignments", href: "/assignments", featureOwner: "Sarah", status: "in-progress" },
     ],
   };
 

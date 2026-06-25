@@ -32,12 +32,12 @@ Auth (Google OAuth) and production deploy are not wired up yet.
 |------|--------|-------|
 | Degree plan editor | Working | Samiul |
 | Dashboard shell + widgets | Placeholders | Shared |
-| Course explorer | Not started | Jericho |
-| Schedule builder | Not started | Nabeela |
-| Progress tracker | Not started | Thor |
-| Finance | Not started | Taziz |
-| Assignments | Not started | Sarah |
-| Google OAuth | Not started | Foundation |
+| Course explorer | Stub — [docs/tasks/courses.md](docs/tasks/courses.md) | Jericho |
+| Schedule builder | Stub — [docs/tasks/schedule.md](docs/tasks/schedule.md) | Nabeela |
+| Progress tracker | Stub — [docs/tasks/progress.md](docs/tasks/progress.md) | Thor |
+| Finance | Stub — [docs/tasks/finance.md](docs/tasks/finance.md) | Taziz |
+| Assignments | Stub — [docs/tasks/assignments.md](docs/tasks/assignments.md) | Sarah |
+| Google OAuth | Stub — [docs/tasks/auth.md](docs/tasks/auth.md) | Foundation |
 
 Plan editor details: [docs/features/degree-plan.md](docs/features/degree-plan.md)
 
@@ -83,7 +83,7 @@ python -m venv .venv
 pip install -r requirements.txt
 cd ../..
 npm run setup
-npm run dev
+npm run start:dev
 ```
 
 Open [localhost:4321/dashboard](http://localhost:4321/dashboard). API health: [localhost:3001/health](http://localhost:3001/health). Try a checklist import at [localhost:4321/plan/setup](http://localhost:4321/plan/setup).
@@ -101,9 +101,10 @@ The browser calls the Express API (`PUBLIC_API_URL` in `apps/web/.env.local`). T
 ## Common commands
 
 ```bash
-npm run dev          # API + web
+npm run start:dev    # API + web (hot reload)
+npm run start:prod   # build + production mode locally
 npm run setup        # check env + Python parser
-npm run doctor       # setup + API health (dev must be running)
+npm run doctor       # setup + API health (servers must be running)
 npm run check        # typecheck before a PR
 npm run tools        # list all helpers
 ```

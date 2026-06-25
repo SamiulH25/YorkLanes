@@ -1,0 +1,39 @@
+---
+/** Assignment calendar — Sarah. Task guide: docs/tasks/assignments.md */
+import DashboardLayout from "../../layouts/DashboardLayout.astro";
+import FeatureStarter from "../../components/FeatureStarter.astro";
+import { fetchAssignments } from "../../lib/assignments";
+
+export const prerender = false;
+
+let apiMessage: string | undefined;
+let loadError: string | null = null;
+
+try {
+  const data = await fetchAssignments();
+  apiMessage = data.message;
+} catch (error) {
+  loadError = error instanceof Error ? error.message : "API unavailable";
+}
+---
+
+<DashboardLayout title="Assignments | YorkLanes" activeNav="assignments">
+  <Fragment slot="header">
+    <h1 class="heading-page">Assignments</h1>
+  </Fragment>
+
+  {loadError && <p class="mb-4 text-sm text-york-red">{loadError}</p>}
+
+  <FeatureStarter
+    featureName="Assignment calendar"
+    owner="Sarah"
+    taskDoc="docs/tasks/assignments.md"
+    apiHint="Due dates for coursework. Wire this up to the dashboard deadlines widget when the API is ready."
+    apiMessage={apiMessage}
+    steps={[
+      "Migration for assignments table",
+      "Form to add title, course, due date",
+      "Sort and show upcoming list",
+    ]}
+  />
+</DashboardLayout>

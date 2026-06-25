@@ -6,11 +6,17 @@
  * (e.g. src/lib/courses.ts, src/lib/plans.ts).
  */
 import type { DashboardSummary } from "../types/dashboard";
+import { getApiUrl } from "./api-url";
 
-const API_URL = import.meta.env.PUBLIC_API_URL ?? "http://localhost:3001";
+const API_URL = getApiUrl();
 
-export async function fetchDashboardSummary(): Promise<DashboardSummary> {
-  const response = await fetch(`${API_URL}/api/dashboard/summary`);
+export async function fetchDashboardSummary(cookieHeader?: string | null): Promise<DashboardSummary> {
+  const headers: HeadersInit = {};
+  if (cookieHeader) {
+    headers.cookie = cookieHeader;
+  }
+
+  const response = await fetch(`${API_URL}/api/dashboard/summary`, { headers });
 
   if (!response.ok) {
     throw new Error(`Dashboard API error: ${response.status}`);

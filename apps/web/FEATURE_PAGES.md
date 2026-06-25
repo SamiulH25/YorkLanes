@@ -1,37 +1,27 @@
-# Feature Pages
+# Feature pages
 
-Add one folder per major feature under `src/pages/`. Each owner adds a nav link in `src/layouts/DashboardLayout.astro`.
+| Folder | Feature | Owner | Status | First task |
+|--------|---------|-------|--------|------------|
+| `plan/` | Degree plan | Samiul | **Built** | [degree-plan.md](../../docs/features/degree-plan.md) |
+| `courses/` | Course explorer | Jericho | Stub | [courses.md](../../docs/tasks/courses.md) |
+| `schedule/` | Schedule builder | Nabeela | Stub | [schedule.md](../../docs/tasks/schedule.md) |
+| `progress/` | Progress tracker | Thor | Stub | [progress.md](../../docs/tasks/progress.md) |
+| `finance/` | Finance | Taziz | Stub | [finance.md](../../docs/tasks/finance.md) |
+| `assignments/` | Assignments | Sarah | Stub | [assignments.md](../../docs/tasks/assignments.md) |
+| `login.astro` | Google OAuth | Foundation | **Built** (needs OAuth env) | [auth.md](../../docs/tasks/auth.md) |
 
-| Folder | Feature | Owner | Status |
-|--------|---------|-------|--------|
-| `plan/` | Degree Plan Editor | Samiul | **Built** — see [`docs/features/degree-plan.md`](../../docs/features/degree-plan.md) |
-| `courses/` | Course Explorer | Jericho | Planned |
-| `schedule/` | Schedule Builder | Nabeela | Planned |
-| `progress/` | Progress Tracker | Thor | Planned |
-| `finance/` | Finance Module | Taziz | Planned |
-| `assignments/` | Assignment Calendar | Sarah | Planned |
+Each stub page calls its API route and shows the task guide path. Open the guide, follow the steps, ship a PR.
 
-## New feature checklist
+See [docs/DEVELOPER_GUIDE.md](../../docs/DEVELOPER_GUIDE.md) for the full codebase map.
 
-1. `apps/web/src/pages/<feature>/index.astro` using `DashboardLayout.astro`
-2. `apps/api/src/routes/<feature>.ts` mounted in `apps/api/src/index.ts`
-3. `supabase/migrations/` SQL file (maintainer applies after merge)
-4. Uncomment nav in `DashboardLayout.astro`
-5. Update dashboard `quickLinks` in `apps/api/src/routes/dashboard.ts`
+Index of all tasks: [docs/tasks/README.md](../../docs/tasks/README.md)
 
-## Example starter page
+## File layout per feature
 
-```astro
----
-import DashboardLayout from "../../layouts/DashboardLayout.astro";
----
-
-<DashboardLayout title="Course Explorer | YorkLanes" activeNav="dashboard">
-  <Fragment slot="header">
-    <h1 class="heading-page">Course Explorer</h1>
-  </Fragment>
-  <p>Feature UI goes here.</p>
-</DashboardLayout>
+```
+apps/web/src/pages/<feature>/index.astro   ← UI
+apps/web/src/lib/<feature>.ts              ← fetch helper
+apps/api/src/routes/<feature>.ts           ← API (mounted in index.ts)
 ```
 
-See [`CONTRIBUTING.md`](../../CONTRIBUTING.md) for branch workflow and env setup.
+See [CONTRIBUTING.md](../../CONTRIBUTING.md) for branch workflow.

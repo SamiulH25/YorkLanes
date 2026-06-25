@@ -1,10 +1,11 @@
 ---
 import DashboardLayout from "../../layouts/DashboardLayout.astro";
 import { fetchFaculties } from "../../lib/plans";
+import { getApiUrl } from "../../lib/api-url";
 
 export const prerender = false;
 
-const apiUrl = import.meta.env.PUBLIC_API_URL ?? "http://localhost:3001";
+const apiUrl = getApiUrl();
 
 let faculties: Awaited<ReturnType<typeof fetchFaculties>> = [];
 let loadError: string | null = null;

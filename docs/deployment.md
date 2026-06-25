@@ -49,8 +49,16 @@ Vercel: use `@astrojs/vercel`. Match adapter docs to your host.
 ### Build and start
 
 ```bash
+npm run start:prod
+```
+
+Or manually:
+
+```bash
 npm run build -w apps/api
-cd apps/api && node dist/index.js
+npm run build:prod -w apps/web
+cd apps/api && NODE_ENV=production node dist/index.js
+cd apps/web && node dist/server/entry.mjs
 ```
 
 ### Environment variables (production)

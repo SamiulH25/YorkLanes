@@ -59,16 +59,16 @@ const icons: Record<string, string> = {
       }
     } catch (e) {}
   </script>
-  <div class="flex min-h-screen">
-    <!-- Desktop sidebar -->
+  <div class="app-shell lg:flex-row">
+    <!-- Desktop sidebar: fixed viewport height, scrolls independently from main -->
     <aside
       data-sidebar
       data-collapsed="false"
-      class="dashboard-sidebar relative hidden w-[272px] shrink-0 flex-col border-r border-york-stone/40 bg-white/70 backdrop-blur-xl transition-[width] duration-200 ease-in-out dark:border-white/[0.06] dark:bg-york-slate lg:flex"
+      class="dashboard-sidebar relative hidden h-dvh max-h-dvh shrink-0 flex-col overflow-hidden border-r border-york-stone/40 bg-white/70 backdrop-blur-xl transition-[width] duration-200 ease-in-out dark:border-white/[0.06] dark:bg-york-slate lg:flex lg:w-[272px]"
     >
       <div class="absolute left-0 top-0 h-1 w-full bg-sidebar-accent"></div>
 
-      <div class="sidebar-brand border-b border-york-stone/40 px-4 pb-4 pt-6 dark:border-white/[0.06]">
+      <div class="sidebar-brand shrink-0 border-b border-york-stone/40 px-4 pb-4 pt-6 dark:border-white/[0.06]">
         <div class="sidebar-brand-row flex items-start justify-between gap-2">
           <a href="/dashboard" class="flex min-w-0 items-center gap-3 transition-opacity hover:opacity-90" title="YorkLanes">
             <div class="sidebar-brand-mark shrink-0 rounded-xl bg-york-red/10 p-1.5 dark:bg-york-red/15">
@@ -99,7 +99,7 @@ const icons: Record<string, string> = {
         </div>
       </div>
 
-      <nav class="flex-1 overflow-x-hidden overflow-y-auto px-3 py-5">
+      <nav class="min-h-0 flex-1 overflow-x-hidden overflow-y-auto px-3 py-5">
         <p class="sidebar-section-label mb-3 px-3 label">Menu</p>
         <ul class="space-y-1">
           {
@@ -136,7 +136,7 @@ const icons: Record<string, string> = {
         </ul>
       </nav>
 
-      <div class="border-t border-york-stone/40 p-4 dark:border-white/[0.06]">
+      <div class="shrink-0 border-t border-york-stone/40 p-4 dark:border-white/[0.06]">
         <div class="sidebar-user surface-muted flex items-center gap-3 p-3">
           <div
             class="sidebar-user-avatar flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-york-red to-york-red-dark font-display text-sm font-bold text-white shadow-md shadow-york-red/30"
@@ -162,31 +162,22 @@ const icons: Record<string, string> = {
       </div>
     </aside>
 
-    <main class="flex min-w-0 flex-1 flex-col pb-20 lg:pb-0">
-      <!-- Mobile top bar -->
-      <div
-        class="flex items-center justify-between border-b border-york-stone/40 bg-york-cream/90 px-4 py-3 backdrop-blur-xl dark:border-white/[0.06] dark:bg-york-slate lg:hidden"
-      >
-        <a href="/dashboard" class="flex items-center gap-2">
-          <YorkMark class="h-8 w-8" />
-          <span class="font-display text-base font-semibold text-york-black dark:text-white">YorkLanes</span>
-        </a>
-        <ThemeToggle />
-      </div>
-
+    <main class="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden pb-[calc(3.75rem+env(safe-area-inset-bottom,0px))] lg:pb-0">
       <header
-        class="sticky top-0 z-20 border-b border-york-stone/40 bg-york-cream/80 px-4 py-4 backdrop-blur-xl dark:border-white/[0.06] dark:bg-york-slate lg:px-8 lg:py-5"
+        class="z-20 shrink-0 border-b border-york-stone/40 bg-york-cream/80 px-4 py-3 backdrop-blur-xl dark:border-white/[0.06] dark:bg-york-slate sm:py-4 lg:px-8 lg:py-5"
       >
-        <div class="flex items-start justify-between gap-4">
-          <slot name="header" />
-          <div class="hidden shrink-0 lg:block">
+        <div class="flex items-start justify-between gap-3">
+          <div class="min-w-0 flex-1">
+            <slot name="header" />
+          </div>
+          <div class="shrink-0">
             <ThemeToggle />
           </div>
         </div>
       </header>
 
-      <div class="flex-1 bg-york-hero px-4 py-6 dark:bg-york-navy dark:bg-york-hero-dark sm:px-6 lg:px-8 lg:py-8">
-        <div class="animate-slide-up">
+      <div class="min-h-0 flex-1 overflow-y-auto overflow-x-clip bg-york-hero px-4 py-4 dark:bg-york-navy dark:bg-york-hero-dark sm:px-6 sm:py-6 lg:px-8 lg:py-8">
+        <div class="animate-slide-up w-full min-w-0">
           <slot />
         </div>
       </div>
@@ -195,7 +186,7 @@ const icons: Record<string, string> = {
 
   <!-- Mobile bottom nav -->
   <nav
-    class="fixed bottom-0 left-0 right-0 z-30 border-t border-york-stone/50 bg-white/90 backdrop-blur-xl dark:border-white/[0.06] dark:bg-york-slate lg:hidden"
+    class="fixed bottom-0 left-0 right-0 z-30 border-t border-york-stone/50 bg-white/90 backdrop-blur-xl pb-[env(safe-area-inset-bottom,0px)] dark:border-white/[0.06] dark:bg-york-slate lg:hidden"
     aria-label="Mobile navigation"
   >
     <ul class="flex items-stretch justify-around px-1 py-1">

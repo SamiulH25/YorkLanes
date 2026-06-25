@@ -5,10 +5,21 @@
 @layer base {
   html {
     @apply scroll-smooth;
+    width: 100%;
+    min-height: 100dvh;
+    -webkit-text-size-adjust: 100%;
+    text-size-adjust: 100%;
   }
 
   body {
-    @apply font-sans antialiased text-york-black dark:text-stone-100;
+    @apply min-h-dvh w-full font-sans antialiased text-york-black dark:text-stone-100;
+    overflow-x: clip;
+  }
+
+  img,
+  svg,
+  video {
+    max-width: 100%;
   }
 
   ::selection {
@@ -51,11 +62,14 @@
   }
 
   .heading-page {
-    @apply font-display text-[1.75rem] font-semibold tracking-tight text-york-black dark:text-white;
+    @apply font-display font-semibold tracking-tight text-york-black dark:text-white;
+    font-size: clamp(1.375rem, 4.5vw, 1.75rem);
+    line-height: 1.2;
   }
 
   .heading-widget {
-    @apply font-display text-lg font-semibold tracking-tight text-york-black dark:text-white;
+    @apply font-display font-semibold tracking-tight text-york-black dark:text-white;
+    font-size: clamp(1rem, 3.5vw, 1.125rem);
   }
 
   .link-nav {
@@ -70,11 +84,11 @@
   }
 
   .btn-york {
-    @apply inline-flex items-center justify-center gap-2 rounded-xl bg-york-red px-5 py-3
+    @apply inline-flex items-center justify-center gap-2 rounded-xl bg-york-red px-4 py-2.5
       text-sm font-semibold text-white shadow-md shadow-york-red/20 transition-all duration-200
       hover:bg-york-red-dark hover:shadow-lg hover:shadow-york-red/25
       focus:outline-none focus:ring-2 focus:ring-york-red/40 focus:ring-offset-2
-      dark:focus:ring-offset-york-navy;
+      dark:focus:ring-offset-york-navy sm:px-5 sm:py-3;
   }
 
   .btn-ghost {
@@ -99,6 +113,22 @@
   .empty-state {
     @apply rounded-xl border border-dashed border-york-stone/70 px-4 py-10 text-center
       dark:border-white/10;
+  }
+
+  .app-shell {
+    @apply flex h-dvh max-h-dvh w-full max-w-[100vw] flex-col overflow-hidden;
+  }
+
+  .login-shell {
+    @apply flex h-full min-h-0 flex-col;
+  }
+
+  .login-main {
+    @apply grid min-h-0 flex-1 place-items-center overflow-y-auto px-4 py-2 sm:px-6 sm:py-4;
+  }
+
+  .login-card {
+    @apply surface-elevated w-full max-w-md p-4 sm:p-8;
   }
 
   /* Plan editor */

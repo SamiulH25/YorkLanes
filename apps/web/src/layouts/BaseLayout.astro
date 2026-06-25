@@ -3,16 +3,18 @@ import "../styles/global.css";
 
 interface Props {
   title?: string;
+  /** Lock layout to the visible viewport (login and other full-screen pages). */
+  fillViewport?: boolean;
 }
 
-const { title = "YorkLanes" } = Astro.props;
+const { title = "YorkLanes", fillViewport = false } = Astro.props;
 ---
 
 <!doctype html>
-<html lang="en" class="h-full">
+<html lang="en" class:list={[fillViewport ? "h-dvh overflow-hidden" : "min-h-dvh"]}>
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <meta name="description" content="YorkPath student dashboard for York University" />
     <link rel="icon" type="image/png" href="/york-u-mark.png" />
     <title>{title}</title>
@@ -39,7 +41,7 @@ const { title = "YorkLanes" } = Astro.props;
       }
     </style>
   </head>
-  <body class="page-bg min-h-full">
+  <body class:list={["page-bg w-full", fillViewport ? "h-dvh overflow-hidden" : "min-h-dvh overflow-x-hidden"]}>
     <slot />
     <script>
       import "../scripts/theme.ts";

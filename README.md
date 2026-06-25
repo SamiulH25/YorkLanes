@@ -83,7 +83,7 @@ python -m venv .venv
 pip install -r requirements.txt
 cd ../..
 npm run setup
-npm run dev
+npm run start:dev
 ```
 
 Open [localhost:4321/dashboard](http://localhost:4321/dashboard). API health: [localhost:3001/health](http://localhost:3001/health). Try a checklist import at [localhost:4321/plan/setup](http://localhost:4321/plan/setup).
@@ -101,9 +101,10 @@ The browser calls the Express API (`PUBLIC_API_URL` in `apps/web/.env.local`). T
 ## Common commands
 
 ```bash
-npm run dev          # API + web
+npm run start:dev    # API + web (hot reload)
+npm run start:prod   # build + production mode locally
 npm run setup        # check env + Python parser
-npm run doctor       # setup + API health (dev must be running)
+npm run doctor       # setup + API health (servers must be running)
 npm run check        # typecheck before a PR
 npm run tools        # list all helpers
 ```

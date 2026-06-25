@@ -45,7 +45,7 @@ Then **replace placeholders** with values from the maintainer (not from the Supa
 **`apps/web/.env.local`** should look like:
 
 ```env
-PUBLIC_API_URL=http://localhost:3001
+PUBLIC_API_URL=http://localhost:4321
 ```
 
 **`apps/api/.env`** should look like:
@@ -77,7 +77,7 @@ PYTHON_PATH=C:\Path\To\.venv\Scripts\python.exe
 ### Run dev servers
 
 ```bash
-npm run dev
+npm run start:dev
 ```
 
 | Service | URL |
@@ -85,8 +85,9 @@ npm run dev
 | Web | http://localhost:4321 |
 | Dashboard | http://localhost:4321/dashboard |
 | Degree plan | http://localhost:4321/plan |
-| API health | http://localhost:3001/health |
-| API plans | http://localhost:3001/api/plans/faculties |
+| API health | http://localhost:4321/health (proxied in dev) or http://localhost:3001/health |
+
+For production-mode local runs (`npm run start:prod`), the web app is built and served without the dev proxy — set `PUBLIC_API_URL=http://localhost:3001` in `apps/web/.env.local`.
 
 If the API prints `Database target: …` on startup and `/health` returns OK, you are connected. No migration step required on your machine.
 
@@ -99,11 +100,14 @@ If the API prints `Database target: …` on startup and `/health` returns OK, yo
 | `npm run doctor` | Setup + live API/DB health check |
 | `npm run smoke` | Test key API endpoints |
 | `npm run test:parser` | Checklist parser pytest suite |
-| `npm run dev` | API + web concurrently |
+| `npm run start:dev` | API + web with hot reload (use this day to day) |
+| `npm run start:prod` | Build both apps, run API + web in production mode |
+| `npm run dev` | Alias for `start:dev` |
 | `npm run dev:web` | Astro only (4321) |
 | `npm run dev:api` | Express only (3001) |
 | `npm run check` | Typecheck API + Astro before PRs |
-| `npm run build` | Compile API + Astro check (full web build needs SSR adapter) |
+| `npm run build` | Compile API + Astro check |
+| `npm run build:prod` | Production web build + API compile |
 | `npm run scraper:fixture` | Offline course JSON (no DB write) |
 
 Commands like `npm run supabase:push` are **maintainer-only**. See [Maintainer guide](./maintainer.md).

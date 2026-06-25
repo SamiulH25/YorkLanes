@@ -108,11 +108,13 @@ function printHelp() {
 YorkLanes developer tools
 
   npm run setup        Verify env files and Python parser
-  npm run doctor       Setup + API health (start npm run dev first)
-  npm run smoke        Test API endpoints (start npm run dev first)
+  npm run start:dev    Start API + web (hot reload)
+  npm run start:prod   Build and run API + web in production mode
+  npm run dev          Alias for start:dev
+  npm run doctor       Setup + API health (start npm run start:dev first)
+  npm run smoke        Test API endpoints (start npm run start:dev first)
   npm run test:parser  Run checklist parser tests
   npm run check        Typecheck API + Astro
-  npm run dev          Start API + web
 
 Docs: CONTRIBUTING.md  |  scripts/README.md
 `);
@@ -131,7 +133,7 @@ function commandSetup() {
     process.exit(1);
   }
 
-  console.log("✓ Ready. Run: npm run dev");
+  console.log("✓ Ready. Run: npm run start:dev");
   console.log("  Web: http://localhost:4321/dashboard");
   console.log("  API: http://localhost:3001/health");
 }
@@ -162,7 +164,7 @@ async function commandDoctor() {
       console.log(`  ✗ /health — HTTP ${health.status}`);
     }
   } catch {
-    console.log("  ✗ Cannot reach API — is npm run dev running?");
+    console.log("  ✗ Cannot reach API — is npm run start:dev running?");
     process.exit(1);
   }
 
@@ -197,7 +199,7 @@ async function commandSmoke() {
   }
 
   if (failed) {
-    console.log("\nStart the API with npm run dev and try again.");
+    console.log("\nStart the API with npm run start:dev and try again.");
     process.exit(1);
   }
   console.log("\n✓ All endpoints OK");

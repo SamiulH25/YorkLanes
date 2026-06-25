@@ -19,7 +19,7 @@ This is the onboarding guide for Group 7. The [README](README.md) has the projec
    ```
 
 4. Run `npm run setup` — it checks your env files and Python install.
-5. Run `npm run dev` and open http://localhost:4321/dashboard.
+5. Run `npm run start:dev` and open http://localhost:4321/dashboard.
 6. In another terminal, run `npm run doctor` to confirm the API talks to the database.
 7. Pick your feature from [docs/tasks/README.md](docs/tasks/README.md) and open the linked page in the browser.
 
@@ -85,7 +85,9 @@ Never commit real env files.
 
 **Every day**
 
-- `npm run dev` — start API (3001) and web (4321)
+- `npm run start:dev` — start API (3001) and web (4321) with hot reload
+- `npm run start:prod` — build both apps and run in production mode locally
+- `npm run dev` — alias for `start:dev`
 
 **After pulling or changing env**
 

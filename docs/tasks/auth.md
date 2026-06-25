@@ -1,27 +1,66 @@
-# Auth — Foundation (OAuth)
+# Auth — Google OAuth
 
-**Goal for your first PR:** wire `/login` to a real `GET /api/auth/status` and document the OAuth env vars.
+Google sign-in is wired through the Express API. The web app never sees client secrets.
 
-## Files to edit
+## Maintainer setup (one time)
+
+1. Open [Google Cloud Console](https://console.cloud.google.com/) → APIs & Services → Credentials.
+2. Create an **OAuth 2.0 Client ID** (Web application).
+3. Add **Authorized redirect URI** (dev):
+   ```
+   http://localhost:4321/api/auth/google/callback
+   ```
+   The Astro dev server proxies `/api` to the API on port 3001 so the session cookie is set on the same origin as the web app.
+4. Copy client ID and secret into `apps/api/.env`:
+   ```
+   GOOGLE_CLIENT_ID=...
+   GOOGLE_CLIENT_SECRET=...
+   GOOGLE_CALLBACK_URL=http://localhost:4321/api/auth/google/callback
+   SESSION_SECRET=<random string, e.g. openssl rand -hex 32>
+   ```
+5. Set `PUBLIC_API_URL=http://localhost:4321` in `apps/web/.env.local`.
+6. Restart `npm run dev`.
+
+## Routes
+
+| Route | Purpose |
+|-------|---------|
+| `GET /api/auth/status` | Whether OAuth env vars are set |
+| `GET /api/auth/google` | Start Google sign-in |
+| `GET /api/auth/google/callback` | OAuth callback (Google redirects here) |
+| `GET /api/auth/me` | Current session user (JSON) |
+| `GET /api/auth/logout` | Destroy session, redirect to `/login` |
+
+## Files
 
 | File | Purpose |
 |------|---------|
-| `apps/web/src/pages/login.astro` | Login UI |
-| `apps/api/src/routes/auth.ts` | Auth routes |
-| `apps/api/src/middleware/auth.ts` | `requireAuth` stub → real check |
-| `apps/api/src/index.ts` | Mount `/api/auth` |
+| `apps/api/src/routes/auth.ts` | OAuth + session endpoints |
+| `apps/api/src/services/googleAuth.ts` | Google token exchange |
+| `apps/api/src/services/users.ts` | Upsert `users` row on login |
+| `apps/api/src/middleware/session.ts` | `express-session` cookie |
+| `apps/web/src/lib/auth.ts` | Web helpers (`/me`, sign-in URL) |
+| `apps/web/astro.config.mjs` | Dev proxy `/api` → `localhost:3001` |
+| `apps/web/src/pages/login.astro` | Sign-in button → API |
+| `apps/web/src/layouts/DashboardLayout.astro` | Sidebar name + sign out |
 
-## Steps
+## Behaviour
 
-1. `GET /api/auth/status` already returns whether OAuth is configured — call it from `login.astro` and show the message.
-2. Add Google OAuth routes (`/api/auth/google`, callback) using `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` from `apps/api/.env.example`.
-3. On success, create or find a row in `users` and set a session cookie.
-4. Replace `requireAuth` no-op with a real session check; uncomment on routes that need it.
+- Session cookie: `yorklanes.sid` on the web origin in dev (`localhost:4321` via proxy).
+- Signed-in users get a `users` row (`google_id`, `email`, `display_name`). New degree plans store `user_id` when imported while logged in.
+- Guests can still use the app without signing in; `requireAuth` is available for routes that should be locked down later.
 
-## After that
+## Verify
 
-- Protect `degree_plans` with `user_id`
-- Show real name in `DashboardLayout` sidebar instead of “Guest”
-- Tighten Supabase RLS policies
+```bash
+npm run dev
+# Visit http://localhost:4321/login — button should be enabled if env is set
+curl http://localhost:4321/api/auth/status
+npm run setup   # warns if PUBLIC_API_URL still points at :3001
+```
 
-Do not put client secrets in the frontend. Session secret: `SESSION_SECRET` in API `.env`.
+## Later
+
+- Protect user-specific routes with `requireAuth` in `apps/api/src/middleware/auth.ts`
+- Tighten Supabase RLS to match API user id
+- Production: same-origin reverse proxy or shared parent domain; set `SESSION_SECRET`, production callback URL, and `NODE_ENV=production` for secure cookies

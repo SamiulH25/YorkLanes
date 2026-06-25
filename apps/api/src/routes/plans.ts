@@ -179,6 +179,7 @@ plansRouter.post("/import", upload.single("checklist"), async (req, res) => {
       startingYear: inferred.startingYear,
       sourceFilename: req.file.originalname,
       sourceType: req.file.mimetype,
+      userId: req.session.userId,
       parsed,
     });
 

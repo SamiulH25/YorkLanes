@@ -20,7 +20,7 @@ function formatBytes(bytes: number): string {
 
 export function initPlanSetup(options: PlanSetupOptions = {}): void {
   const form = document.getElementById("checklist-form") as HTMLFormElement | null;
-  const apiUrl = options.apiUrl ?? form?.dataset.apiUrl ?? "http://localhost:3001";
+  const apiUrl = options.apiUrl ?? form?.dataset.apiUrl ?? "http://localhost:4321";
   const facultySelect = document.getElementById("facultyKey") as HTMLSelectElement | null;
   const facultyPanels = document.querySelectorAll<HTMLElement>("[data-faculty-panel]");
   const fileInput = document.getElementById("checklist") as HTMLInputElement | null;
@@ -161,6 +161,7 @@ export function initPlanSetup(options: PlanSetupOptions = {}): void {
       const response = await fetch(`${apiUrl}/api/plans/import`, {
         method: "POST",
         body: formData,
+        credentials: "include",
       });
       const payload = await response.json();
 

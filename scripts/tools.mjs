@@ -38,7 +38,7 @@ function envValue(content, key) {
 
 function apiBaseUrl() {
   const web = readEnvFile("apps/web/.env.local") ?? readEnvFile("apps/web/.env");
-  return envValue(web, "PUBLIC_API_URL") ?? "http://localhost:3001";
+  return envValue(web, "PUBLIC_API_URL") ?? "http://localhost:4321";
 }
 
 function pythonCommand() {
@@ -64,7 +64,22 @@ function runSetup() {
   if (!webContent) {
     errors.push("Missing apps/web/.env.local — ask the database maintainer.");
   } else if (!envValue(webContent, "PUBLIC_API_URL")) {
-    warnings.push("PUBLIC_API_URL not set — using http://localhost:3001");
+    warnings.push("PUBLIC_API_URL not set — using http://localhost:4321");
+  } else {
+    const apiUrl = envValue(webContent, "PUBLIC_API_URL");
+    if (apiUrl === "http://localhost:3001") {
+      warnings.push(
+        "PUBLIC_API_URL points at :3001 — use http://localhost:4321 in dev so auth cookies work (Astro proxies /api).",
+      );
+    }
+  }
+
+  if (apiEnv) {
+    const oauthId = envValue(apiEnv, "GOOGLE_CLIENT_ID");
+    const oauthSecret = envValue(apiEnv, "GOOGLE_CLIENT_SECRET");
+    if (oauthId && oauthSecret && !envValue(apiEnv, "SESSION_SECRET")) {
+      warnings.push("OAuth is configured but SESSION_SECRET is missing in apps/api/.env.");
+    }
   }
 
   try {
@@ -160,6 +175,7 @@ async function commandSmoke() {
 
   const endpoints = [
     { name: "Health", path: "/health" },
+    { name: "Auth status", path: "/api/auth/status" },
     { name: "Faculties", path: "/api/plans/faculties" },
     { name: "Dashboard", path: "/api/dashboard/summary" },
   ];

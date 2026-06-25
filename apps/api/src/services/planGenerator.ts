@@ -48,6 +48,7 @@ interface CreatePlanInput {
   startingYear: number;
   sourceFilename?: string;
   sourceType?: string;
+  userId?: string;
   parsed: ParsedChecklist;
 }
 
@@ -196,10 +197,11 @@ export async function createPlanFromChecklist(
 
     const planResult = await client.query<{ id: string }>(
       `INSERT INTO degree_plans
-        (faculty_key, programme_name, starting_year, source_filename, source_type, parse_warnings)
-       VALUES ($1, $2, $3, $4, $5, $6::jsonb)
+        (user_id, faculty_key, programme_name, starting_year, source_filename, source_type, parse_warnings)
+       VALUES ($1, $2, $3, $4, $5, $6, $7::jsonb)
        RETURNING id`,
       [
+        input.userId ?? null,
         input.facultyKey,
         programmeName,
         input.startingYear,

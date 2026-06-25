@@ -6,11 +6,15 @@ import FinanceWidget from "../../components/dashboard/FinanceWidget.astro";
 import QuickLinksWidget from "../../components/dashboard/QuickLinksWidget.astro";
 import { fetchDashboardSummary } from "../../lib/api";
 
+export const prerender = false;
+
+const cookie = Astro.request.headers.get("cookie");
+
 let summary;
 let loadError: string | null = null;
 
 try {
-  summary = await fetchDashboardSummary();
+  summary = await fetchDashboardSummary(cookie);
 } catch (error) {
   loadError = error instanceof Error ? error.message : "Failed to load dashboard";
   summary = {

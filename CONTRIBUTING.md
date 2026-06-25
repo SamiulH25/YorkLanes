@@ -72,8 +72,8 @@ Use the degree plan as a reference: [docs/features/degree-plan.md](docs/features
 
 | File | What goes in it |
 |------|-----------------|
-| `apps/api/.env` | `SUPABASE_DB_URL`, `WEB_ORIGIN`, `API_PORT` |
-| `apps/web/.env.local` | `PUBLIC_API_URL` (usually `http://localhost:3001`) |
+| `apps/api/.env` | `SUPABASE_DB_URL`, `WEB_ORIGIN`, `API_PORT`, OAuth vars (see `docs/tasks/auth.md`) |
+| `apps/web/.env.local` | `PUBLIC_API_URL` — use `http://localhost:4321` in dev (proxies `/api` to the API) |
 
 Templates: `apps/api/.env.example`, `apps/web/.env.example`
 
@@ -98,7 +98,7 @@ Never commit real env files.
 
 **When debugging the API**
 
-- `npm run smoke` — hits `/health`, `/api/plans/faculties`, `/api/dashboard/summary`
+- `npm run smoke` — hits `/health`, `/api/auth/status`, `/api/plans/faculties`, `/api/dashboard/summary`
 
 **Parser work**
 

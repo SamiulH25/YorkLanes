@@ -1,5 +1,7 @@
 /** Task guide: docs/tasks/assignments.md */
-const API_URL = import.meta.env.PUBLIC_API_URL ?? "http://localhost:3001";
+import { getApiUrl } from "./api-url";
+
+const API_URL = getApiUrl();
 
 export interface AssignmentsResponse {
   feature: string;

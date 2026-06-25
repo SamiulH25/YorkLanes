@@ -12,17 +12,24 @@
  * - quickLinks    -> add links to feature pages as they are built in apps/web
  */
 import { Router } from "express";
+import { getPool } from "../db/index.js";
+import { findUserById } from "../services/users.js";
 import type { DashboardSummary } from "../types/dashboard.js";
-// import { requireAuth } from "../middleware/auth.js";  // TODO: enable after OAuth
 
 export const dashboardRouter = Router();
 
-// dashboardRouter.use(requireAuth);  // TODO: protect route after OAuth
+dashboardRouter.get("/summary", async (req, res) => {
+  let displayName = "Student";
+  if (req.session.userId) {
+    const user = await findUserById(getPool(), req.session.userId);
+    if (user) {
+      displayName = user.display_name;
+    }
+  }
 
-dashboardRouter.get("/summary", (_req, res) => {
   const summary: DashboardSummary = {
     user: {
-      displayName: "Student",
+      displayName,
       programme: null,
       startingYear: null,
     },

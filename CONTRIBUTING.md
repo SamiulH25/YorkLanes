@@ -128,8 +128,9 @@ More detail: [scripts/README.md](scripts/README.md)
 
 ## Docs worth bookmarking
 
+- **[docs/DEVELOPER_GUIDE.md](docs/DEVELOPER_GUIDE.md)** — full map of folders, pages, routes, and scripts
 - [docs/architecture.md](docs/architecture.md) — how the pieces connect
-- [docs/development.md](docs/development.md) — conventions and file patterns
+- [docs/development.md](docs/development.md) — short setup reference
 - [apps/api/src/routes/README.md](apps/api/src/routes/README.md) — API route layout
 
 ---

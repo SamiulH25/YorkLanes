@@ -1,18 +1,16 @@
 ---
-/** York University red U mark, cropped from the official wordmark */
+/** York University red U mark, cropped from the official wordmark. */
 interface Props {
   class?: string;
 }
 
-const { class: className = "h-9 w-[2.25rem]" } = Astro.props;
+const { class: className = "h-9 w-9" } = Astro.props;
 ---
 
-<div class:list={["relative shrink-0 overflow-hidden", className]}>
-  <img
-    src="/york-u-logo.png"
-    alt="York University"
-    class="absolute right-0 top-0 h-full w-auto max-w-none"
-    loading="eager"
-    decoding="async"
-  />
-</div>
+<img
+  src="/york-u-mark.png"
+  alt="York University"
+  class:list={[className, "shrink-0 object-contain"]}
+  loading="eager"
+  decoding="async"
+/>

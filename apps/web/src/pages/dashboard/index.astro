@@ -51,10 +51,20 @@ const today = new Date().toLocaleDateString("en-CA", {
   {
     loadError && (
       <div class="mb-6 rounded-xl border border-york-gold/40 bg-york-gold/10 px-4 py-3 text-sm text-stone-700 dark:text-stone-200">
-        API offline: {loadError}. Run <code class="rounded bg-black/5 px-1.5 py-0.5 font-mono text-xs dark:bg-white/10">npm run dev:api</code>
+        API offline: {loadError}. Run <code class="rounded bg-black/5 px-1.5 py-0.5 font-mono text-xs dark:bg-white/10">npm run start:dev</code>
       </div>
     )
   }
+
+  <div class="mb-6 surface-elevated flex flex-wrap items-center justify-between gap-4 p-5">
+    <div>
+      <p class="text-sm font-medium text-york-muted">Status</p>
+      <p class="mt-0.5 text-sm text-stone-600 dark:text-stone-400">
+        The degree plan is ready. Courses, schedule, and the other tabs are still being built.
+      </p>
+    </div>
+    <a href="/plan" class="btn-york shrink-0">Open degree plan</a>
+  </div>
 
   <div class="grid gap-5 lg:grid-cols-12">
     <div class="lg:col-span-5">

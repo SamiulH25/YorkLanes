@@ -32,7 +32,13 @@ export async function fetchAuthStatus(): Promise<{
   try {
     const response = await fetch(`${getApiUrl()}/api/auth/status`);
     if (!response.ok) {
-      return { oauthEnabled: false, message: "Could not reach auth API." };
+      return {
+        oauthEnabled: false,
+        message:
+          response.status === 404
+            ? "API route not found. Restart with npm run start:dev (api and web)."
+            : `Auth API returned ${response.status}. Is the API running on port 3001?`,
+      };
     }
     const data = (await response.json()) as { oauthEnabled?: boolean; message?: string };
     return {
@@ -40,7 +46,10 @@ export async function fetchAuthStatus(): Promise<{
       message: data.message ?? "Auth status unavailable.",
     };
   } catch {
-    return { oauthEnabled: false, message: "Start npm run dev to check auth status from the API." };
+    return {
+      oauthEnabled: false,
+      message: "Cannot reach the API. Run npm run start:dev from the repo root.",
+    };
   }
 }
 

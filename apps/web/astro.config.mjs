@@ -13,6 +13,14 @@ export default defineConfig({
       "/health": { target: "http://localhost:3001", changeOrigin: true },
     },
   },
+  vite: {
+    server: {
+      proxy: {
+        "/api": { target: "http://localhost:3001", changeOrigin: true },
+        "/health": { target: "http://localhost:3001", changeOrigin: true },
+      },
+    },
+  },
   env: {
     schema: {
       PUBLIC_API_URL: envField.string({

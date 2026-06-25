@@ -1,5 +1,4 @@
 ---
-/** Upcoming assignments — Sarah. Guide: docs/tasks/assignments.md */
 import type { DashboardSummary } from "../../types/dashboard";
 
 interface Props {
@@ -9,13 +8,13 @@ interface Props {
 const { assignments } = Astro.props;
 ---
 
-<section class="surface rounded-2xl p-6">
-  <div class="flex items-center justify-between">
+<section class="surface p-6">
+  <div class="widget-header">
     <div>
       <p class="label">This week</p>
-      <h2 class="mt-1 font-display text-xl font-semibold text-york-black dark:text-white">Deadlines</h2>
+      <h2 class="heading-widget mt-1">Deadlines</h2>
     </div>
-    <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-york-red/10 text-york-red">
+    <div class="icon-badge bg-york-red/10 text-york-red">
       <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.75">
         <path stroke-linecap="round" stroke-linejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"></path>
       </svg>
@@ -24,22 +23,22 @@ const { assignments } = Astro.props;
 
   {
     assignments.upcoming.length > 0 ? (
-      <ul class="mt-5 space-y-3">
+      <ul class="mt-5 space-y-2">
         {assignments.upcoming.map((item) => (
-          <li class="flex gap-3 rounded-xl surface-muted px-3 py-3">
-            <div class="mt-0.5 h-full w-1 shrink-0 rounded-full bg-york-red"></div>
+          <li class="flex gap-3 rounded-xl surface-muted px-4 py-3 transition-colors hover:bg-york-red/[0.04]">
+            <div class="mt-1 h-full w-1 shrink-0 rounded-full bg-york-red"></div>
             <div class="min-w-0 flex-1">
-              <p class="text-sm font-medium text-york-black dark:text-white">{item.title}</p>
+              <p class="text-sm font-semibold text-york-black dark:text-white">{item.title}</p>
               {item.courseCode && <p class="text-xs text-york-muted">{item.courseCode}</p>}
             </div>
-            <time class="shrink-0 text-xs font-medium text-york-red">{item.dueAt}</time>
+            <time class="shrink-0 text-xs font-semibold text-york-red">{item.dueAt}</time>
           </li>
         ))}
       </ul>
     ) : (
-      <div class="mt-6 rounded-xl border border-dashed border-york-stone/80 px-4 py-8 text-center dark:border-white/15">
+      <div class="empty-state mt-6">
         <p class="text-sm text-stone-600 dark:text-stone-400">
-          {assignments.message ?? "Nothing due yet. Enjoy the break."}
+          {assignments.message ?? "No assignments due this week."}
         </p>
       </div>
     )

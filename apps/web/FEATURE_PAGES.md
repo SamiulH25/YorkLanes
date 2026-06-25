@@ -8,9 +8,11 @@
 | `progress/` | Progress tracker | Thor | Stub | [progress.md](../../docs/tasks/progress.md) |
 | `finance/` | Finance | Taziz | Stub | [finance.md](../../docs/tasks/finance.md) |
 | `assignments/` | Assignments | Sarah | Stub | [assignments.md](../../docs/tasks/assignments.md) |
-| `login.astro` | Google OAuth | Foundation | Stub | [auth.md](../../docs/tasks/auth.md) |
+| `login.astro` | Google OAuth | Foundation | **Built** (needs OAuth env) | [auth.md](../../docs/tasks/auth.md) |
 
 Each stub page calls its API route and shows the task guide path. Open the guide, follow the steps, ship a PR.
+
+See [docs/DEVELOPER_GUIDE.md](../../docs/DEVELOPER_GUIDE.md) for the full codebase map.
 
 Index of all tasks: [docs/tasks/README.md](../../docs/tasks/README.md)
 

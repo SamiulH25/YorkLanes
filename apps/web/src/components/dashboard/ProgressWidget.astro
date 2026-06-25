@@ -1,5 +1,4 @@
 ---
-/** Dashboard progress ring — Thor owns logic. Guide: docs/tasks/progress.md */
 import type { DashboardSummary } from "../../types/dashboard";
 
 interface Props {
@@ -12,28 +11,28 @@ const circumference = 2 * Math.PI * radius;
 const offset = circumference - (progress.percentComplete / 100) * circumference;
 ---
 
-<section class="surface relative overflow-hidden rounded-2xl p-6">
-  <div class="absolute -right-6 -top-6 h-24 w-24 rounded-full bg-york-red/5 dark:bg-york-red/10"></div>
+<section class="surface relative h-full overflow-hidden p-6">
+  <div class="pointer-events-none absolute -right-8 -top-8 h-32 w-32 rounded-full bg-york-red/10 blur-2xl"></div>
 
-  <div class="flex items-start justify-between">
+  <div class="widget-header">
     <div>
       <p class="label">Your degree</p>
-      <h2 class="mt-1 font-display text-xl font-semibold text-york-black dark:text-white">Progress</h2>
+      <h2 class="heading-widget mt-1">Progress</h2>
     </div>
     <span class="badge bg-york-red/10 text-york-red dark:bg-york-red/20">Fall 2025</span>
   </div>
 
-  <div class="mt-8 flex flex-col items-center gap-6 sm:flex-row sm:items-center">
+  <div class="mt-8 flex flex-col items-center gap-8 sm:flex-row">
     <div class="relative h-36 w-36 shrink-0">
-      <svg class="h-36 w-36 -rotate-90 drop-shadow-glow" viewBox="0 0 120 120">
-        <circle cx="60" cy="60" r={radius} fill="none" class="stroke-york-stone dark:stroke-white/10" stroke-width="8"></circle>
+      <svg class="h-36 w-36 -rotate-90 drop-shadow-glow" viewBox="0 0 120 120" aria-hidden="true">
+        <circle cx="60" cy="60" r={radius} fill="none" class="stroke-york-stone/80 dark:stroke-white/10" stroke-width="9"></circle>
         <circle
           cx="60"
           cy="60"
           r={radius}
           fill="none"
-          stroke="#E31837"
-          stroke-width="8"
+          class="stroke-york-red"
+          stroke-width="9"
           stroke-dasharray={circumference}
           stroke-dashoffset={offset}
           stroke-linecap="round"
@@ -41,22 +40,22 @@ const offset = circumference - (progress.percentComplete / 100) * circumference;
       </svg>
       <span class="absolute inset-0 flex flex-col items-center justify-center">
         <span class="font-display text-3xl font-bold text-york-black dark:text-white">{progress.percentComplete}%</span>
-        <span class="text-xs text-york-muted">complete</span>
+        <span class="text-xs font-medium text-york-muted">complete</span>
       </span>
     </div>
 
     <div class="flex-1 text-center sm:text-left">
-      <p class="text-sm leading-relaxed text-stone-600 dark:text-stone-300">{progress.label}</p>
-      <div class="mt-4 space-y-2">
-        <div class="flex items-center gap-2 text-xs text-york-muted">
+      <p class="text-sm leading-relaxed text-stone-600 dark:text-stone-400">{progress.label}</p>
+      <div class="mt-5 space-y-2.5">
+        <div class="flex items-center gap-2.5 text-xs font-medium text-york-muted">
           <span class="h-2 w-2 rounded-full bg-york-red"></span>
           Major requirements
         </div>
-        <div class="flex items-center gap-2 text-xs text-york-muted">
+        <div class="flex items-center gap-2.5 text-xs font-medium text-york-muted">
           <span class="h-2 w-2 rounded-full bg-york-gold"></span>
           General education
         </div>
-        <div class="flex items-center gap-2 text-xs text-york-muted">
+        <div class="flex items-center gap-2.5 text-xs font-medium text-york-muted">
           <span class="h-2 w-2 rounded-full bg-stone-400"></span>
           Electives
         </div>

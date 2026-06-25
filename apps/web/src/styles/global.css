@@ -8,7 +8,7 @@
   }
 
   body {
-    @apply font-sans antialiased;
+    @apply font-sans antialiased text-york-black dark:text-stone-100;
   }
 
   ::selection {
@@ -18,47 +18,90 @@
 
 @layer components {
   .page-bg {
-    @apply bg-york-cream bg-york-stripes text-york-black dark:bg-york-navy dark:text-stone-100;
+    @apply bg-york-cream text-york-black;
+    background-image:
+      radial-gradient(ellipse 120% 80% at 0% -20%, rgba(227, 24, 55, 0.08), transparent 50%),
+      radial-gradient(ellipse 80% 60% at 100% 0%, rgba(201, 162, 39, 0.06), transparent 45%);
+  }
+
+  :global(.dark) .page-bg {
+    @apply bg-york-navy text-stone-100;
+    background-image:
+      radial-gradient(ellipse 100% 70% at 0% -10%, rgba(227, 24, 55, 0.04), transparent 50%),
+      radial-gradient(ellipse 60% 50% at 100% 100%, rgba(227, 24, 55, 0.02), transparent 40%);
   }
 
   .surface {
-    @apply border border-york-stone/60 bg-white/90 shadow-card backdrop-blur-sm
-      dark:border-white/10 dark:bg-york-slate/80 dark:shadow-card-dark;
+    @apply rounded-2xl border border-york-stone/50 bg-white/80 shadow-card backdrop-blur-md
+      dark:border-white/[0.06] dark:bg-york-panel dark:shadow-card-dark;
+  }
+
+  .surface-elevated {
+    @apply rounded-2xl border border-york-stone/50 bg-white/80 shadow-glow backdrop-blur-md
+      ring-1 ring-york-red/[0.06] dark:border-white/[0.06] dark:bg-york-panel dark:shadow-card-dark
+      dark:ring-white/[0.03];
   }
 
   .surface-muted {
-    @apply bg-york-cream/80 dark:bg-york-navy/60;
+    @apply rounded-xl bg-york-cream/60 dark:bg-york-graphite;
   }
 
   .label {
-    @apply font-display text-sm font-medium text-york-muted dark:text-stone-400;
+    @apply text-[11px] font-semibold uppercase tracking-[0.14em] text-york-muted dark:text-stone-500;
   }
 
   .heading-page {
-    @apply font-display text-2xl font-semibold tracking-tight text-york-black dark:text-white;
+    @apply font-display text-[1.75rem] font-semibold tracking-tight text-york-black dark:text-white;
+  }
+
+  .heading-widget {
+    @apply font-display text-lg font-semibold tracking-tight text-york-black dark:text-white;
   }
 
   .link-nav {
-    @apply flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-all
-      text-stone-600 hover:bg-york-red/5 hover:text-york-red
-      dark:text-stone-300 dark:hover:bg-white/5 dark:hover:text-white;
+    @apply flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-all duration-200
+      text-stone-600 hover:bg-york-red/[0.06] hover:text-york-red
+      dark:text-stone-400 dark:hover:bg-york-graphite dark:hover:text-white;
   }
 
   .link-nav-active {
-    @apply bg-york-red text-white shadow-sm hover:bg-york-red-dark hover:text-white
+    @apply bg-york-red text-white shadow-md shadow-york-red/25 hover:bg-york-red-dark hover:text-white
       dark:bg-york-red dark:text-white;
   }
 
   .btn-york {
-    @apply inline-flex items-center justify-center gap-2 rounded-xl bg-york-red px-4 py-2.5
-      text-sm font-semibold text-white transition-colors
-      hover:bg-york-red-dark focus:outline-none focus:ring-2 focus:ring-york-red/40;
+    @apply inline-flex items-center justify-center gap-2 rounded-xl bg-york-red px-5 py-3
+      text-sm font-semibold text-white shadow-md shadow-york-red/20 transition-all duration-200
+      hover:bg-york-red-dark hover:shadow-lg hover:shadow-york-red/25
+      focus:outline-none focus:ring-2 focus:ring-york-red/40 focus:ring-offset-2
+      dark:focus:ring-offset-york-navy;
+  }
+
+  .btn-ghost {
+    @apply inline-flex items-center justify-center gap-2 rounded-xl border border-york-stone/60
+      bg-white/60 px-4 py-2.5 text-sm font-medium text-stone-700 transition-colors
+      hover:border-york-red/30 hover:text-york-red
+      dark:border-white/[0.08] dark:bg-york-graphite dark:text-stone-300 dark:hover:text-white;
   }
 
   .badge {
-    @apply inline-flex rounded-full px-2.5 py-0.5 text-xs font-medium;
+    @apply inline-flex rounded-full px-2.5 py-0.5 text-[11px] font-semibold tracking-wide;
   }
 
+  .icon-badge {
+    @apply flex h-10 w-10 shrink-0 items-center justify-center rounded-xl;
+  }
+
+  .widget-header {
+    @apply flex items-start justify-between gap-4;
+  }
+
+  .empty-state {
+    @apply rounded-xl border border-dashed border-york-stone/70 px-4 py-10 text-center
+      dark:border-white/10;
+  }
+
+  /* Plan editor */
   .plan-editor-toolbar {
     @apply mb-4 flex flex-wrap items-center justify-between gap-3 text-sm;
   }
@@ -126,7 +169,7 @@
 
   .plan-course-card {
     @apply relative flex items-stretch gap-0 overflow-hidden rounded-lg border border-york-stone/40
-      bg-york-cream/80 transition-shadow dark:border-white/10 dark:bg-york-navy/50;
+      bg-york-cream/80 transition-shadow dark:border-white/[0.06] dark:bg-york-slate;
   }
 
   .plan-course-card--selected {
@@ -148,7 +191,7 @@
   .plan-course-handle {
     @apply flex w-7 shrink-0 cursor-grab items-center justify-center border-r border-york-stone/30
       bg-york-stone/20 text-xs text-york-muted active:cursor-grabbing
-      dark:border-white/10 dark:bg-white/5;
+      dark:border-white/[0.06] dark:bg-york-graphite;
   }
 
   .plan-course-body {

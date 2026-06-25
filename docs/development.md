@@ -164,7 +164,7 @@ You do not run migrations yourself unless you are the maintainer.
 | “Failed to load degree plan” | `GET /api/plans/:id` in browser; if schema error, tell maintainer to push migrations |
 | No prerequisite lines | `courses` table may be empty — maintainer runs scraper import |
 | CORS errors | `WEB_ORIGIN` in API `.env` must match Astro origin (`http://localhost:4321`) |
-| SSR fetch fails | `PUBLIC_API_URL` must be `http://localhost:3001` |
+| SSR fetch fails in dev | `getApiUrl()` uses `:3001` on the server — that is correct. Browser must use `PUBLIC_API_URL=http://localhost:4321` |
 
 ## Testing
 
@@ -176,6 +176,7 @@ You do not run migrations yourself unless you are the maintainer.
 
 ## Related docs
 
+- **[Developer guide](./DEVELOPER_GUIDE.md)** — full codebase map (start here for “where is X?”)
 - [Architecture](./architecture.md)
 - [Database](./database.md) — table reference (read-only for most devs)
 - [Maintainer guide](./maintainer.md) — database owner only

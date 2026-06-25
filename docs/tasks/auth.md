@@ -47,6 +47,7 @@ Google sign-in is wired through the Express API. The web app never sees client s
 ## Behaviour
 
 - Session cookie: `yorklanes.sid` on the web origin in dev (`localhost:4321` via proxy).
+- SSR page loads call the API on `localhost:3001` directly; browser OAuth uses `localhost:4321/api` (proxied by `src/middleware.ts`).
 - Signed-in users get a `users` row (`google_id`, `email`, `display_name`). New degree plans store `user_id` when imported while logged in.
 - Guests can still use the app without signing in; `requireAuth` is available for routes that should be locked down later.
 

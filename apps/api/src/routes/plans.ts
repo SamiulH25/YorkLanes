@@ -2,6 +2,7 @@
  * Degree plan REST routes.
  *
  * POST /import  — upload checklist PDF/DOCX, parse, save plan
+ * GET  /mine    — latest plan for signed-in user
  * GET  /:id     — plan with terms and courses
  * GET  /:id/graph — placements + prerequisite edges (from courses catalogue)
  * PATCH /:id/layout — drag-and-drop term moves
@@ -14,7 +15,11 @@ import { checkDegreePlanTables, getPool } from "../db/index.js";
 import { parseChecklistFile } from "../services/checklistParser.js";
 import { inferChecklistMetadata } from "../services/inferChecklistMetadata.js";
 import { applyPlanLayoutMoves, buildPlanGraph, setPlanCourseCompletion } from "../services/planGraph.js";
-import { createPlanFromChecklist, getPlanById } from "../services/planGenerator.js";
+import {
+  createPlanFromChecklist,
+  getLatestPlanForUser,
+  getPlanById,
+} from "../services/planGenerator.js";
 
 const upload = multer({
   storage: multer.memoryStorage(),
@@ -34,6 +39,27 @@ export const plansRouter = Router();
 
 plansRouter.get("/faculties", (_req, res) => {
   res.json({ faculties: FACULTY_CHECKLISTS });
+});
+
+plansRouter.get("/mine", async (req, res) => {
+  try {
+    if (!req.session.userId) {
+      res.status(401).json({ error: "Sign in to load your saved plan" });
+      return;
+    }
+
+    const plan = await getLatestPlanForUser(getPool(), req.session.userId);
+    if (!plan) {
+      res.status(404).json({ error: "No plan found" });
+      return;
+    }
+
+    res.json(plan);
+  } catch (error) {
+    res.status(500).json({
+      error: error instanceof Error ? error.message : "Failed to load plan",
+    });
+  }
 });
 
 plansRouter.get("/:planId/graph", async (req, res) => {

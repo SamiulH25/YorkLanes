@@ -35,7 +35,7 @@ Auth (Google OAuth) and production deploy are not wired up yet.
 | Course explorer | Stub — [docs/tasks/courses.md](docs/tasks/courses.md) | Jericho |
 | Schedule builder | Stub — [docs/tasks/schedule.md](docs/tasks/schedule.md) | Nabeela |
 | Progress tracker | Stub — [docs/tasks/progress.md](docs/tasks/progress.md) | Thor |
-| Finance | Stub — [docs/tasks/finance.md](docs/tasks/finance.md) | Taziz |
+| Finance | Working first pass — [docs/tasks/finance.md](docs/tasks/finance.md) | Taziz |
 | Assignments | Stub — [docs/tasks/assignments.md](docs/tasks/assignments.md) | Sarah |
 | Google OAuth | Stub — [docs/tasks/auth.md](docs/tasks/auth.md) | Foundation |
 

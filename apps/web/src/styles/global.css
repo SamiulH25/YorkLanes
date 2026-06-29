@@ -29,27 +29,26 @@
 
 @layer components {
   .page-bg {
-    @apply bg-york-cream text-york-black;
+    @apply bg-york-cream text-york-black dark:bg-york-navy dark:text-stone-100;
     background-image:
-      radial-gradient(ellipse 120% 80% at 0% -20%, rgba(227, 24, 55, 0.08), transparent 50%),
-      radial-gradient(ellipse 80% 60% at 100% 0%, rgba(201, 162, 39, 0.06), transparent 45%);
+      radial-gradient(ellipse 120% 80% at 0% -20%, rgba(227, 24, 55, 0.04), transparent 50%),
+      radial-gradient(ellipse 80% 60% at 100% 0%, rgba(201, 162, 39, 0.03), transparent 45%);
   }
 
-  :global(.dark) .page-bg {
-    @apply bg-york-navy text-stone-100;
+  .dark .page-bg {
     background-image:
       radial-gradient(ellipse 100% 70% at 0% -10%, rgba(227, 24, 55, 0.04), transparent 50%),
       radial-gradient(ellipse 60% 50% at 100% 100%, rgba(227, 24, 55, 0.02), transparent 40%);
   }
 
   .surface {
-    @apply rounded-2xl border border-york-stone/50 bg-white/80 shadow-card backdrop-blur-md
+    @apply rounded-2xl border border-york-stone/60 bg-stone-100/95 shadow-card backdrop-blur-md
       dark:border-white/[0.06] dark:bg-york-panel dark:shadow-card-dark;
   }
 
   .surface-elevated {
-    @apply rounded-2xl border border-york-stone/50 bg-white/80 shadow-glow backdrop-blur-md
-      ring-1 ring-york-red/[0.06] dark:border-white/[0.06] dark:bg-york-panel dark:shadow-card-dark
+    @apply rounded-2xl border border-york-stone/60 bg-stone-100/95 shadow-card backdrop-blur-md
+      ring-1 ring-york-stone/40 dark:border-white/[0.06] dark:bg-york-panel dark:shadow-card-dark
       dark:ring-white/[0.03];
   }
 
@@ -92,8 +91,8 @@
   }
 
   .btn-ghost {
-    @apply inline-flex items-center justify-center gap-2 rounded-xl border border-york-stone/60
-      bg-white/60 px-4 py-2.5 text-sm font-medium text-stone-700 transition-colors
+    @apply inline-flex items-center justify-center gap-2 rounded-xl border border-york-stone/70
+      bg-stone-100/80 px-4 py-2.5 text-sm font-medium text-stone-700 transition-colors
       hover:border-york-red/30 hover:text-york-red
       dark:border-white/[0.08] dark:bg-york-graphite dark:text-stone-300 dark:hover:text-white;
   }
@@ -120,7 +119,7 @@
   }
 
   .login-shell {
-    @apply flex h-full min-h-0 flex-col;
+    @apply flex h-full min-h-0 flex-col bg-[#D2CCC2] dark:bg-york-navy;
   }
 
   .login-main {
@@ -128,7 +127,48 @@
   }
 
   .login-card {
-    @apply surface-elevated w-full max-w-md p-4 sm:p-8;
+    @apply surface w-full max-w-md p-4 sm:p-8;
+  }
+
+  .onboarding-shell {
+    @apply flex h-full min-h-0 flex-col bg-[#D2CCC2] dark:bg-york-navy;
+  }
+
+  .onboarding-main {
+    @apply grid min-h-0 flex-1 place-items-center overflow-y-auto px-4 py-6 sm:px-6;
+  }
+
+  .onboarding-panel {
+    @apply surface w-full max-w-2xl p-6 sm:p-8;
+  }
+
+  .hero-shell {
+    @apply flex min-h-dvh flex-col;
+  }
+
+  .hero-header {
+    @apply flex shrink-0 items-center justify-between gap-4 border-b border-york-stone/50
+      bg-stone-200/70 px-4 py-3 backdrop-blur-xl dark:border-white/[0.06] dark:bg-york-slate/95 sm:px-8;
+  }
+
+  .hero-main {
+    @apply mx-auto w-full max-w-6xl flex-1 px-4 py-12 sm:px-8 sm:py-16 lg:py-20;
+  }
+
+  .hero-copy {
+    @apply max-w-3xl;
+  }
+
+  .hero-features {
+    @apply mt-14 border-t border-york-stone/50 pt-12 dark:border-white/[0.06];
+  }
+
+  .hero-feature-card {
+    @apply surface rounded-2xl p-5 sm:p-6;
+  }
+
+  .hero-footer {
+    @apply shrink-0 border-t border-york-stone/40 px-4 py-6 text-center dark:border-white/[0.06] sm:px-8;
   }
 
   /* Plan editor */

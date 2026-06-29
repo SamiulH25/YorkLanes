@@ -1,22 +1,34 @@
 ---
 import DashboardLayout from "../../layouts/DashboardLayout.astro";
-import { fetchPlan } from "../../lib/plans";
+import { fetchMyPlan, fetchPlan } from "../../lib/plans";
 
 // Must be server-rendered so ?id= query param and plan data resolve per request.
 export const prerender = false;
 
-const planId = Astro.url.searchParams.get("id") ?? "";
+const cookie = Astro.request.headers.get("cookie");
+const planIdParam = Astro.url.searchParams.get("id");
 
 let plan = null;
 let loadError: string | null = null;
 
-if (planId) {
+if (planIdParam) {
   try {
-    plan = await fetchPlan(planId);
+    plan = await fetchPlan(planIdParam, cookie);
+  } catch (error) {
+    loadError = error instanceof Error ? error.message : "Failed to load plan";
+  }
+} else {
+  try {
+    plan = await fetchMyPlan(cookie);
+    if (plan) {
+      return Astro.redirect(`/plan?id=${plan.id}`);
+    }
   } catch (error) {
     loadError = error instanceof Error ? error.message : "Failed to load plan";
   }
 }
+
+const planId = plan?.id ?? planIdParam ?? "";
 ---
 
 <DashboardLayout title="Degree Plan | YorkLanes" activeNav="plan">
@@ -190,20 +202,6 @@ if (planId) {
       </div>
     )
   }
-
-  <script is:inline>
-    const params = new URLSearchParams(window.location.search);
-    const idFromUrl = params.get("id");
-
-    if (idFromUrl) {
-      sessionStorage.setItem("yorklanes-plan-id", idFromUrl);
-    } else {
-      const saved = sessionStorage.getItem("yorklanes-plan-id");
-      if (saved) {
-        window.location.replace(`/plan?id=${encodeURIComponent(saved)}`);
-      }
-    }
-  </script>
 
   {
     plan && (

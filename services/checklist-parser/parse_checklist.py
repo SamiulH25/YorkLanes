@@ -125,9 +125,30 @@ SUBJECT_BLOCKLIST = frozenset(
 
 VALID_COURSE_NUMBER = re.compile(r"^[1-4]\d{3}$")
 
+TOTAL_ROW_PATTERN = re.compile(r"^total\b", re.I)
+CREDIT_CELL_PATTERN = re.compile(r"^\d+(?:\.\d+)?$")
+SLOT_LINE_SUFFIX = re.compile(r"\|\s*(\d+(?:\.\d+)?)\s*$")
+ANY_COURSE_PATTERN = re.compile(r"any\s+course", re.I)
+OUTSIDE_CWR_PATTERN = re.compile(r"course\s+outside", re.I)
+WORKSHOP_PATTERN = re.compile(r"workshop\s+credits?", re.I)
+ADDITIONAL_MAJOR_PATTERN = re.compile(
+    r"additional\s+credits?\s+chosen|creative\s+writing\s+list\s+of\s+courses",
+    re.I,
+)
+GEN_ED_CATEGORY_PATTERN = re.compile(r"^\d+\)\s*", re.I)
+PICK_LIST_PATTERN = re.compile(
+    r"chosen from the following|choose from the following|select from the following",
+    re.I,
+)
+MAJOR_SECTION_PATTERN = re.compile(r"major\s*[–-]\s*\d+\s*credits?", re.I)
+TABLE_HEADER_PATTERN = re.compile(
+    r"^(credit|complete|or incomplete|grade|notes)\b",
+    re.I,
+)
+
 SKIP_LINE_PATTERN = re.compile(
     r"^(total|upper[\s-]?level|requirement|important|please|academic|department|registration|"
-    r"note:|additional|any course:|course outside|\d+\))",
+    r"note:)",
     re.IGNORECASE,
 )
 
@@ -279,6 +300,8 @@ def make_stub_course(
 
 
 def should_collapse_line_to_stub(line: str, course_count: int, in_stub_section: bool) -> bool:
+    if PICK_LIST_PATTERN.search(line):
+        return False
     if in_stub_section:
         return True
     if course_count >= 3 and LIST_REFERENCE_PATTERN.search(line):
@@ -286,6 +309,170 @@ def should_collapse_line_to_stub(line: str, course_count: int, in_stub_section: 
     if course_count >= 5:
         return True
     return False
+
+
+def parse_slot_suffix(line: str) -> tuple[str, float] | None:
+    match = SLOT_LINE_SUFFIX.search(line)
+    if not match:
+        return None
+    label = line[: match.start()].strip().rstrip("|").strip()
+    try:
+        credits = float(match.group(1))
+    except ValueError:
+        return None
+    return label, credits
+
+
+def classify_slot_stub(label: str) -> tuple[str, str]:
+    if ANY_COURSE_PATTERN.search(label):
+        return "FREE_CHOICE", "Free Choice"
+    if OUTSIDE_CWR_PATTERN.search(label):
+        return "OUTSIDE_MAJOR", "Outside the Major"
+    if GEN_ED_CATEGORY_PATTERN.search(label) or re.search(
+        r"humanities|natural science|social science",
+        label,
+        re.I,
+    ):
+        return "GENERAL_ED", "General Education"
+    if ADDITIONAL_MAJOR_PATTERN.search(label):
+        return "ADDITIONAL_MAJOR", "Major Electives"
+    if WORKSHOP_PATTERN.search(label):
+        return "WORKSHOP", "Workshop Credits"
+    return "ELECTIVE", "Electives"
+
+
+def default_entry_credits(entry: dict) -> float:
+    credits = entry.get("credits")
+    if credits is not None:
+        return float(credits)
+    if entry.get("kind") == "stub":
+        return 3.0
+    return 6.0
+
+
+def assign_program_year(entry: dict, workshop_index: int = 0) -> int:
+    stub_type = entry.get("stub_type", "")
+    code = entry.get("code", "")
+    raw = entry.get("raw", "")
+
+    if stub_type == "GENERAL_ED" or code == "GENERAL_ED":
+        return 1
+    if entry.get("kind") != "stub" and course_level(code) <= 2:
+        return 1
+    if stub_type == "WORKSHOP" or WORKSHOP_PATTERN.search(raw):
+        return 2 if workshop_index % 2 == 0 else 3
+    if stub_type == "ADDITIONAL_MAJOR" or ADDITIONAL_MAJOR_PATTERN.search(raw):
+        return 2 + (workshop_index % 2)
+    if stub_type == "OUTSIDE_MAJOR" or OUTSIDE_CWR_PATTERN.search(raw):
+        return 3
+    if stub_type == "FREE_CHOICE":
+        return 4
+    return 2
+
+
+def redistribute_credit_checklist(
+    year_buckets: dict[int, list[dict]],
+    saw_year_header: bool,
+) -> dict[int, list[dict]]:
+    if saw_year_header:
+        return year_buckets
+
+    flat_entries: list[dict] = []
+    for year in sorted(year_buckets):
+        flat_entries.extend(year_buckets[year])
+
+    if len(flat_entries) < 6:
+        return year_buckets
+
+    total_credits = sum(default_entry_credits(entry) for entry in flat_entries)
+    if total_credits < 90:
+        return year_buckets
+
+    redistributed: dict[int, list[dict]] = {1: [], 2: [], 3: [], 4: []}
+    workshop_index = 0
+    additional_index = 0
+
+    for entry in flat_entries:
+        raw = entry.get("raw", "")
+        stub_type = entry.get("stub_type", "")
+        if stub_type == "WORKSHOP" or WORKSHOP_PATTERN.search(raw):
+            year = assign_program_year(entry, workshop_index)
+            workshop_index += 1
+        elif stub_type == "ADDITIONAL_MAJOR" or ADDITIONAL_MAJOR_PATTERN.search(raw):
+            year = assign_program_year(entry, additional_index)
+            additional_index += 1
+        else:
+            year = assign_program_year(entry)
+        redistributed.setdefault(year, []).append(entry)
+
+    return {year: courses for year, courses in redistributed.items() if courses}
+
+
+def dedupe_merged_cells(cells: list[str]) -> list[str]:
+    """Collapse Word horizontal merge repeats for the label column only."""
+    cleaned = [cell.strip() for cell in cells if cell.strip()]
+    if not cleaned:
+        return []
+    label = cleaned[0]
+    rest = cleaned[1:]
+    return [label, *rest]
+
+
+def split_table_row(cells: list[str]) -> tuple[str, str]:
+    cleaned = [cell.strip().replace("\n", " ") for cell in cells if cell.strip()]
+    if not cleaned:
+        return "", ""
+    label = cleaned[0]
+    credit_values: list[float] = []
+    for cell in cleaned[1:]:
+        credit_values.extend(parse_credit_values(cell))
+    if credit_values:
+        return label, " | ".join(f"{value:g}" for value in credit_values)
+    if len(cleaned) > 1:
+        return label, cleaned[1]
+    return label, ""
+
+
+def should_skip_duplicate_table_row(label: str, row_key: str, prev_row_key: str | None) -> bool:
+    if prev_row_key is None or row_key != prev_row_key:
+        return False
+    if len(label) <= 60:
+        return False
+    if (
+        PICK_LIST_PATTERN.search(label)
+        or ADDITIONAL_MAJOR_PATTERN.search(label)
+        or WORKSHOP_PATTERN.search(label)
+    ):
+        return True
+    return False
+
+
+def parse_credit_values(text: str) -> list[float]:
+    values: list[float] = []
+    for token in re.split(r"[|\s]+", text):
+        token = token.strip()
+        if CREDIT_CELL_PATTERN.match(token):
+            values.append(float(token))
+    return values
+
+
+def normalize_table_row_key(label: str) -> str:
+    return re.sub(r"\s+", " ", label.strip().lower())[:120]
+
+
+def expand_label_credit_row(label: str, credit_text: str) -> list[str]:
+    credits = parse_credit_values(credit_text)
+    label = label.strip()
+    if not label:
+        return []
+
+    if not credits:
+        return [label]
+
+    if len(credits) == 1 and COURSE_PATTERN.search(label):
+        return [f"{label} | {credits[0]:g}"]
+
+    return [f"{label} | {credit:g}" for credit in credits]
 
 
 def extract_courses_from_line(line: str) -> list[dict]:
@@ -337,6 +524,7 @@ def extract_courses_from_text(text: str) -> dict:
     seen_stub_keys: set[str] = set()
     in_stub_section = False
     active_stub: dict | None = None
+    saw_year_header = False
 
     def append_option_code(code: str, stub_type: str = "COMPLEMENTARY", label: str | None = None) -> None:
         nonlocal active_stub, in_stub_section
@@ -365,13 +553,20 @@ def extract_courses_from_text(text: str) -> dict:
                 return
             seen_codes.add(code)
         else:
-            stub_key = f"{current_year}:{code}:{course.get('section_label', '')}"
+            stub_key = f"{current_year}:{code}:{len(year_buckets.get(current_year, []))}"
             if stub_key in seen_stub_keys:
                 return
             seen_stub_keys.add(stub_key)
             # Merge consecutive complementary placeholders in the same year.
             year_list = year_buckets.setdefault(current_year, [])
-            if year_list and year_list[-1].get("kind") == "stub" and year_list[-1].get("code") == code:
+            if (
+                year_list
+                and year_list[-1].get("kind") == "stub"
+                and year_list[-1].get("code") == code
+                and year_list[-1].get("stub_type") in {"COMPLEMENTARY", "ELECTIVE"}
+                and not course.get("option_codes")
+                and not year_list[-1].get("option_codes")
+            ):
                 existing = year_list[-1]
                 for opt in course.get("option_codes", []):
                     opts = existing.setdefault("option_codes", [])
@@ -415,6 +610,10 @@ def extract_courses_from_text(text: str) -> dict:
         line = raw_line.strip()
         if not line or BULLET_ONLY_PATTERN.fullmatch(line):
             continue
+        if TABLE_HEADER_PATTERN.search(line):
+            continue
+        if re.search(r"^\d{4}\s+level", line, re.I):
+            continue
         if SKIP_LINE_PATTERN.search(line) or FOOTER_LINE_PATTERN.search(line):
             continue
 
@@ -422,12 +621,28 @@ def extract_courses_from_text(text: str) -> dict:
         if year_num is not None and len(line) < 60 and not COURSE_PATTERN.search(line):
             finalize_active_stub()
             current_year = year_num
+            saw_year_header = True
             continue
 
         stub_match = detect_stub_section(line)
         if stub_match is not None and COURSE_PATTERN.search(line) is None:
             stub_type, label = stub_match
+            section_credits = parse_credit_requirement(line)
+            if (
+                stub_type in {"GENERAL_ED", "FREE_CHOICE", "OUTSIDE_MAJOR"}
+                and section_credits is not None
+                and section_credits >= 18
+                and not PICK_LIST_PATTERN.search(line)
+            ):
+                finalize_active_stub()
+                current_section = label
+                continue
             start_stub_section(line, stub_type, label)
+            continue
+
+        if MAJOR_SECTION_PATTERN.search(line) and COURSE_PATTERN.search(line) is None:
+            finalize_active_stub()
+            current_section = "Required Core"
             continue
 
         if is_required_section(line) and COURSE_PATTERN.search(line) is None:
@@ -444,6 +659,45 @@ def extract_courses_from_text(text: str) -> dict:
                 finalize_active_stub()
             current_section = section_label
             continue
+
+        slot = parse_slot_suffix(line)
+        if slot is not None:
+            label, slot_credits = slot
+            slot_courses = extract_courses_from_line(label)
+            if slot_courses and PICK_LIST_PATTERN.search(label):
+                finalize_active_stub()
+                stub_type, stub_label = classify_slot_stub(label)
+                append_course(
+                    make_stub_course(
+                        stub_type,
+                        stub_label,
+                        current_section,
+                        slot_credits,
+                        line,
+                        [course["code"] for course in slot_courses],
+                    )
+                )
+                continue
+            if not slot_courses:
+                finalize_active_stub()
+                stub_type, stub_label = classify_slot_stub(label)
+                append_course(
+                    make_stub_course(
+                        stub_type,
+                        stub_label,
+                        current_section,
+                        slot_credits,
+                        line,
+                    )
+                )
+                continue
+            if len(slot_courses) == 1 and is_concrete_course_code(slot_courses[0]["code"]):
+                finalize_active_stub()
+                course = slot_courses[0]
+                course["credits"] = slot_credits
+                apply_course_line_metadata(course, label)
+                append_course(course)
+                continue
 
         line_courses = extract_courses_from_line(line)
 
@@ -486,6 +740,7 @@ def extract_courses_from_text(text: str) -> dict:
 
     finalize_active_stub()
 
+    year_buckets = redistribute_credit_checklist(year_buckets, saw_year_header)
     years = merge_year_buckets(year_buckets)
 
     if not years or all(len(y["courses"]) == 0 for y in years):
@@ -553,10 +808,29 @@ def read_docx(path: Path) -> str:
             parts.append(paragraph.text.strip())
 
     for table in doc.tables:
+        first_row_text = table.rows[0].cells[0].text.strip().lower() if table.rows else ""
+        if "upper-level checklist" in first_row_text:
+            continue
+
+        prev_row_key: str | None = None
         for row in table.rows:
-            cells = [cell.text.strip() for cell in row.cells if cell.text.strip()]
-            if cells:
-                parts.append(" | ".join(cells))
+            raw_cells = [cell.text for cell in row.cells]
+            cells = dedupe_merged_cells(raw_cells)
+            label, credit_text = split_table_row(cells)
+            if not label:
+                continue
+            if TABLE_HEADER_PATTERN.search(label) or label.lower().startswith("credit |"):
+                continue
+            if TOTAL_ROW_PATTERN.search(label):
+                prev_row_key = None
+                continue
+
+            row_key = normalize_table_row_key(label)
+            if should_skip_duplicate_table_row(label, row_key, prev_row_key):
+                continue
+            prev_row_key = row_key
+
+            parts.extend(expand_label_credit_row(label, credit_text))
 
     return "\n".join(parts)
 

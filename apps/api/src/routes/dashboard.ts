@@ -13,6 +13,7 @@
  */
 import { Router } from "express";
 import { getPool } from "../db/index.js";
+import { canUseFinanceRest, getFinanceSummary, getFinanceSummaryViaRest } from "../services/finance.js";
 import { findUserById } from "../services/users.js";
 import type { DashboardSummary } from "../types/dashboard.js";
 
@@ -20,11 +21,37 @@ export const dashboardRouter = Router();
 
 dashboardRouter.get("/summary", async (req, res) => {
   let displayName = "Student";
-  if (req.session.userId) {
+  let finance: DashboardSummary["finance"] = {
+    balance: 0,
+    currency: "CAD",
+    message: "Finance module needs database env to load shared entries.",
+  };
+  const usePostgres = Boolean(process.env.SUPABASE_DB_URL?.trim() || process.env.DATABASE_URL?.trim());
+
+  if (req.session.userId && usePostgres) {
     const user = await findUserById(getPool(), req.session.userId);
     if (user) {
       displayName = user.display_name;
     }
+  }
+
+  try {
+    const financeSummary = usePostgres
+      ? await getFinanceSummary(getPool(), req.session.userId)
+      : canUseFinanceRest()
+        ? await getFinanceSummaryViaRest(req.session.userId)
+        : null;
+    if (!financeSummary) throw new Error("Finance database is not configured");
+    finance = {
+      balance: financeSummary.balanceCents / 100,
+      currency: financeSummary.currency,
+      message:
+        financeSummary.balanceCents === 0
+          ? "No finance entries logged yet."
+          : `${financeSummary.categoryTotals.length} expense categories tracked.`,
+    };
+  } catch {
+    // Keep the dashboard available when local env does not include SUPABASE_DB_URL.
   }
 
   const summary: DashboardSummary = {
@@ -41,11 +68,7 @@ dashboardRouter.get("/summary", async (req, res) => {
       upcoming: [],
       message: "Assignment calendar not connected. Sarah: implement in apps/web and wire here.",
     },
-    finance: {
-      balance: 0,
-      currency: "CAD",
-      message: "Finance module not connected. Taziz: implement and wire here.",
-    },
+    finance,
     quickLinks: [
       { label: "Degree Plan", href: "/plan", featureOwner: "Samiul", status: "ready" },
       { label: "Course Explorer", href: "/courses", featureOwner: "Jericho", status: "in-progress" },

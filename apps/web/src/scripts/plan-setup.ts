@@ -102,7 +102,17 @@ export function initPlanSetup(options: PlanSetupOptions = {}): void {
     }
   }
 
+  function applyQueryPrefill(): void {
+    const params = new URLSearchParams(window.location.search);
+    const facultyKey = params.get("facultyKey");
+    if (facultyKey && facultySelect) {
+      facultySelect.value = facultyKey;
+      onFacultyChange();
+    }
+  }
+
   facultySelect?.addEventListener("change", onFacultyChange);
+  applyQueryPrefill();
 
   dropzone?.addEventListener("dragenter", (event) => {
     preventDragDefaults(event);
@@ -170,7 +180,6 @@ export function initPlanSetup(options: PlanSetupOptions = {}): void {
         throw new Error(`${payload.error ?? "Import failed"}${hint}`);
       }
 
-      sessionStorage.setItem("yorklanes-plan-id", payload.plan.id);
       window.location.href = `/plan?id=${payload.plan.id}`;
     } catch (error) {
       showStatus(error instanceof Error ? error.message : "Import failed", true);

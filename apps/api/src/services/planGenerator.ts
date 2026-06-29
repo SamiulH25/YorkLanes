@@ -274,6 +274,25 @@ export async function createPlanFromChecklist(
   }
 }
 
+export async function getLatestPlanForUser(
+  pool: Pool,
+  userId: string,
+): Promise<DegreePlanRow | null> {
+  const result = await pool.query<{ id: string }>(
+    `SELECT id FROM degree_plans
+     WHERE user_id = $1
+     ORDER BY updated_at DESC, created_at DESC
+     LIMIT 1`,
+    [userId],
+  );
+
+  if (result.rows.length === 0) {
+    return null;
+  }
+
+  return getPlanById(pool, result.rows[0].id);
+}
+
 export async function getPlanById(pool: Pool, planId: string): Promise<DegreePlanRow | null> {
   const planResult = await pool.query<{
     id: string;

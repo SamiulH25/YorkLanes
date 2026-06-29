@@ -6,7 +6,7 @@
 | `courses/` | Course explorer | Jericho | Stub | [courses.md](../../docs/tasks/courses.md) |
 | `schedule/` | Schedule builder | Nabeela | Stub | [schedule.md](../../docs/tasks/schedule.md) |
 | `progress/` | Progress tracker | Thor | Stub | [progress.md](../../docs/tasks/progress.md) |
-| `finance/` | Finance | Taziz | Stub | [finance.md](../../docs/tasks/finance.md) |
+| `finance/` | Finance | Taziz | Working first pass | [finance.md](../../docs/tasks/finance.md) |
 | `assignments/` | Assignments | Sarah | Stub | [assignments.md](../../docs/tasks/assignments.md) |
 | `login.astro` | Google OAuth | Foundation | **Built** (needs OAuth env) | [auth.md](../../docs/tasks/auth.md) |
 

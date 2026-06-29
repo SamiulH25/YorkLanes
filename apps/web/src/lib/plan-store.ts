@@ -1,5 +1,5 @@
 /**
- * Client-side plan graph cache — other features can read the active plan without re-fetching.
+ * Client-side plan graph cache after a successful API load — not the source of truth.
  *
  * SessionStorage keys: yorklanes-plan-id, yorklanes-plan-graph:{planId}
  */

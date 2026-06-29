@@ -130,6 +130,47 @@
     @apply surface w-full max-w-md p-4 sm:p-8;
   }
 
+  .onboarding-shell {
+    @apply flex h-full min-h-0 flex-col bg-[#D2CCC2] dark:bg-york-navy;
+  }
+
+  .onboarding-main {
+    @apply grid min-h-0 flex-1 place-items-center overflow-y-auto px-4 py-6 sm:px-6;
+  }
+
+  .onboarding-panel {
+    @apply surface w-full max-w-2xl p-6 sm:p-8;
+  }
+
+  .hero-shell {
+    @apply flex min-h-dvh flex-col;
+  }
+
+  .hero-header {
+    @apply flex shrink-0 items-center justify-between gap-4 border-b border-york-stone/50
+      bg-stone-200/70 px-4 py-3 backdrop-blur-xl dark:border-white/[0.06] dark:bg-york-slate/95 sm:px-8;
+  }
+
+  .hero-main {
+    @apply mx-auto w-full max-w-6xl flex-1 px-4 py-12 sm:px-8 sm:py-16 lg:py-20;
+  }
+
+  .hero-copy {
+    @apply max-w-3xl;
+  }
+
+  .hero-features {
+    @apply mt-14 border-t border-york-stone/50 pt-12 dark:border-white/[0.06];
+  }
+
+  .hero-feature-card {
+    @apply surface rounded-2xl p-5 sm:p-6;
+  }
+
+  .hero-footer {
+    @apply shrink-0 border-t border-york-stone/40 px-4 py-6 text-center dark:border-white/[0.06] sm:px-8;
+  }
+
   /* Plan editor */
   .plan-editor-toolbar {
     @apply mb-4 flex flex-wrap items-center justify-between gap-3 text-sm;

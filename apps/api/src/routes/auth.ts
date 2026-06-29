@@ -34,14 +34,28 @@ authRouter.get("/status", (_req, res) => {
   });
 });
 
+function safeReturnTo(value: unknown): string | null {
+  if (typeof value !== "string" || !value.startsWith("/") || value.startsWith("//")) {
+    return null;
+  }
+  return value;
+}
+
 authRouter.get("/google", (req, res) => {
-  const { configured, webOrigin } = getAuthConfig();
+  const { configured } = getAuthConfig();
   if (!configured) {
     redirectToLogin(res, "oauth-not-configured");
     return;
   }
 
   try {
+    const returnTo = safeReturnTo(req.query.returnTo);
+    if (returnTo) {
+      req.session.returnTo = returnTo;
+    } else {
+      delete req.session.returnTo;
+    }
+
     const oauth = createOAuthClient();
     const state = createOAuthState();
     req.session.oauthState = state;
@@ -100,7 +114,9 @@ authRouter.get("/google/callback", async (req, res) => {
       }
 
       req.session.userId = user.id;
-      res.redirect(`${webOrigin}/dashboard`);
+      const returnTo = safeReturnTo(req.session.returnTo);
+      delete req.session.returnTo;
+      res.redirect(returnTo ? `${webOrigin}${returnTo}` : `${webOrigin}/dashboard`);
     });
   } catch (error) {
     console.error("[auth/google/callback]", error);

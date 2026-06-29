@@ -102,7 +102,17 @@ export function initPlanSetup(options: PlanSetupOptions = {}): void {
     }
   }
 
+  function applyQueryPrefill(): void {
+    const params = new URLSearchParams(window.location.search);
+    const facultyKey = params.get("facultyKey");
+    if (facultyKey && facultySelect) {
+      facultySelect.value = facultyKey;
+      onFacultyChange();
+    }
+  }
+
   facultySelect?.addEventListener("change", onFacultyChange);
+  applyQueryPrefill();
 
   dropzone?.addEventListener("dragenter", (event) => {
     preventDragDefaults(event);

@@ -53,8 +53,12 @@ export async function fetchAuthStatus(): Promise<{
   }
 }
 
-export function googleSignInUrl(): string {
-  return `${getApiUrl()}/api/auth/google`;
+export function googleSignInUrl(returnTo?: string): string {
+  const base = `${getApiUrl()}/api/auth/google`;
+  if (returnTo?.startsWith("/")) {
+    return `${base}?returnTo=${encodeURIComponent(returnTo)}`;
+  }
+  return base;
 }
 
 export function signOutUrl(): string {

@@ -5,6 +5,7 @@ import AssignmentsWidget from "../../components/dashboard/AssignmentsWidget.astr
 import FinanceWidget from "../../components/dashboard/FinanceWidget.astro";
 import QuickLinksWidget from "../../components/dashboard/QuickLinksWidget.astro";
 import { fetchDashboardSummary } from "../../lib/api";
+import { fetchOnboardingStatus } from "../../lib/onboarding";
 
 export const prerender = false;
 
@@ -12,9 +13,14 @@ const cookie = Astro.request.headers.get("cookie");
 
 let summary;
 let loadError: string | null = null;
+let showOnboardingBanner = false;
+let signedIn = false;
 
 try {
   summary = await fetchDashboardSummary(cookie);
+  const onboardingStatus = await fetchOnboardingStatus(cookie);
+  signedIn = onboardingStatus.signedIn;
+  showOnboardingBanner = onboardingStatus.signedIn && !onboardingStatus.completed;
 } catch (error) {
   loadError = error instanceof Error ? error.message : "Failed to load dashboard";
   summary = {
@@ -56,6 +62,34 @@ const today = new Date().toLocaleDateString("en-CA", {
     )
   }
 
+  {
+    showOnboardingBanner && (
+      <div class="mb-6 surface-elevated flex flex-wrap items-center justify-between gap-4 border border-york-red/20 bg-york-red/5 p-5 dark:bg-york-red/10">
+        <div>
+          <p class="text-sm font-semibold text-york-black dark:text-white">Finish setting up YorkLanes</p>
+          <p class="mt-0.5 text-sm text-york-muted">
+            Tell us your programme and import your checklist to build your degree plan.
+          </p>
+        </div>
+        <a href="/onboarding" class="btn-york shrink-0">Continue setup</a>
+      </div>
+    )
+  }
+
+  <div
+    id="guest-onboarding-banner"
+    class:list={["mb-6 hidden surface-elevated flex flex-wrap items-center justify-between gap-4 border border-york-red/20 bg-york-red/5 p-5 dark:bg-york-red/10", { hidden: signedIn }]}
+    data-signed-in={signedIn ? "true" : "false"}
+  >
+    <div>
+      <p class="text-sm font-semibold text-york-black dark:text-white">Finish setting up YorkLanes</p>
+      <p class="mt-0.5 text-sm text-york-muted">
+        Tell us your programme and import your checklist to build your degree plan.
+      </p>
+    </div>
+    <a href="/onboarding" class="btn-york shrink-0">Continue setup</a>
+  </div>
+
   <div class="mb-6 surface-elevated flex flex-wrap items-center justify-between gap-4 p-5">
     <div>
       <p class="text-sm font-medium text-york-muted">Status</p>
@@ -79,3 +113,12 @@ const today = new Date().toLocaleDateString("en-CA", {
     </div>
   </div>
 </DashboardLayout>
+
+<script>
+  import { ONBOARDING_COMPLETE_KEY } from "../../lib/onboarding";
+
+  const banner = document.getElementById("guest-onboarding-banner");
+  if (banner?.dataset.signedIn !== "true" && !localStorage.getItem(ONBOARDING_COMPLETE_KEY)) {
+    banner.classList.remove("hidden");
+  }
+</script>

@@ -1,7 +1,6 @@
 ---
 /** Schedule builder — Nabeela. Task guide: docs/tasks/schedule.md */
 import DashboardLayout from "../../layouts/DashboardLayout.astro";
-import FeatureStarter from "../../components/FeatureStarter.astro";
 import { fetchSchedules } from "../../lib/schedules";
 
 export const prerender = false;
@@ -15,6 +14,11 @@ try {
 } catch (error) {
   loadError = error instanceof Error ? error.message : "API unavailable";
 }
+
+const mockEntries = [
+  { course: "EECS 3421", day: "Monday", time: "1:00 PM - 2:20 PM", type: "Lecture" },
+  { course: "EECS 3311", day: "Wednesday", time: "10:00 AM - 11:30 AM", type: "Lab" },
+];
 ---
 
 <DashboardLayout title="Schedule | YorkLanes" activeNav="schedule">
@@ -22,18 +26,79 @@ try {
     <h1 class="heading-page">Schedule builder</h1>
   </Fragment>
 
-  {loadError && <p class="mb-4 text-sm text-york-red">{loadError}</p>}
+  <section class="space-y-6">
+    <div class="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+      <p class="text-sm font-semibold text-york-red">Schedule Builder</p>
+      <h2 class="mt-2 text-2xl font-bold text-slate-900">Build your weekly timetable</h2>
+      <p class="mt-2 text-slate-600">
+        Add a manual course block with a course code, day, and time. This is the first UI step before saving entries through the schedule API.
+      </p>
 
-  <FeatureStarter
-    featureName="Schedule builder"
-    owner="Nabeela"
-    taskDoc="docs/tasks/schedule.md"
-    apiHint="Weekly timetable built from courses in your degree plan. Start with POST /api/schedules for one block."
-    apiMessage={apiMessage}
-    steps={[
-      "Add schedules table migration",
-      "POST /api/schedules to save an entry",
-      "Show entries in a week view",
-    ]}
-  />
+      {loadError && <p class="mt-4 text-sm text-york-red">API status: {loadError}</p>}
+      {apiMessage && <p class="mt-4 text-sm text-green-700">API status: {apiMessage}</p>}
+    </div>
+
+    <div class="grid gap-6 lg:grid-cols-[380px_1fr]">
+      <form class="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+        <h3 class="text-lg font-semibold text-slate-900">Add schedule entry</h3>
+
+        <label class="mt-4 block">
+          <span class="text-sm font-medium text-slate-700">Course code</span>
+          <input
+            class="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2"
+            placeholder="e.g. EECS 3421"
+          />
+        </label>
+
+        <label class="mt-4 block">
+          <span class="text-sm font-medium text-slate-700">Day</span>
+          <select class="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2">
+            <option>Monday</option>
+            <option>Tuesday</option>
+            <option>Wednesday</option>
+            <option>Thursday</option>
+            <option>Friday</option>
+          </select>
+        </label>
+
+        <div class="mt-4 grid grid-cols-2 gap-3">
+          <label>
+            <span class="text-sm font-medium text-slate-700">Start</span>
+            <input type="time" class="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2" />
+          </label>
+
+          <label>
+            <span class="text-sm font-medium text-slate-700">End</span>
+            <input type="time" class="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2" />
+          </label>
+        </div>
+
+        <button
+          type="button"
+          class="mt-5 w-full rounded-lg bg-york-red px-4 py-2 font-semibold text-white"
+        >
+          Save entry
+        </button>
+      </form>
+
+      <div class="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+        <h3 class="text-lg font-semibold text-slate-900">Weekly preview</h3>
+        <div class="mt-4 space-y-3">
+          {mockEntries.map((entry) => (
+            <div class="rounded-xl border border-slate-200 bg-slate-50 p-4">
+              <div class="flex items-center justify-between gap-4">
+                <div>
+                  <p class="font-semibold text-slate-900">{entry.course}</p>
+                  <p class="text-sm text-slate-600">{entry.day} • {entry.time}</p>
+                </div>
+                <span class="rounded-full bg-white px-3 py-1 text-xs font-medium text-slate-700">
+                  {entry.type}
+                </span>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  </section>
 </DashboardLayout>

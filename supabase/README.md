@@ -46,6 +46,8 @@ PUBLIC_API_URL=http://localhost:3001
 
 ```
 SUPABASE_DB_URL=postgresql://postgres.[ref]:[password]@aws-1-ca-central-1.pooler.supabase.com:5432/postgres
+SUPABASE_URL=https://edrbocogcqmqalexgajq.supabase.co/
+SUPABASE_PUBLISHABLE_KEY=[publishable-key]
 API_PORT=3001
 WEB_ORIGIN=http://localhost:4321
 ```
@@ -71,6 +73,8 @@ Never put the service role key in the frontend.
 | `20250619210000_plan_course_stubs.sql` | Stub entries for elective sections |
 | `20250619220000_plan_course_completed.sql` | Course completion flag |
 | `20250619230000_add_plan_course_completed.sql` | Re-apply completion column if drift |
+| `20250629000000_finance_entries.sql` | Finance income and expense entries |
+| `20250629010000_finance_monthly_budgets.sql` | Finance monthly budget targets |
 
 Full schema reference: [`docs/database.md`](../docs/database.md).
 

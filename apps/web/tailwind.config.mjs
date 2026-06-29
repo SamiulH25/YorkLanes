@@ -14,8 +14,8 @@ export default {
           slate: "#0a0f18",
           panel: "#0f141d",
           graphite: "#161d28",
-          cream: "#F8F6F1",
-          stone: "#E5E1D8",
+          cream: "#E4DFD6",
+          stone: "#C9C3B8",
           muted: "#64748B",
           gold: "#C9A227",
         },
@@ -32,7 +32,7 @@ export default {
       },
       backgroundImage: {
         "york-mesh":
-          "radial-gradient(ellipse 120% 80% at 0% -20%, rgba(227,24,55,0.08), transparent 50%), radial-gradient(ellipse 80% 60% at 100% 0%, rgba(201,162,39,0.06), transparent 45%)",
+          "radial-gradient(ellipse 120% 80% at 0% -20%, rgba(227,24,55,0.04), transparent 50%), radial-gradient(ellipse 80% 60% at 100% 0%, rgba(201,162,39,0.03), transparent 45%)",
         "york-mesh-dark":
           "radial-gradient(ellipse 100% 70% at 0% -10%, rgba(227,24,55,0.12), transparent 50%), radial-gradient(ellipse 60% 50% at 100% 100%, rgba(227,24,55,0.06), transparent 40%)",
         "york-hero":

@@ -170,7 +170,6 @@ export function initPlanSetup(options: PlanSetupOptions = {}): void {
         throw new Error(`${payload.error ?? "Import failed"}${hint}`);
       }
 
-      sessionStorage.setItem("yorklanes-plan-id", payload.plan.id);
       window.location.href = `/plan?id=${payload.plan.id}`;
     } catch (error) {
       showStatus(error instanceof Error ? error.message : "Import failed", true);

@@ -23,7 +23,7 @@ if (Astro.request.method === "POST") {
     const dueDate = data.get("dueDate")?.toString().trim() ?? "";
 
     if (!title || !courseCode || !dueDate) {
-      throw new Error("Title, Course Code, and Due Date are required.");
+      throw new Error("Title, course code, and due date are required.");
     }
 
     const created = await createAssignment({
@@ -45,124 +45,213 @@ try {
 } catch (error) {
   loadError = error instanceof Error ? error.message : "API unavailable";
 }
+
+const pendingCount = assignments.filter((item) => !item.done).length;
+const inputClass =
+  "mt-2 w-full rounded-xl border border-york-stone/60 bg-white/80 px-3 py-2.5 text-sm text-york-black outline-none transition focus:border-york-red focus:ring-2 focus:ring-york-red/20 dark:border-white/10 dark:bg-york-graphite dark:text-white";
+
+function formatDueDate(iso: string): string {
+  return new Date(iso).toLocaleDateString("en-CA", {
+    weekday: "short",
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  });
+}
+
+function dueTone(iso: string, done: boolean): "muted" | "soon" | "overdue" {
+  if (done) return "muted";
+  const due = new Date(iso);
+  const now = new Date();
+  const days = Math.ceil((due.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+  if (days < 0) return "overdue";
+  if (days <= 7) return "soon";
+  return "muted";
+}
 ---
 
 <DashboardLayout title="Assignments | YorkLanes" activeNav="assignments">
   <Fragment slot="header">
-    <h1 class="heading-page">Assignments</h1>
+    <div class="flex flex-wrap items-start justify-between gap-4">
+      <div>
+        <p class="text-xs font-medium text-york-muted">Deadlines</p>
+        <h1 class="heading-page">Assignments</h1>
+        <p class="mt-0.5 text-sm text-york-muted">
+          {pendingCount === 0
+            ? "Nothing pending right now."
+            : `${pendingCount} pending · ${assignments.length} total`}
+        </p>
+      </div>
+      <button type="button" id="show-add-assignment-form-btn" class="btn-york shrink-0">
+        Add assignment
+      </button>
+    </div>
   </Fragment>
 
-  {loadError && <p class="mb-4 text-sm text-york-red">{loadError}</p>}
+  {
+    loadError && (
+      <div class="mb-5 rounded-xl border border-york-gold/40 bg-york-gold/10 px-4 py-3 text-sm text-stone-700 dark:text-stone-200">
+        Could not load assignments: {loadError}. Run{" "}
+        <code class="rounded bg-black/5 px-1.5 py-0.5 font-mono text-xs dark:bg-white/10">
+          npm run start:dev
+        </code>
+      </div>
+    )
+  }
+
   {
     successMessage && (
-      <p class="mb-4 text-sm text-green-700">{successMessage}</p>
+      <div class="mb-5 rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-800 dark:text-emerald-200">
+        {successMessage}
+      </div>
     )
   }
-  {formError && <p class="mb-4 text-sm text-york-red">{formError}</p>}
-  <!-- Add button to add assignment -->
-  <button id="show-add-assignment-form-btn">Add Assignment</button>
 
-  <form
-    id="add-assignment-form"
-    class={formError ? "" : "hidden"}
-    method="POST"
-  >
-    <label>
-      Title:
-      <input type="text" name="title" required />
-    </label>
-    <label>
-      Course Code:
-      <input type="text" name="courseCode" required />
-    </label>
-    <label>
-      Description:
-      <input type="text" name="description" />
-    </label>
-    <label>
-      Due Date:
-      <input type="date" name="dueDate" required />
-    </label>
-    <button type="submit" id="add-assignment-btn">Add Assignment</button>
-  </form>
+  <div class="grid gap-5 xl:grid-cols-[minmax(0,1fr)_22rem]">
+    <section class="surface p-5 sm:p-6">
+      <div class="widget-header">
+        <div>
+          <p class="label">Upcoming</p>
+          <h2 class="heading-widget mt-1">Your deadlines</h2>
+        </div>
+        <div class="icon-badge bg-york-red/10 text-york-red">
+          <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.75" aria-hidden="true">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"></path>
+          </svg>
+        </div>
+      </div>
 
-  <style>
-    .hidden {
-      display: none;
-    }
-  </style>
+      {
+        assignments.length > 0 ? (
+          <ul class="mt-5 space-y-2">
+            {assignments.map((assignment) => {
+              const tone = dueTone(assignment.dueAt, assignment.done);
+              return (
+                <li class="rounded-xl surface-muted px-4 py-3 transition-colors hover:bg-york-red/[0.04]">
+                  <div class="flex flex-wrap items-start justify-between gap-3">
+                    <div class="flex min-w-0 flex-1 gap-3">
+                      <div
+                        class:list={[
+                          "mt-1 h-full w-1 shrink-0 rounded-full",
+                          assignment.done ? "bg-stone-400" : tone === "overdue" ? "bg-york-red" : "bg-york-gold",
+                        ]}
+                        aria-hidden="true"
+                      />
+                      <div class="min-w-0">
+                        <p
+                          class:list={[
+                            "text-sm font-semibold text-york-black dark:text-white",
+                            assignment.done && "text-york-muted line-through",
+                          ]}
+                        >
+                          {assignment.title}
+                        </p>
+                        {assignment.description && (
+                          <p class="mt-0.5 text-xs text-york-muted">{assignment.description}</p>
+                        )}
+                        <p class="mt-1 text-xs font-medium text-york-muted">{assignment.courseCode}</p>
+                      </div>
+                    </div>
+                    <div class="flex shrink-0 flex-col items-end gap-2">
+                      <time
+                        class:list={[
+                          "text-xs font-semibold",
+                          assignment.done && "text-york-muted",
+                          !assignment.done && tone === "overdue" && "text-york-red",
+                          !assignment.done && tone === "soon" && "text-york-gold",
+                          !assignment.done && tone === "muted" && "text-york-muted",
+                        ]}
+                        datetime={assignment.dueAt}
+                      >
+                        {formatDueDate(assignment.dueAt)}
+                      </time>
+                      {
+                        assignment.done ? (
+                          <span class="badge bg-emerald-500/15 text-emerald-700 dark:text-emerald-300">
+                            Done
+                          </span>
+                        ) : (
+                          <span class="badge bg-york-gold/15 text-york-gold">Pending</span>
+                        )
+                      }
+                    </div>
+                  </div>
+                </li>
+              );
+            })}
+          </ul>
+        ) : (
+          <div class="empty-state mt-6">
+            <p class="text-sm font-medium text-york-black dark:text-white">No assignments yet</p>
+            <p class="mt-1 text-sm text-stone-600 dark:text-stone-400">
+              Add your first deadline using the form on the right.
+            </p>
+          </div>
+        )
+      }
+    </section>
+
+    <section class="surface h-fit p-5 sm:p-6">
+      <div class="widget-header">
+        <div>
+          <p class="label">New entry</p>
+          <h2 class="heading-widget mt-1">Add assignment</h2>
+        </div>
+      </div>
+
+      {
+        formError && (
+          <p class="mt-4 rounded-lg border border-york-red/30 bg-york-red/5 px-3 py-2 text-sm text-york-red">
+            {formError}
+          </p>
+        )
+      }
+
+      <form
+        id="add-assignment-form"
+        class:list={["mt-5 space-y-4", !formError && "hidden"]}
+        method="POST"
+      >
+        <label class="block">
+          <span class="label">Title</span>
+          <input type="text" name="title" required class={inputClass} placeholder="Essay draft" />
+        </label>
+        <label class="block">
+          <span class="label">Course code</span>
+          <input type="text" name="courseCode" required class={inputClass} placeholder="CWR 2600" />
+        </label>
+        <label class="block">
+          <span class="label">Description</span>
+          <input type="text" name="description" class={inputClass} placeholder="Optional notes" />
+        </label>
+        <label class="block">
+          <span class="label">Due date</span>
+          <input type="date" name="dueDate" required class={inputClass} />
+        </label>
+        <div class="flex flex-wrap gap-2 pt-1">
+          <button type="submit" class="btn-york flex-1 sm:flex-none">Save assignment</button>
+          <button type="button" id="hide-add-assignment-form-btn" class="btn-ghost">Cancel</button>
+        </div>
+      </form>
+
+      <p id="add-assignment-form-hint" class:list={["mt-5 text-sm text-york-muted", formError && "hidden"]}>
+        Use <span class="font-medium text-york-black dark:text-white">Add assignment</span> in the header to open the form.
+      </p>
+    </section>
+  </div>
 
   <script>
-    const button = document.getElementById("show-add-assignment-form-btn");
+    const showBtn = document.getElementById("show-add-assignment-form-btn");
+    const hideBtn = document.getElementById("hide-add-assignment-form-btn");
     const form = document.getElementById("add-assignment-form");
+    const hint = document.getElementById("add-assignment-form-hint");
 
-    button?.addEventListener("click", () => {
-      form?.classList.toggle("hidden");
-    });
+    function setFormOpen(open: boolean): void {
+      form?.classList.toggle("hidden", !open);
+      hint?.classList.toggle("hidden", open);
+    }
+
+    showBtn?.addEventListener("click", () => setFormOpen(true));
+    hideBtn?.addEventListener("click", () => setFormOpen(false));
   </script>
-
-  <!-- Assignments Table -->
-  {
-    assignments.length > 0 ? (
-      <div class="overflow-x-auto">
-        <table class="w-full border-collapse border border-gray-200">
-          <thead>
-            <tr class="bg-gray-100">
-              <th class="border border-gray-200 px-4 py-2 text-left">Title</th>
-              <th class="border border-gray-200 px-4 py-2 text-left">
-                Course Code
-              </th>
-              <th class="border border-gray-200 px-4 py-2 text-left">
-                Description
-              </th>
-              <th class="border border-gray-200 px-4 py-2 text-left">
-                Due Date
-              </th>
-              <th class="border border-gray-200 px-4 py-2 text-left">Status</th>
-            </tr>
-          </thead>
-          <tbody>
-            {assignments.map((assignment) => (
-              <tr class="hover:bg-gray-50">
-                <td class="border border-gray-200 px-4 py-2 font-medium">
-                  {assignment.title}
-                </td>
-                <td class="border border-gray-200 px-4 py-2">
-                  <span class="px-2 py-1 bg-blue-100 text-blue-800 rounded text-sm">
-                    {assignment.courseCode}
-                  </span>
-                </td>
-                <td class="border border-gray-200 px-4 py-2">
-                  {assignment.description || "-"}
-                </td>
-                <td class="border border-gray-200 px-4 py-2">
-                  {new Date(assignment.dueDate).toLocaleDateString("en-US", {
-                    year: "numeric",
-                    month: "long",
-                    day: "numeric",
-                  })}
-                </td>
-                <td class="border border-gray-200 px-4 py-2">
-                  {assignment.done ? (
-                    <span class="px-2 py-1 bg-green-100 text-green-800 rounded text-sm">
-                      Done
-                    </span>
-                  ) : (
-                    <span class="px-2 py-1 bg-yellow-100 text-yellow-800 rounded text-sm">
-                      Pending
-                    </span>
-                  )}
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-    ) : (
-      <div class="text-center py-12 text-gray-500">
-        <p class="text-lg">No assignments yet</p>
-        <p class="text-sm">Click "Add Assignment" to create your first one</p>
-      </div>
-    )
-  }
 </DashboardLayout>

@@ -8,10 +8,54 @@ export const prerender = false;
 
 let apiMessage: string | undefined;
 let loadError: string | null = null;
+let assignments: any[] = [];
+let successMessage: string | null = null;
+let formError: string | null = null;
 
 try {
   const data = await fetchAssignments();
   apiMessage = data.message;
+} catch (error) {
+  loadError = error instanceof Error ? error.message : "API unavailable";
+}
+
+if (Astro.request.method === "POST") {
+  try {
+    const data = await Astro.request.formData();
+    const title = data.get("Title");
+    const courseCode = data.get("Course Code");
+    const description = data.get("Description");
+    const dueDate = data.get("Due Date");
+
+    // Validate form data
+    if (!title || !courseCode || !dueDate) {
+      throw new Error("Title, Course Code, and Due Date are required.");
+    }
+
+    // Call the API to add the assignment
+    const response = await fetch("/lib/assignments", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        title,
+        courseCode,
+        description,
+        dueDate,
+      }),
+    });
+  } catch (error) {
+    if (error instanceof Error) {
+      console.error(error.message);
+    }
+  }
+}
+
+try {
+  const data = await fetchAssignments();
+  apiMessage = data.message;
+  assignments = data.assignments || [];
 } catch (error) {
   loadError = error instanceof Error ? error.message : "API unavailable";
 }
@@ -23,8 +67,103 @@ try {
   </Fragment>
 
   {loadError && <p class="mb-4 text-sm text-york-red">{loadError}</p>}
+  <!-- Add button to add assignment -->
+  <button id="show-add-assignment-form-btn">Add Assignment</button>
 
-  <FeatureStarter
+  <form id="add-assignment-form" class="hidden" method="POST">
+    <label>
+      Title:
+      <input type="text" name="Title" required />
+    </label>
+    <label>
+      Course Code:
+      <input type="text" name="Course_Code" required />
+    </label>
+    <label>
+      Description:
+      <input type="text" name="Description" />
+    </label>
+    <label>
+      Due Date:
+      <input type="text" name="Due_Date" required />
+    </label>
+    <button id="add-assignment-btn">Add Assignment</button>
+  </form>
+
+  <style>
+    .hidden {
+      display: none;
+    }
+  </style>
+
+  <script>
+    const button = document.getElementById("show-add-assignment-form-btn");
+    const form = document.getElementById("add-assignment-form");
+
+    button?.addEventListener("click", () => {
+      form?.classList.toggle("hidden");
+    });
+  </script>
+
+  <!-- Assignments Table -->
+  {
+    assignments.length > 0 ? (
+      <div class="overflow-x-auto">
+        <table class="w-full border-collapse border border-gray-200">
+          <thead>
+            <tr class="bg-gray-100">
+              <th class="border border-gray-200 px-4 py-2 text-left">Title</th>
+              <th class="border border-gray-200 px-4 py-2 text-left">
+                Course Code
+              </th>
+              <th class="border border-gray-200 px-4 py-2 text-left">
+                Description
+              </th>
+              <th class="border border-gray-200 px-4 py-2 text-left">
+                Due Date
+              </th>
+              <th class="border border-gray-200 px-4 py-2 text-left">Status</th>
+            </tr>
+          </thead>
+          <tbody>
+            {assignments.map((assignment) => (
+              <tr class="hover:bg-gray-50">
+                <td class="border border-gray-200 px-4 py-2 font-medium">
+                  {assignment.title}
+                </td>
+                <td class="border border-gray-200 px-4 py-2">
+                  <span class="px-2 py-1 bg-blue-100 text-blue-800 rounded text-sm">
+                    {assignment.courseCode}
+                  </span>
+                </td>
+                <td class="border border-gray-200 px-4 py-2">
+                  {assignment.description || "-"}
+                </td>
+                <td class="border border-gray-200 px-4 py-2">
+                  {new Date(assignment.dueDate).toLocaleDateString("en-US", {
+                    year: "numeric",
+                    month: "long",
+                    day: "numeric",
+                  })}
+                </td>
+                <td class="border border-gray-200 px-4 py-2">
+                  <span class="px-2 py-1 bg-yellow-100 text-yellow-800 rounded text-sm">
+                    Pending
+                  </span>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    ) : (
+      <div class="text-center py-12 text-gray-500">
+        <p class="text-lg">No assignments yet</p>
+        <p class="text-sm">Click "Add Assignment" to create your first one</p>
+      </div>
+    )
+  }
+  <!-- <FeatureStarter
     featureName="Assignment calendar"
     owner="Sarah"
     taskDoc="docs/tasks/assignments.md"
@@ -35,5 +174,5 @@ try {
       "Form to add title, course, due date",
       "Sort and show upcoming list",
     ]}
-  />
+  /> -->
 </DashboardLayout>

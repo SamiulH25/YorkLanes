@@ -1,7 +1,7 @@
 ---
 import BaseLayout from "./BaseLayout.astro";
 import YorkMark from "../components/YorkMark.astro";
-import ThemeToggle from "../components/ThemeToggle.astro";
+import SettingsMenu from "../components/SettingsMenu.astro";
 
 interface Props {
   title?: string;
@@ -31,7 +31,7 @@ const progress = Math.min(100, Math.round((step / totalSteps) * 100));
           </p>
         </div>
       </a>
-      <ThemeToggle />
+      <SettingsMenu />
     </header>
 
     <div class="shrink-0 border-b border-york-stone/40 px-4 py-3 dark:border-white/[0.06] sm:px-6">

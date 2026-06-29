@@ -1,0 +1,75 @@
+/* Paper — letterpress broadsheet: column rules, ink bleed, editorial margins */
+[data-theme="paper"] {
+  --theme-primary: #8b1a1a;
+  --theme-primary-hover: #6d1414;
+  --theme-accent: #2c4a3e;
+  --theme-background: #f4f0e6;
+  --theme-foreground: #1c1410;
+  --theme-muted: #6e655c;
+  --theme-text-secondary: #3d3832;
+  --theme-surface: #faf7f0;
+  --theme-surface-muted: #ebe6da;
+  --theme-border: rgb(28 20 16 / 0.2);
+  --theme-shell: rgb(244 240 230 / 0.97);
+  --theme-shell-solid: #1c1410;
+  --theme-sidebar: #faf7f0;
+  --theme-header: rgb(244 240 230 / 0.98);
+  --theme-canvas: #f4f0e6;
+  --theme-nav-icon: rgb(28 20 16 / 0.06);
+  --theme-on-primary: #faf7f0;
+  --theme-ring: rgb(139 26 26 / 0.35);
+  --theme-bg-image: none;
+  --theme-canvas-image: repeating-linear-gradient(
+    to bottom,
+    transparent,
+    transparent 27px,
+    rgb(28 20 16 / 0.06) 27px,
+    rgb(28 20 16 / 0.06) 28px
+  );
+  --theme-overlay: none;
+  --theme-font-display: "Libre Baskerville", "Times New Roman", serif;
+  --theme-font-sans: "Source Serif 4", Georgia, serif;
+  --theme-radius: 0px;
+  --theme-radius-button: 0px;
+  --theme-shadow-card: 0 0 0 1px rgb(28 20 16 / 0.12), 0 2px 0 rgb(28 20 16 / 0.04);
+  --theme-shadow-button: 0 0 0 transparent;
+  --theme-duration-fast: 0ms;
+  --theme-duration-normal: 0ms;
+  --theme-ease: linear;
+  --theme-enter-y: 0px;
+  --theme-blur: 0px;
+  --theme-btn-transform-hover: none;
+  --theme-label-tracking: 0.22em;
+  --theme-label-case: uppercase;
+  --theme-chart-1: #8b1a1a;
+  --theme-chart-2: #2c4a3e;
+  --theme-chart-3: #6e655c;
+  --theme-prereq: #2c4a3e;
+  --theme-coreq: #8b1a1a;
+  --theme-warning: #8b1a1a;
+  --theme-glow: 0 0 0 transparent;
+  --theme-link-glow: 0 0 0 transparent;
+}
+
+[data-theme="paper"].dark {
+  --theme-background: #141210;
+  --theme-foreground: #e8e0d4;
+  --theme-muted: #9a9288;
+  --theme-text-secondary: #c4bcb0;
+  --theme-surface: #1e1a16;
+  --theme-surface-muted: #282420;
+  --theme-border: rgb(232 224 212 / 0.14);
+  --theme-shell: rgb(20 18 16 / 0.99);
+  --theme-sidebar: #1e1a16;
+  --theme-header: rgb(20 18 16 / 0.98);
+  --theme-canvas: #141210;
+  --theme-nav-icon: rgb(255 255 255 / 0.05);
+  --theme-canvas-image: repeating-linear-gradient(
+    to bottom,
+    transparent,
+    transparent 27px,
+    rgb(255 255 255 / 0.04) 27px,
+    rgb(255 255 255 / 0.04) 28px
+  );
+  --theme-shadow-card: 0 0 0 1px rgb(255 255 255 / 0.08);
+}

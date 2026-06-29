@@ -40,6 +40,10 @@
     "supabase": "^2.107.0"
   },
   "engines": {
-    "node": ">=20.0.0"
+    "node": ">=22.12.0"
+  },
+  "overrides": {
+    "volar-service-yaml": "0.0.71",
+    "yaml-language-server": "1.23.0"
   }
 }

@@ -14,6 +14,7 @@ import {
   updatePlanLayout,
   type PlanLayoutMove,
 } from "../lib/plans";
+import { readThemeColor } from "./theme.ts";
 import type { DegreePlan } from "../types/plan";
 
 interface EditorState {
@@ -369,11 +370,15 @@ export function drawDependencies(state: EditorState): void {
     svg.removeChild(svg.firstChild);
   }
 
+  const prereqColor = readThemeColor("--theme-prereq");
+  const coreqColor = readThemeColor("--theme-coreq");
+  const warningColor = readThemeColor("--theme-warning");
+
   const defs = document.createElementNS("http://www.w3.org/2000/svg", "defs");
-  defs.appendChild(createMarker("arrow-prereq", "#60a5fa"));
-  defs.appendChild(createMarker("arrow-prereq-warn", "#f87171"));
-  defs.appendChild(createMarker("arrow-coreq", "#fbbf24"));
-  defs.appendChild(createMarker("arrow-coreq-warn", "#fb923c"));
+  defs.appendChild(createMarker("arrow-prereq", prereqColor));
+  defs.appendChild(createMarker("arrow-prereq-warn", warningColor));
+  defs.appendChild(createMarker("arrow-coreq", coreqColor));
+  defs.appendChild(createMarker("arrow-coreq-warn", warningColor));
   svg.appendChild(defs);
 
   if (!state.graph) return;
@@ -429,21 +434,21 @@ export function drawDependencies(state: EditorState): void {
       path.setAttribute("stroke-width", "2.25");
       path.setAttribute("stroke-dasharray", "7 5");
       if (edge.satisfied) {
-        path.setAttribute("stroke", "#fbbf24");
+        path.setAttribute("stroke", coreqColor);
         path.setAttribute("marker-end", "url(#arrow-coreq)");
         path.setAttribute("opacity", "0.95");
       } else {
-        path.setAttribute("stroke", "#fb923c");
+        path.setAttribute("stroke", warningColor);
         path.setAttribute("marker-end", "url(#arrow-coreq-warn)");
         path.setAttribute("opacity", "1");
       }
     } else if (edge.satisfied) {
-      path.setAttribute("stroke", "#60a5fa");
+      path.setAttribute("stroke", prereqColor);
       path.setAttribute("stroke-width", "2.25");
       path.setAttribute("marker-end", "url(#arrow-prereq)");
       path.setAttribute("opacity", "0.95");
     } else {
-      path.setAttribute("stroke", "#f87171");
+      path.setAttribute("stroke", warningColor);
       path.setAttribute("stroke-width", "2.5");
       path.setAttribute("marker-end", "url(#arrow-prereq-warn)");
       path.setAttribute("opacity", "1");

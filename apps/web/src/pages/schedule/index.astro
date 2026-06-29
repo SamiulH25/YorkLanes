@@ -19,40 +19,56 @@ const mockEntries = [
   { course: "EECS 3421", day: "Monday", time: "1:00 PM - 2:20 PM", type: "Lecture" },
   { course: "EECS 3311", day: "Wednesday", time: "10:00 AM - 11:30 AM", type: "Lab" },
 ];
+
+const inputClass =
+  "mt-2 w-full rounded-xl border border-york-stone/60 bg-white/80 px-3 py-2.5 text-sm text-york-black outline-none transition focus:border-york-red focus:ring-2 focus:ring-york-red/20 dark:border-white/10 dark:bg-york-graphite dark:text-white";
 ---
 
 <DashboardLayout title="Schedule | YorkLanes" activeNav="schedule">
   <Fragment slot="header">
-    <h1 class="heading-page">Schedule builder</h1>
+    <div>
+      <p class="text-xs font-medium text-york-muted">Timetable</p>
+      <h1 class="heading-page">Schedule builder</h1>
+    </div>
   </Fragment>
 
   <section class="space-y-6">
-    <div class="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-      <p class="text-sm font-semibold text-york-red">Schedule Builder</p>
-      <h2 class="mt-2 text-2xl font-bold text-slate-900">Build your weekly timetable</h2>
-      <p class="mt-2 text-slate-600">
-        Add a manual course block with a course code, day, and time. This is the first UI step before saving entries through the schedule API.
+    <div class="surface p-6">
+      <p class="label">Schedule builder</p>
+      <h2 class="mt-1 font-display text-2xl font-semibold text-york-black dark:text-white">
+        Build your weekly timetable
+      </h2>
+      <p class="mt-2 text-sm leading-relaxed text-stone-600 dark:text-stone-300">
+        Add a manual course block with a course code, day, and time. This is the first UI step before
+        saving entries through the schedule API.
       </p>
 
-      {loadError && <p class="mt-4 text-sm text-york-red">API status: {loadError}</p>}
-      {apiMessage && <p class="mt-4 text-sm text-green-700">API status: {apiMessage}</p>}
+      {loadError && (
+        <p class="mt-4 rounded-lg border border-york-red/30 bg-york-red/5 px-3 py-2 text-sm text-york-red">
+          API status: {loadError}
+        </p>
+      )}
+      {apiMessage && (
+        <p class="mt-4 rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-3 py-2 text-sm text-emerald-800 dark:text-emerald-300">
+          API status: {apiMessage}
+        </p>
+      )}
     </div>
 
     <div class="grid gap-6 lg:grid-cols-[380px_1fr]">
-      <form class="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-        <h3 class="text-lg font-semibold text-slate-900">Add schedule entry</h3>
+      <form class="surface p-6">
+        <h3 class="font-display text-lg font-semibold text-york-black dark:text-white">
+          Add schedule entry
+        </h3>
 
         <label class="mt-4 block">
-          <span class="text-sm font-medium text-slate-700">Course code</span>
-          <input
-            class="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2"
-            placeholder="e.g. EECS 3421"
-          />
+          <span class="label">Course code</span>
+          <input class={inputClass} placeholder="e.g. EECS 3421" />
         </label>
 
         <label class="mt-4 block">
-          <span class="text-sm font-medium text-slate-700">Day</span>
-          <select class="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2">
+          <span class="label">Day</span>
+          <select class={inputClass}>
             <option>Monday</option>
             <option>Tuesday</option>
             <option>Wednesday</option>
@@ -63,40 +79,43 @@ const mockEntries = [
 
         <div class="mt-4 grid grid-cols-2 gap-3">
           <label>
-            <span class="text-sm font-medium text-slate-700">Start</span>
-            <input type="time" class="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2" />
+            <span class="label">Start</span>
+            <input type="time" class={inputClass} />
           </label>
 
           <label>
-            <span class="text-sm font-medium text-slate-700">End</span>
-            <input type="time" class="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2" />
+            <span class="label">End</span>
+            <input type="time" class={inputClass} />
           </label>
         </div>
 
-        <button
-          type="button"
-          class="mt-5 w-full rounded-lg bg-york-red px-4 py-2 font-semibold text-white"
-        >
+        <button type="button" class="btn-york mt-5 w-full">
           Save entry
         </button>
       </form>
 
-      <div class="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-        <h3 class="text-lg font-semibold text-slate-900">Weekly preview</h3>
+      <div class="surface p-6">
+        <h3 class="font-display text-lg font-semibold text-york-black dark:text-white">
+          Weekly preview
+        </h3>
         <div class="mt-4 space-y-3">
-          {mockEntries.map((entry) => (
-            <div class="rounded-xl border border-slate-200 bg-slate-50 p-4">
-              <div class="flex items-center justify-between gap-4">
-                <div>
-                  <p class="font-semibold text-slate-900">{entry.course}</p>
-                  <p class="text-sm text-slate-600">{entry.day} • {entry.time}</p>
+          {
+            mockEntries.map((entry) => (
+              <div class="surface-muted p-4">
+                <div class="flex items-center justify-between gap-4">
+                  <div>
+                    <p class="font-semibold text-york-black dark:text-white">{entry.course}</p>
+                    <p class="text-sm text-york-muted">
+                      {entry.day} · {entry.time}
+                    </p>
+                  </div>
+                  <span class="badge bg-york-red/10 text-york-red dark:bg-york-red/15">
+                    {entry.type}
+                  </span>
                 </div>
-                <span class="rounded-full bg-white px-3 py-1 text-xs font-medium text-slate-700">
-                  {entry.type}
-                </span>
               </div>
-            </div>
-          ))}
+            ))
+          }
         </div>
       </div>
     </div>

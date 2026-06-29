@@ -28,16 +28,30 @@ const displayName = sessionUser?.displayName ?? "Guest";
 const userInitial = displayName.charAt(0).toUpperCase();
 const logoutUrl = signOutUrl();
 
-const navItems = [
-  { id: "dashboard", label: "Home", href: "/dashboard", icon: "home", mobile: true },
-  { id: "plan", label: "Degree plan", href: "/plan", icon: "map", mobile: true },
-  { id: "courses", label: "Courses", href: "/courses", icon: "book", mobile: true },
-  { id: "schedule", label: "Schedule", href: "/schedule", icon: "calendar", mobile: false },
-  { id: "progress", label: "Progress", href: "/progress", icon: "chart", mobile: false },
-  { id: "finance", label: "Finances", href: "/finance", icon: "wallet", mobile: true },
-  { id: "assignments", label: "Assignments", href: "/assignments", icon: "check", mobile: false },
-];
+const navGroups = [
+  {
+    items: [{ id: "dashboard", label: "Home", href: "/dashboard", icon: "home", mobile: true }],
+  },
+  {
+    items: [
+      { id: "plan", label: "Degree plan", href: "/plan", icon: "map", mobile: true },
+      { id: "progress", label: "Progress", href: "/progress", icon: "chart", mobile: true },
+    ],
+  },
+  {
+    items: [
+      { id: "courses", label: "Courses", href: "/courses", icon: "book", mobile: true },
+      { id: "schedule", label: "Schedule", href: "/schedule", icon: "calendar", mobile: false },
+      { id: "assignments", label: "Assignments", href: "/assignments", icon: "check", mobile: true },
+    ],
+  },
+  {
+    items: [{ id: "finance", label: "Finances", href: "/finance", icon: "wallet", mobile: false }],
+  },
+] as const;
 
+type NavItem = (typeof navGroups)[number]["items"][number];
+const navItems: NavItem[] = navGroups.flatMap((group) => [...group.items]);
 const mobileNavItems = navItems.filter((item) => item.mobile);
 
 const icons: Record<string, string> = {
@@ -101,39 +115,43 @@ const icons: Record<string, string> = {
 
       <nav class="min-h-0 flex-1 overflow-x-hidden overflow-y-auto px-3 py-5">
         <p class="sidebar-section-label mb-3 px-3 label">Menu</p>
-        <ul class="space-y-1">
-          {
-            navItems.map((item) => (
-              <li>
-                <a
-                  href={item.href}
-                  title={item.label}
-                  class:list={["link-nav sidebar-nav-link", activeNav === item.id && "link-nav-active"]}
-                >
-                  <span
-                    class:list={[
-                      "sidebar-nav-icon flex h-8 w-8 shrink-0 items-center justify-center rounded-lg transition-colors",
-                      activeNav === item.id
-                        ? "bg-white/20"
-                        : "bg-york-stone/30 dark:bg-york-graphite",
-                    ]}
-                  >
-                    <svg
-                      class="h-[17px] w-[17px] shrink-0"
-                      fill="none"
-                      viewBox="0 0 24 24"
-                      stroke="currentColor"
-                      stroke-width="1.75"
+        {
+          navGroups.map((group, groupIndex) => (
+            <ul class:list={["space-y-1", groupIndex > 0 && "mt-4 border-t border-york-stone/40 pt-4 dark:border-white/[0.06]"]}>
+              {
+                group.items.map((item) => (
+                  <li>
+                    <a
+                      href={item.href}
+                      title={item.label}
+                      class:list={["link-nav sidebar-nav-link", activeNav === item.id && "link-nav-active"]}
                     >
-                      <path stroke-linecap="round" stroke-linejoin="round" d={icons[item.icon] ?? icons.home} />
-                    </svg>
-                  </span>
-                  <span class="sidebar-nav-label truncate">{item.label}</span>
-                </a>
-              </li>
-            ))
-          }
-        </ul>
+                      <span
+                        class:list={[
+                          "sidebar-nav-icon flex h-8 w-8 shrink-0 items-center justify-center rounded-lg transition-colors",
+                          activeNav === item.id
+                            ? "bg-white/20"
+                            : "bg-york-stone/30 dark:bg-york-graphite",
+                        ]}
+                      >
+                        <svg
+                          class="h-[17px] w-[17px] shrink-0"
+                          fill="none"
+                          viewBox="0 0 24 24"
+                          stroke="currentColor"
+                          stroke-width="1.75"
+                        >
+                          <path stroke-linecap="round" stroke-linejoin="round" d={icons[item.icon] ?? icons.home} />
+                        </svg>
+                      </span>
+                      <span class="sidebar-nav-label truncate">{item.label}</span>
+                    </a>
+                  </li>
+                ))
+              }
+            </ul>
+          ))
+        }
       </nav>
 
       <div class="shrink-0 border-t border-york-stone/40 p-4 dark:border-white/[0.06]">

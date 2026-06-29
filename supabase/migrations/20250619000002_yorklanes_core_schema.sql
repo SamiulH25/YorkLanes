@@ -57,8 +57,10 @@ create table if not exists public.assignments (
   course_code text not null,
   description text,
   due_at timestamptz not null,
-  done boolean not null default false,
+  done boolean not null default false
 );
+
+create index if not exists assignments_due_at_idx on public.assignments (due_at);
 -- ---------------------------------------------------------------------------
 -- Feature tables (add in future migrations)
 -- Degree plans (Samiul): plan_terms, plan_courses

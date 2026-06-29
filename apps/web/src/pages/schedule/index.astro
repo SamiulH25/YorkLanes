@@ -14,11 +14,6 @@ try {
 } catch (error) {
   loadError = error instanceof Error ? error.message : "API unavailable";
 }
-
-const mockEntries = [
-  { course: "EECS 3421", day: "Monday", time: "1:00 PM - 2:20 PM", type: "Lecture" },
-  { course: "EECS 3311", day: "Wednesday", time: "10:00 AM - 11:30 AM", type: "Lab" },
-];
 ---
 
 <DashboardLayout title="Schedule | YorkLanes" activeNav="schedule">
@@ -31,7 +26,7 @@ const mockEntries = [
       <p class="text-sm font-semibold text-york-red">Schedule Builder</p>
       <h2 class="mt-2 text-2xl font-bold text-slate-900">Build your weekly timetable</h2>
       <p class="mt-2 text-slate-600">
-        Add a manual course block with a course code, day, and time. This is the first UI step before saving entries through the schedule API.
+        Add a manual course block with a course code, day, and time. Saved entries appear in the weekly preview for this demo.
       </p>
 
       {loadError && <p class="mt-4 text-sm text-york-red">API status: {loadError}</p>}
@@ -39,20 +34,22 @@ const mockEntries = [
     </div>
 
     <div class="grid gap-6 lg:grid-cols-[380px_1fr]">
-      <form class="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+      <form id="schedule-form" class="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
         <h3 class="text-lg font-semibold text-slate-900">Add schedule entry</h3>
 
         <label class="mt-4 block">
           <span class="text-sm font-medium text-slate-700">Course code</span>
           <input
+            id="course-code"
             class="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2"
             placeholder="e.g. EECS 3421"
+            required
           />
         </label>
 
         <label class="mt-4 block">
           <span class="text-sm font-medium text-slate-700">Day</span>
-          <select class="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2">
+          <select id="day" class="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2">
             <option>Monday</option>
             <option>Tuesday</option>
             <option>Wednesday</option>
@@ -64,17 +61,27 @@ const mockEntries = [
         <div class="mt-4 grid grid-cols-2 gap-3">
           <label>
             <span class="text-sm font-medium text-slate-700">Start</span>
-            <input type="time" class="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2" />
+            <input
+              id="start-time"
+              type="time"
+              class="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2"
+              required
+            />
           </label>
 
           <label>
             <span class="text-sm font-medium text-slate-700">End</span>
-            <input type="time" class="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2" />
+            <input
+              id="end-time"
+              type="time"
+              class="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2"
+              required
+            />
           </label>
         </div>
 
         <button
-          type="button"
+          type="submit"
           class="mt-5 w-full rounded-lg bg-york-red px-4 py-2 font-semibold text-white"
         >
           Save entry
@@ -83,22 +90,52 @@ const mockEntries = [
 
       <div class="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
         <h3 class="text-lg font-semibold text-slate-900">Weekly preview</h3>
-        <div class="mt-4 space-y-3">
-          {mockEntries.map((entry) => (
-            <div class="rounded-xl border border-slate-200 bg-slate-50 p-4">
-              <div class="flex items-center justify-between gap-4">
-                <div>
-                  <p class="font-semibold text-slate-900">{entry.course}</p>
-                  <p class="text-sm text-slate-600">{entry.day} • {entry.time}</p>
-                </div>
-                <span class="rounded-full bg-white px-3 py-1 text-xs font-medium text-slate-700">
-                  {entry.type}
-                </span>
-              </div>
-            </div>
-          ))}
+        <div id="schedule-list" class="mt-4 space-y-3">
+          <p id="empty-message" class="rounded-xl border border-dashed border-slate-300 p-4 text-sm text-slate-500">
+            No schedule entries yet. Add one using the form.
+          </p>
         </div>
       </div>
     </div>
   </section>
+
+  <script>
+    const form = document.querySelector<HTMLFormElement>("#schedule-form");
+    const list = document.querySelector<HTMLDivElement>("#schedule-list");
+
+    form?.addEventListener("submit", (event) => {
+      event.preventDefault();
+
+      const courseInput = document.querySelector<HTMLInputElement>("#course-code");
+      const daySelect = document.querySelector<HTMLSelectElement>("#day");
+      const startInput = document.querySelector<HTMLInputElement>("#start-time");
+      const endInput = document.querySelector<HTMLInputElement>("#end-time");
+
+      const course = courseInput?.value.trim();
+      const day = daySelect?.value;
+      const start = startInput?.value;
+      const end = endInput?.value;
+
+      if (!course || !day || !start || !end || !list) return;
+
+      document.querySelector("#empty-message")?.remove();
+
+      const card = document.createElement("div");
+      card.className = "rounded-xl border border-slate-200 bg-slate-50 p-4";
+      card.innerHTML = `
+        <div class="flex items-center justify-between gap-4">
+          <div>
+            <p class="font-semibold text-slate-900">${course}</p>
+            <p class="text-sm text-slate-600">${day} • ${start} - ${end}</p>
+          </div>
+          <span class="rounded-full bg-white px-3 py-1 text-xs font-medium text-slate-700">
+            Manual
+          </span>
+        </div>
+      `;
+
+      list.appendChild(card);
+      form.reset();
+    });
+  </script>
 </DashboardLayout>

@@ -1,17 +1,47 @@
 ---
 /** Assignment calendar — Sarah. Task guide: docs/tasks/assignments.md */
 import DashboardLayout from "../../layouts/DashboardLayout.astro";
-import FeatureStarter from "../../components/FeatureStarter.astro";
-import { fetchAssignments } from "../../lib/assignments";
+import {
+  fetchAssignments,
+  createAssignment,
+  type Assignment,
+} from "../../lib/assignments";
 
 export const prerender = false;
 
-let apiMessage: string | undefined;
 let loadError: string | null = null;
+let assignments: Assignment[] = [];
+let successMessage: string | null = null;
+let formError: string | null = null;
+
+if (Astro.request.method === "POST") {
+  try {
+    const data = await Astro.request.formData();
+    const title = data.get("title")?.toString().trim() ?? "";
+    const courseCode = data.get("courseCode")?.toString().trim() ?? "";
+    const description = data.get("description")?.toString().trim() ?? "";
+    const dueDate = data.get("dueDate")?.toString().trim() ?? "";
+
+    if (!title || !courseCode || !dueDate) {
+      throw new Error("Title, Course Code, and Due Date are required.");
+    }
+
+    const created = await createAssignment({
+      title,
+      courseCode,
+      description,
+      dueDate,
+    });
+    successMessage = `Added "${created.title}".`;
+  } catch (error) {
+    formError =
+      error instanceof Error ? error.message : "Failed to add assignment.";
+  }
+}
 
 try {
   const data = await fetchAssignments();
-  apiMessage = data.message;
+  assignments = data.assignments ?? [];
 } catch (error) {
   loadError = error instanceof Error ? error.message : "API unavailable";
 }
@@ -23,17 +53,116 @@ try {
   </Fragment>
 
   {loadError && <p class="mb-4 text-sm text-york-red">{loadError}</p>}
+  {
+    successMessage && (
+      <p class="mb-4 text-sm text-green-700">{successMessage}</p>
+    )
+  }
+  {formError && <p class="mb-4 text-sm text-york-red">{formError}</p>}
+  <!-- Add button to add assignment -->
+  <button id="show-add-assignment-form-btn">Add Assignment</button>
 
-  <FeatureStarter
-    featureName="Assignment calendar"
-    owner="Sarah"
-    taskDoc="docs/tasks/assignments.md"
-    apiHint="Due dates for coursework. Wire this up to the dashboard deadlines widget when the API is ready."
-    apiMessage={apiMessage}
-    steps={[
-      "Migration for assignments table",
-      "Form to add title, course, due date",
-      "Sort and show upcoming list",
-    ]}
-  />
+  <form
+    id="add-assignment-form"
+    class={formError ? "" : "hidden"}
+    method="POST"
+  >
+    <label>
+      Title:
+      <input type="text" name="title" required />
+    </label>
+    <label>
+      Course Code:
+      <input type="text" name="courseCode" required />
+    </label>
+    <label>
+      Description:
+      <input type="text" name="description" />
+    </label>
+    <label>
+      Due Date:
+      <input type="date" name="dueDate" required />
+    </label>
+    <button type="submit" id="add-assignment-btn">Add Assignment</button>
+  </form>
+
+  <style>
+    .hidden {
+      display: none;
+    }
+  </style>
+
+  <script>
+    const button = document.getElementById("show-add-assignment-form-btn");
+    const form = document.getElementById("add-assignment-form");
+
+    button?.addEventListener("click", () => {
+      form?.classList.toggle("hidden");
+    });
+  </script>
+
+  <!-- Assignments Table -->
+  {
+    assignments.length > 0 ? (
+      <div class="overflow-x-auto">
+        <table class="w-full border-collapse border border-gray-200">
+          <thead>
+            <tr class="bg-gray-100">
+              <th class="border border-gray-200 px-4 py-2 text-left">Title</th>
+              <th class="border border-gray-200 px-4 py-2 text-left">
+                Course Code
+              </th>
+              <th class="border border-gray-200 px-4 py-2 text-left">
+                Description
+              </th>
+              <th class="border border-gray-200 px-4 py-2 text-left">
+                Due Date
+              </th>
+              <th class="border border-gray-200 px-4 py-2 text-left">Status</th>
+            </tr>
+          </thead>
+          <tbody>
+            {assignments.map((assignment) => (
+              <tr class="hover:bg-gray-50">
+                <td class="border border-gray-200 px-4 py-2 font-medium">
+                  {assignment.title}
+                </td>
+                <td class="border border-gray-200 px-4 py-2">
+                  <span class="px-2 py-1 bg-blue-100 text-blue-800 rounded text-sm">
+                    {assignment.courseCode}
+                  </span>
+                </td>
+                <td class="border border-gray-200 px-4 py-2">
+                  {assignment.description || "-"}
+                </td>
+                <td class="border border-gray-200 px-4 py-2">
+                  {new Date(assignment.dueDate).toLocaleDateString("en-US", {
+                    year: "numeric",
+                    month: "long",
+                    day: "numeric",
+                  })}
+                </td>
+                <td class="border border-gray-200 px-4 py-2">
+                  {assignment.done ? (
+                    <span class="px-2 py-1 bg-green-100 text-green-800 rounded text-sm">
+                      Done
+                    </span>
+                  ) : (
+                    <span class="px-2 py-1 bg-yellow-100 text-yellow-800 rounded text-sm">
+                      Pending
+                    </span>
+                  )}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    ) : (
+      <div class="text-center py-12 text-gray-500">
+        <p class="text-lg">No assignments yet</p>
+        <p class="text-sm">Click "Add Assignment" to create your first one</p>
+      </div>
+    )
+  }
 </DashboardLayout>

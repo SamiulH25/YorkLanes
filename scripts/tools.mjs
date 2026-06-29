@@ -57,7 +57,16 @@ function runSetup() {
   if (!apiEnv) {
     errors.push("Missing apps/api/.env — ask the database maintainer.");
   } else if (!envValue(apiEnv, "SUPABASE_DB_URL") && !envValue(apiEnv, "DATABASE_URL")) {
-    errors.push("apps/api/.env needs SUPABASE_DB_URL.");
+    const hasSupabaseRest =
+      envValue(apiEnv, "SUPABASE_URL") &&
+      (envValue(apiEnv, "SUPABASE_PUBLISHABLE_KEY") || envValue(apiEnv, "SUPABASE_ANON_KEY"));
+    if (hasSupabaseRest) {
+      warnings.push(
+        "SUPABASE_DB_URL is missing — finance can use Supabase REST, but pg-backed features need the maintainer connection string.",
+      );
+    } else {
+      errors.push("apps/api/.env needs SUPABASE_DB_URL, or SUPABASE_URL plus SUPABASE_PUBLISHABLE_KEY for finance-only REST access.");
+    }
   }
 
   const webContent = readEnvFile("apps/web/.env.local") ?? readEnvFile("apps/web/.env");

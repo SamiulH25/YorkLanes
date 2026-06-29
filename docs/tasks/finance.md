@@ -1,6 +1,6 @@
 # Finance module — Taziz
 
-**Goal for your first PR:** add one expense entry and list it on `/finance`.
+**Goal for your first PR:** add income/expense entries and list them on `/finance`.
 
 ## Files to edit
 
@@ -15,15 +15,16 @@
 ## Steps
 
 1. Open http://localhost:4321/finance.
-2. Migration: `finance_entries (id, label, amount_cents, category, created_at)`.
-3. `POST /api/finance/entries` with `{ label, amount }` — insert one row.
-4. `GET /api/finance/entries` — return rows, show total on the page.
+2. Migration: `finance_entries (id, user_id, label, amount_cents, category, kind, occurred_on, created_at)`.
+3. `POST /api/finance/entries` with `{ label, amount, category, kind, occurredOn }` — insert one row.
+4. `GET /api/finance/entries` — return rows, balance, income/expense totals, and category totals.
 5. PR + maintainer migration push.
+
+The API uses `SUPABASE_DB_URL` when available. For this module only, it can also fall back to Supabase REST when `SUPABASE_URL` and `SUPABASE_PUBLISHABLE_KEY` are set and the `finance_entries` migration has been applied.
 
 ## After that
 
-- Monthly budget vs spent
 - OSAP / tuition categories
-- Feed `dashboard.ts` `finance.balance` from real data
+- Monthly budget vs spent
 
 Keep amounts in cents (integer) to avoid float bugs.

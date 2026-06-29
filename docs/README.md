@@ -66,7 +66,7 @@ YorkLanes/
 | Course explorer | Stub | `docs/tasks/courses.md` |
 | Schedule builder | Stub | `docs/tasks/schedule.md` |
 | Progress tracker | Stub | `docs/tasks/progress.md` |
-| Finance module | Stub | `docs/tasks/finance.md` |
+| Finance module | Working first pass | `docs/tasks/finance.md` |
 | Assignment calendar | Stub | `docs/tasks/assignments.md` |
 
 ## Team

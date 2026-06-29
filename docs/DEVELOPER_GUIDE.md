@@ -115,7 +115,7 @@ apps/web/
 | `/courses` | `pages/courses/index.astro` | Course explorer | Stub (`FeatureStarter`) |
 | `/schedule` | `pages/schedule/index.astro` | Weekly schedule | Stub |
 | `/progress` | `pages/progress/index.astro` | Degree completion % | Stub |
-| `/finance` | `pages/finance/index.astro` | Student budget | Stub |
+| `/finance` | `pages/finance/index.astro` | Student budget | Working first pass |
 | `/assignments` | `pages/assignments/index.astro` | Due dates | Stub |
 
 Most feature pages set `export const prerender = false` so they can fetch live API data on each request.
@@ -253,7 +253,8 @@ apps/api/
 | GET | `/api/courses` | `routes/courses.ts` | Stub |
 | GET | `/api/schedules` | `routes/schedules.ts` | Stub |
 | GET | `/api/progress` | `routes/progress.ts` | Stub |
-| GET | `/api/finance` | `routes/finance.ts` | Stub |
+| GET | `/api/finance` | `routes/finance.ts` | Working first pass |
+| GET/POST | `/api/finance/entries` | `routes/finance.ts` | Working first pass |
 | GET | `/api/assignments` | `routes/assignments.ts` | Stub |
 
 Stub routes return JSON like `{ status: "stub", message: "...", nextSteps: [...] }`.
@@ -280,6 +281,8 @@ Copy `apps/api/.env.example` → `apps/api/.env`
 | Variable | Required? | Purpose |
 |----------|-----------|---------|
 | `SUPABASE_DB_URL` | Yes | Postgres connection string (from maintainer) |
+| `SUPABASE_URL` | Finance fallback | Hosted project URL for Supabase REST |
+| `SUPABASE_PUBLISHABLE_KEY` | Finance fallback | Publishable key for Supabase REST |
 | `API_PORT` | Yes (default 3001) | Port Express listens on |
 | `WEB_ORIGIN` | Yes | CORS allowed origin (`http://localhost:4321`) |
 | `GOOGLE_CLIENT_ID` | For login | Google Cloud OAuth client |
@@ -379,13 +382,13 @@ The maintainer applies migrations to the hosted database with `npm run supabase:
 | `plan_courses` | Courses placed in terms |
 | `todos` | Demo/quickstart table |
 
-### Tables planned but not migrated yet
+### Feature tables
 
-Commented in the core migration; your feature may need to add them:
+Some are commented in the core migration until each feature owner adds a dedicated migration:
 
 - `schedules`, `schedule_sections`
 - `requirement_progress`
-- `finance_entries`
+- `finance_entries` — implemented by `20250629000000_finance_entries.sql`
 - `assignments`
 
 Full reference: `docs/database.md`

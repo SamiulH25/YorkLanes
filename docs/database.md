@@ -7,6 +7,7 @@ PostgreSQL hosted on **Supabase** (`edrbocogcqmqalexgajq`). Schema is versioned 
 | Consumer | Env variable | Library |
 |----------|--------------|---------|
 | Express API | `SUPABASE_DB_URL` (preferred) or `DATABASE_URL` | `pg` pool in `apps/api/src/db/index.ts` |
+| Finance API fallback | `SUPABASE_URL` + `SUPABASE_PUBLISHABLE_KEY` | Supabase REST, after finance migration is applied |
 | Astro web | `PUBLIC_API_URL` in `.env.local` | `fetch` to Express API |
 
 All feature pages talk to Express; the API talks to Postgres directly.
@@ -20,6 +21,7 @@ erDiagram
   degree_plans ||--|{ plan_terms : contains
   plan_terms ||--|{ plan_courses : contains
   courses ||--|{ course_prerequisites : requires
+  users ||--o{ finance_entries : logs
 ```
 
 ## Tables
@@ -71,10 +73,30 @@ The API detects whether `completed` exists at runtime (`planCourseSchema.ts`) fo
 | `20250619210000_plan_course_stubs.sql` | `entry_kind`, `section_label` |
 | `20250619220000_plan_course_completed.sql` | `completed` column (original) |
 | `20250619230000_add_plan_course_completed.sql` | Re-add `completed` if drift on remote |
+| `20250629000000_finance_entries.sql` | `finance_entries` income and expense table |
+
+### Finance module
+
+| Table | Purpose |
+|-------|---------|
+| `finance_entries` | Income and expense rows for the student finance page |
+
+#### `finance_entries` columns
+
+| Column | Type | Notes |
+|--------|------|-------|
+| `id` | uuid | Primary key |
+| `user_id` | uuid | Nullable until auth is fully enforced |
+| `label` | text | User-facing entry name |
+| `amount_cents` | integer | Positive amount stored in cents |
+| `category` | text | Tuition, Rent, Personal, etc. |
+| `kind` | text | `income` or `expense` |
+| `occurred_on` | date | Budget date |
+| `created_at` | timestamptz | Insert timestamp |
 
 ## Row Level Security
 
-RLS is **enabled** on plan tables. Current policies allow all operations (`using (true)`) because there is no authenticated user session yet. Before production with real users:
+RLS is **enabled** on plan and finance tables. Current policies allow all operations (`using (true)`) because there is no authenticated user session yet. Before production with real users:
 
 1. Scope `degree_plans` to `auth.uid()` or API-set `user_id`
 2. Replace open policies with `user_id = current_setting('app.user_id')::uuid` or Supabase Auth helpers

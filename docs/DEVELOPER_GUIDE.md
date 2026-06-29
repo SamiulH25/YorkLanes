@@ -254,7 +254,8 @@ apps/api/
 | GET | `/api/schedules` | `routes/schedules.ts` | Stub |
 | GET | `/api/progress` | `routes/progress.ts` | Stub |
 | GET | `/api/finance` | `routes/finance.ts` | Working first pass |
-| GET/POST | `/api/finance/entries` | `routes/finance.ts` | Working first pass |
+| GET/POST/DELETE | `/api/finance/entries` | `routes/finance.ts` | Working first pass |
+| GET/PUT | `/api/finance/budget/:month` | `routes/finance.ts` | Working first pass |
 | GET | `/api/assignments` | `routes/assignments.ts` | Stub |
 
 Stub routes return JSON like `{ status: "stub", message: "...", nextSteps: [...] }`.
@@ -389,6 +390,7 @@ Some are commented in the core migration until each feature owner adds a dedicat
 - `schedules`, `schedule_sections`
 - `requirement_progress`
 - `finance_entries` — implemented by `20250629000000_finance_entries.sql`
+- `finance_monthly_budgets` — implemented by `20250629010000_finance_monthly_budgets.sql`
 - `assignments`
 
 Full reference: `docs/database.md`

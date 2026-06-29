@@ -74,12 +74,14 @@ The API detects whether `completed` exists at runtime (`planCourseSchema.ts`) fo
 | `20250619220000_plan_course_completed.sql` | `completed` column (original) |
 | `20250619230000_add_plan_course_completed.sql` | Re-add `completed` if drift on remote |
 | `20250629000000_finance_entries.sql` | `finance_entries` income and expense table |
+| `20250629010000_finance_monthly_budgets.sql` | `finance_monthly_budgets` monthly budget table |
 
 ### Finance module
 
 | Table | Purpose |
 |-------|---------|
 | `finance_entries` | Income and expense rows for the student finance page |
+| `finance_monthly_budgets` | Monthly budget target for budget-vs-spent tracking |
 
 #### `finance_entries` columns
 
@@ -93,6 +95,17 @@ The API detects whether `completed` exists at runtime (`planCourseSchema.ts`) fo
 | `kind` | text | `income` or `expense` |
 | `occurred_on` | date | Budget date |
 | `created_at` | timestamptz | Insert timestamp |
+
+#### `finance_monthly_budgets` columns
+
+| Column | Type | Notes |
+|--------|------|-------|
+| `id` | uuid | Primary key |
+| `user_id` | uuid | Nullable until auth is fully enforced |
+| `month` | text | `YYYY-MM` budget month |
+| `amount_cents` | integer | Monthly budget target in cents |
+| `created_at` | timestamptz | Insert timestamp |
+| `updated_at` | timestamptz | Last update timestamp |
 
 ## Row Level Security
 

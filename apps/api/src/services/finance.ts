@@ -25,6 +25,14 @@ export interface FinanceSummary {
   categoryTotals: FinanceCategoryTotal[];
 }
 
+export interface FinanceBudget {
+  id: string;
+  month: string;
+  amountCents: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
 interface FinanceEntryRow {
   id: string;
   label: string;
@@ -40,12 +48,26 @@ interface FinanceCategoryRow {
   amount_cents: string;
 }
 
+interface FinanceBudgetRow {
+  id: string;
+  month: string;
+  amount_cents: number;
+  created_at: string;
+  updated_at: string;
+}
+
 export interface CreateFinanceEntryInput {
   label: string;
   amountCents: number;
   category: string;
   kind: FinanceEntryKind;
   occurredOn?: string;
+  userId?: string | null;
+}
+
+export interface UpsertFinanceBudgetInput {
+  month: string;
+  amountCents: number;
   userId?: string | null;
 }
 
@@ -84,6 +106,16 @@ function mapEntry(row: FinanceEntryRow): FinanceEntry {
     kind: row.kind,
     occurredOn: row.occurred_on,
     createdAt: row.created_at,
+  };
+}
+
+function mapBudget(row: FinanceBudgetRow): FinanceBudget {
+  return {
+    id: row.id,
+    month: row.month,
+    amountCents: row.amount_cents,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
   };
 }
 
@@ -184,6 +216,65 @@ export async function createFinanceEntry(
   return mapEntry(result.rows[0]);
 }
 
+export async function deleteFinanceEntry(
+  pool: pg.Pool,
+  entryId: string,
+  userId?: string | null,
+): Promise<boolean> {
+  const scope = userId ? "user_id = $2" : "user_id is null";
+  const values = userId ? [entryId, userId] : [entryId];
+  const result = await pool.query(
+    `delete from public.finance_entries
+       where id = $1 and ${scope}`,
+    values,
+  );
+  return (result.rowCount ?? 0) > 0;
+}
+
+export async function getFinanceBudget(
+  pool: pg.Pool,
+  month: string,
+  userId?: string | null,
+): Promise<FinanceBudget | null> {
+  const scope = userId ? "user_id = $2" : "user_id is null";
+  const values = userId ? [month, userId] : [month];
+  const result = await pool.query<FinanceBudgetRow>(
+    `select
+       id,
+       month,
+       amount_cents,
+       created_at::text as created_at,
+       updated_at::text as updated_at
+       from public.finance_monthly_budgets
+       where month = $1 and ${scope}
+       limit 1`,
+    values,
+  );
+  return result.rows[0] ? mapBudget(result.rows[0]) : null;
+}
+
+export async function upsertFinanceBudget(
+  pool: pg.Pool,
+  input: UpsertFinanceBudgetInput,
+): Promise<FinanceBudget> {
+  const existing = await getFinanceBudget(pool, input.month, input.userId);
+  const result = existing
+    ? await pool.query<FinanceBudgetRow>(
+        `update public.finance_monthly_budgets
+           set amount_cents = $1, updated_at = now()
+           where id = $2
+           returning id, month, amount_cents, created_at::text as created_at, updated_at::text as updated_at`,
+        [input.amountCents, existing.id],
+      )
+    : await pool.query<FinanceBudgetRow>(
+        `insert into public.finance_monthly_budgets (user_id, month, amount_cents)
+         values ($1, $2, $3)
+         returning id, month, amount_cents, created_at::text as created_at, updated_at::text as updated_at`,
+        [input.userId ?? null, input.month, input.amountCents],
+      );
+  return mapBudget(result.rows[0]);
+}
+
 export function canUseFinanceRest(): boolean {
   return Boolean(getSupabaseRestConfig());
 }
@@ -255,4 +346,91 @@ export async function createFinanceEntryViaRest(input: CreateFinanceEntryInput):
 
   const rows = (await response.json()) as FinanceEntryRow[];
   return mapEntry(rows[0]);
+}
+
+export async function deleteFinanceEntryViaRest(
+  entryId: string,
+  userId?: string | null,
+): Promise<boolean> {
+  const config = requireSupabaseRestConfig();
+  const url = new URL(`${config.url}/rest/v1/finance_entries`);
+  url.searchParams.set("id", `eq.${entryId}`);
+  url.searchParams.set("user_id", userId ? `eq.${encodeURIComponent(userId)}` : "is.null");
+
+  const response = await fetch(url, {
+    method: "DELETE",
+    headers: financeRestHeaders({ Prefer: "return=representation" }),
+  });
+  if (!response.ok) {
+    throw new Error(`Finance REST delete failed: ${response.status} ${await response.text()}`);
+  }
+
+  const rows = (await response.json()) as FinanceEntryRow[];
+  return rows.length > 0;
+}
+
+export async function getFinanceBudgetViaRest(
+  month: string,
+  userId?: string | null,
+): Promise<FinanceBudget | null> {
+  const config = requireSupabaseRestConfig();
+  const url = new URL(`${config.url}/rest/v1/finance_monthly_budgets`);
+  url.searchParams.set("select", "id,month,amount_cents,created_at,updated_at");
+  url.searchParams.set("month", `eq.${month}`);
+  url.searchParams.set("user_id", userId ? `eq.${encodeURIComponent(userId)}` : "is.null");
+  url.searchParams.set("limit", "1");
+
+  const response = await fetch(url, { headers: financeRestHeaders() });
+  if (!response.ok) {
+    throw new Error(`Finance budget REST query failed: ${response.status} ${await response.text()}`);
+  }
+
+  const rows = (await response.json()) as FinanceBudgetRow[];
+  return rows[0] ? mapBudget(rows[0]) : null;
+}
+
+export async function upsertFinanceBudgetViaRest(
+  input: UpsertFinanceBudgetInput,
+): Promise<FinanceBudget> {
+  const config = requireSupabaseRestConfig();
+  const existing = await getFinanceBudgetViaRest(input.month, input.userId);
+
+  if (existing) {
+    const updateUrl = new URL(`${config.url}/rest/v1/finance_monthly_budgets`);
+    updateUrl.searchParams.set("id", `eq.${existing.id}`);
+    const response = await fetch(updateUrl, {
+      method: "PATCH",
+      headers: financeRestHeaders({
+        "Content-Type": "application/json",
+        Prefer: "return=representation",
+      }),
+      body: JSON.stringify({
+        amount_cents: input.amountCents,
+        updated_at: new Date().toISOString(),
+      }),
+    });
+    if (!response.ok) {
+      throw new Error(`Finance budget REST update failed: ${response.status} ${await response.text()}`);
+    }
+    const rows = (await response.json()) as FinanceBudgetRow[];
+    return mapBudget(rows[0]);
+  }
+
+  const response = await fetch(`${config.url}/rest/v1/finance_monthly_budgets`, {
+    method: "POST",
+    headers: financeRestHeaders({
+      "Content-Type": "application/json",
+      Prefer: "return=representation",
+    }),
+    body: JSON.stringify({
+      user_id: input.userId ?? null,
+      month: input.month,
+      amount_cents: input.amountCents,
+    }),
+  });
+  if (!response.ok) {
+    throw new Error(`Finance budget REST insert failed: ${response.status} ${await response.text()}`);
+  }
+  const rows = (await response.json()) as FinanceBudgetRow[];
+  return mapBudget(rows[0]);
 }

@@ -42,6 +42,68 @@ const categories = ["Tuition", "Rent", "Personal", "Food", "Books", "Income", "O
       </article>
     </section>
 
+    <section class="surface p-5 xl:col-span-2">
+      <div class="grid gap-5 lg:grid-cols-[18rem_minmax(0,1fr)]">
+        <div>
+          <p class="label">Monthly budget</p>
+          <h2 class="heading-widget mt-1">Budget vs spent</h2>
+          <form data-finance-budget-form class="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-1">
+            <label class="block">
+              <span class="label">Month</span>
+              <input
+                data-finance-month
+                required
+                name="month"
+                type="month"
+                class="mt-2 w-full rounded-xl border border-york-stone/60 bg-white/80 px-3 py-2.5 text-sm text-york-black outline-none transition focus:border-york-red focus:ring-2 focus:ring-york-red/20 dark:border-white/10 dark:bg-york-graphite dark:text-white"
+              />
+            </label>
+            <label class="block">
+              <span class="label">Budget</span>
+              <input
+                data-finance-budget-input
+                required
+                name="budget"
+                type="number"
+                min="0"
+                step="0.01"
+                placeholder="1200.00"
+                class="mt-2 w-full rounded-xl border border-york-stone/60 bg-white/80 px-3 py-2.5 text-sm text-york-black outline-none transition focus:border-york-red focus:ring-2 focus:ring-york-red/20 dark:border-white/10 dark:bg-york-graphite dark:text-white"
+              />
+            </label>
+            <button type="submit" class="btn-york w-full">Save budget</button>
+          </form>
+        </div>
+
+        <div class="grid content-start gap-4 sm:grid-cols-3">
+          <article class="surface-muted p-4">
+            <p class="label">Budget</p>
+            <p data-finance-budget-value class="mt-2 font-display text-2xl font-semibold text-york-black dark:text-white">
+              $0.00
+            </p>
+          </article>
+          <article class="surface-muted p-4">
+            <p class="label">Spent</p>
+            <p data-finance-month-spent class="mt-2 font-display text-2xl font-semibold text-york-red">
+              $0.00
+            </p>
+          </article>
+          <article class="surface-muted p-4">
+            <p class="label">Remaining</p>
+            <p data-finance-budget-remaining class="mt-2 font-display text-2xl font-semibold text-emerald-700 dark:text-emerald-300">
+              $0.00
+            </p>
+          </article>
+          <div class="sm:col-span-3">
+            <div class="h-3 overflow-hidden rounded-full bg-york-cream dark:bg-york-graphite">
+              <div data-finance-budget-bar class="h-full rounded-full bg-york-red transition-[width] duration-200" style="width: 0%"></div>
+            </div>
+            <p data-finance-budget-status class="mt-2 text-xs text-york-muted">Set a monthly budget to track spending.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
     <section class="surface p-5 xl:row-span-2">
       <div class="widget-header">
         <div>
@@ -131,7 +193,7 @@ const categories = ["Tuition", "Rent", "Personal", "Food", "Books", "Income", "O
           <p class="label">Recent</p>
           <h2 class="heading-widget mt-1">Entries</h2>
         </div>
-        <button type="button" data-finance-clear class="btn-ghost px-3 py-2 text-xs">Clear</button>
+        <button type="button" data-finance-clear class="btn-ghost px-3 py-2 text-xs">Clear local</button>
       </div>
       <div data-finance-empty class="empty-state mt-5 text-sm text-york-muted">
         No entries yet.

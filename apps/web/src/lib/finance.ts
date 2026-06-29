@@ -23,6 +23,14 @@ export interface FinanceSummary {
   categoryTotals: Array<{ category: string; amountCents: number }>;
 }
 
+export interface FinanceBudget {
+  id?: string;
+  month: string;
+  amountCents: number;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
 export interface FinanceEntriesResponse {
   entries: FinanceEntry[];
   summary: FinanceSummary;
@@ -45,4 +53,26 @@ export async function fetchFinanceEntries(): Promise<FinanceEntriesResponse> {
   const response = await fetch(`${API_URL}/api/finance/entries`);
   if (!response.ok) throw new Error(`Finance entries API error: ${response.status}`);
   return response.json() as Promise<FinanceEntriesResponse>;
+}
+
+export async function fetchFinanceBudget(month: string): Promise<{ budget: FinanceBudget }> {
+  const response = await fetch(`${API_URL}/api/finance/budget/${month}`);
+  if (!response.ok) throw new Error(`Finance budget API error: ${response.status}`);
+  return response.json() as Promise<{ budget: FinanceBudget }>;
+}
+
+export async function saveFinanceBudget(month: string, amount: number): Promise<{ budget: FinanceBudget }> {
+  const response = await fetch(`${API_URL}/api/finance/budget/${month}`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ amount }),
+  });
+  if (!response.ok) throw new Error(`Finance budget API error: ${response.status}`);
+  return response.json() as Promise<{ budget: FinanceBudget }>;
+}
+
+export async function deleteFinanceEntry(entryId: string): Promise<{ deleted: boolean; summary: FinanceSummary }> {
+  const response = await fetch(`${API_URL}/api/finance/entries/${entryId}`, { method: "DELETE" });
+  if (!response.ok) throw new Error(`Finance delete API error: ${response.status}`);
+  return response.json() as Promise<{ deleted: boolean; summary: FinanceSummary }>;
 }

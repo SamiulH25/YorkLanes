@@ -74,6 +74,7 @@ Never put the service role key in the frontend.
 | `20250619220000_plan_course_completed.sql` | Course completion flag |
 | `20250619230000_add_plan_course_completed.sql` | Re-apply completion column if drift |
 | `20250629000000_finance_entries.sql` | Finance income and expense entries |
+| `20250629010000_finance_monthly_budgets.sql` | Finance monthly budget targets |
 
 Full schema reference: [`docs/database.md`](../docs/database.md).
 

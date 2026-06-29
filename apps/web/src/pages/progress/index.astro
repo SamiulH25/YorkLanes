@@ -1,39 +1,294 @@
 ---
 /** Progress tracker — Thor. Task guide: docs/tasks/progress.md */
 import DashboardLayout from "../../layouts/DashboardLayout.astro";
-import FeatureStarter from "../../components/FeatureStarter.astro";
-import { fetchProgress } from "../../lib/progress";
+import { fetchPlan } from "../../lib/plans";
+import { computePlanProgress, listPlanCourses } from "../../lib/progress";
+import type { DegreePlan } from "../../types/plan";
 
 export const prerender = false;
 
-let apiMessage: string | undefined;
+const planId = Astro.url.searchParams.get("planId") ?? Astro.url.searchParams.get("id") ?? "";
+
+let plan: DegreePlan | null = null;
 let loadError: string | null = null;
 
-try {
-  const data = await fetchProgress();
-  apiMessage = data.message;
-} catch (error) {
-  loadError = error instanceof Error ? error.message : "API unavailable";
+if (planId) {
+  try {
+    plan = await fetchPlan(planId);
+  } catch (error) {
+    loadError = error instanceof Error ? error.message : "Failed to load degree plan";
+  }
 }
+
+const stats = plan ? computePlanProgress(plan) : null;
+const courses = plan ? listPlanCourses(plan) : [];
+const completedCourses = courses.filter((course) => course.completed);
+const remainingCourses = courses.filter((course) => !course.completed);
+
+const radius = 64;
+const circumference = 2 * Math.PI * radius;
+const ringOffset = stats ? circumference - (stats.percentComplete / 100) * circumference : circumference;
+const classYear = plan ? plan.starting_year + 4 : null;
 ---
 
 <DashboardLayout title="Progress | YorkLanes" activeNav="progress">
   <Fragment slot="header">
-    <h1 class="heading-page">Degree progress</h1>
+    <div class="flex flex-wrap items-start justify-between gap-4">
+      <div>
+        <p class="text-xs font-medium text-york-muted">Progress tracker</p>
+        <h1 class="heading-page">{plan?.programme_name ?? "Degree progress"}</h1>
+        {
+          plan && (
+            <p class="mt-0.5 text-sm text-york-muted">
+              Started {plan.starting_year}
+              {classYear ? ` · Class of ${classYear}` : ""}
+              {plan.source_filename ? ` · from ${plan.source_filename}` : ""}
+            </p>
+          )
+        }
+      </div>
+      {
+        plan && (
+          <a href={`/plan?id=${plan.id}`} class="btn-york shrink-0">
+            Open degree plan
+          </a>
+        )
+      }
+    </div>
   </Fragment>
 
-  {loadError && <p class="mb-4 text-sm text-york-red">{loadError}</p>}
+  {
+    loadError && (
+      <div class="mb-6 rounded-xl border border-york-red/30 bg-york-red/10 px-4 py-3 text-sm text-york-red">
+        {loadError}
+      </div>
+    )
+  }
 
-  <FeatureStarter
-    featureName="Progress tracker"
-    owner="Thor"
-    taskDoc="docs/tasks/progress.md"
-    apiHint="Percent of your imported plan marked complete. Reads the completed flag on plan_courses."
-    apiMessage={apiMessage}
-    steps={[
-      "Load a plan by planId in the API route",
-      "Return percentComplete from completed courses",
-      "Hook into ProgressWidget on the dashboard",
-    ]}
-  />
+  {
+    !planId && !loadError && (
+      <div class="surface mx-auto max-w-lg rounded-2xl p-8">
+        <p class="text-xs font-medium uppercase tracking-widest text-york-red text-center">Get started</p>
+        <h2 class="mt-2 font-display text-xl font-semibold text-york-black dark:text-white text-center">
+          Load your degree progress
+        </h2>
+        <p class="mt-2 text-sm leading-relaxed text-stone-600 dark:text-stone-300 text-center">
+          Progress uses courses you mark complete in your imported plan. Paste a plan ID below, or import a new
+          checklist first.
+        </p>
+
+        <form method="get" action="/progress" class="mt-6 space-y-3">
+          <label class="block">
+            <span class="label">Plan ID</span>
+            <input
+              name="planId"
+              type="text"
+              required
+              placeholder="e.g. abc12345-6789-...."
+              class="mt-2 w-full rounded-xl border border-york-stone/60 bg-white/80 px-3 py-2.5 text-sm text-york-black outline-none transition focus:border-york-red focus:ring-2 focus:ring-york-red/20 dark:border-white/10 dark:bg-york-graphite dark:text-white"
+            />
+          </label>
+          <button type="submit" class="btn-york w-full">View progress</button>
+        </form>
+
+        <p class="mt-4 text-center text-xs text-york-muted">
+          Find the ID in your browser URL after import: <code class="rounded bg-black/5 px-1 py-0.5 dark:bg-white/10">/plan?id=...</code>
+        </p>
+
+        <div class="mt-6 flex flex-wrap justify-center gap-3 border-t border-york-stone/50 pt-6 dark:border-white/10">
+          <a href="/plan/setup" class="btn-york">Import checklist</a>
+          <button type="button" data-progress-load-session class="btn-ghost hidden">Use saved plan</button>
+        </div>
+      </div>
+    )
+  }
+
+  {
+    stats && plan && (
+      <div class="grid gap-5 xl:grid-cols-[minmax(0,1fr)_22rem]">
+        <section class="surface relative overflow-hidden p-6 md:p-8">
+          <div class="pointer-events-none absolute -right-10 -top-10 h-40 w-40 rounded-full bg-york-red/10 blur-2xl"></div>
+
+          <div class="widget-header">
+            <div>
+              <p class="label">Overall</p>
+              <h2 class="heading-widget mt-1">Degree completion</h2>
+            </div>
+            <span class="badge bg-york-red/10 text-york-red dark:bg-york-red/20">
+              {stats.completed} of {stats.total} courses
+            </span>
+          </div>
+
+          <div class="mt-8 flex flex-col items-center gap-8 lg:flex-row lg:items-start">
+            <div class="relative h-44 w-44 shrink-0">
+              <svg class="h-44 w-44 -rotate-90 drop-shadow-glow" viewBox="0 0 140 140" aria-hidden="true">
+                <circle
+                  cx="70"
+                  cy="70"
+                  r={radius}
+                  fill="none"
+                  class="stroke-york-stone/80 dark:stroke-white/10"
+                  stroke-width="10"></circle>
+                <circle
+                  cx="70"
+                  cy="70"
+                  r={radius}
+                  fill="none"
+                  class="stroke-york-red"
+                  stroke-width="10"
+                  stroke-dasharray={circumference}
+                  stroke-dashoffset={ringOffset}
+                  stroke-linecap="round"></circle>
+              </svg>
+              <span class="absolute inset-0 flex flex-col items-center justify-center">
+                <span class="font-display text-4xl font-bold text-york-black dark:text-white">{stats.percentComplete}%</span>
+                <span class="text-xs font-medium text-york-muted">complete</span>
+              </span>
+            </div>
+
+            <div class="flex-1 text-center lg:text-left">
+              <p class="text-sm leading-relaxed text-stone-600 dark:text-stone-400">
+                {
+                  stats.total === 0
+                    ? "No concrete courses found on this plan yet."
+                    : stats.remaining === 0
+                      ? "Every course on your plan is marked complete."
+                      : `${stats.remaining} course${stats.remaining === 1 ? "" : "s"} left to mark complete in the degree plan editor.`
+                }
+              </p>
+              <div class="mt-6 h-3 overflow-hidden rounded-full bg-york-cream dark:bg-york-graphite">
+                <div
+                  class="h-full rounded-full bg-york-red transition-[width] duration-300"
+                  style={`width: ${stats.percentComplete}%`}></div>
+              </div>
+              <p class="mt-2 text-xs text-york-muted">
+                Based on concrete courses only — elective and complementary placeholders are excluded.
+              </p>
+            </div>
+          </div>
+        </section>
+
+        <section class="grid gap-4 content-start">
+          <article class="surface p-5">
+            <p class="label">Completed</p>
+            <p class="mt-2 font-display text-3xl font-semibold text-emerald-700 dark:text-emerald-300">
+              {stats.completed}
+            </p>
+          </article>
+          <article class="surface p-5">
+            <p class="label">Remaining</p>
+            <p class="mt-2 font-display text-3xl font-semibold text-york-red">{stats.remaining}</p>
+          </article>
+          <article class="surface p-5">
+            <p class="label">Total courses</p>
+            <p class="mt-2 font-display text-3xl font-semibold text-york-black dark:text-white">{stats.total}</p>
+          </article>
+        </section>
+
+        <section class="surface p-5 xl:col-span-2">
+          <div class="widget-header">
+            <div>
+              <p class="label">Breakdown</p>
+              <h2 class="heading-widget mt-1">Requirement categories</h2>
+            </div>
+            <span class="badge bg-york-gold/15 text-york-gold">Coming soon</span>
+          </div>
+          <div class="mt-5 grid gap-3 sm:grid-cols-3">
+            <div class="surface-muted flex items-center gap-3 p-4">
+              <span class="h-2.5 w-2.5 shrink-0 rounded-full bg-york-red"></span>
+              <div>
+                <p class="text-sm font-semibold text-york-black dark:text-white">Major requirements</p>
+                <p class="text-xs text-york-muted">Not yet split by section</p>
+              </div>
+            </div>
+            <div class="surface-muted flex items-center gap-3 p-4">
+              <span class="h-2.5 w-2.5 shrink-0 rounded-full bg-york-gold"></span>
+              <div>
+                <p class="text-sm font-semibold text-york-black dark:text-white">General education</p>
+                <p class="text-xs text-york-muted">Not yet split by section</p>
+              </div>
+            </div>
+            <div class="surface-muted flex items-center gap-3 p-4">
+              <span class="h-2.5 w-2.5 shrink-0 rounded-full bg-stone-400"></span>
+              <div>
+                <p class="text-sm font-semibold text-york-black dark:text-white">Electives</p>
+                <p class="text-xs text-york-muted">Not yet split by section</p>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section class="surface p-5 xl:col-span-2">
+          <div class="widget-header">
+            <div>
+              <p class="label">Completed courses</p>
+              <h2 class="heading-widget mt-1">Marked done</h2>
+            </div>
+          </div>
+          {
+            completedCourses.length === 0 ? (
+              <p class="empty-state mt-5 text-sm text-york-muted">
+                No courses marked complete yet. Open the degree plan and tick courses you have already taken.
+              </p>
+            ) : (
+              <ul class="mt-5 divide-y divide-york-stone/50 dark:divide-white/10">
+                {completedCourses.map((course) => (
+                  <li class="flex flex-wrap items-center justify-between gap-3 py-3">
+                    <div>
+                      <p class="font-semibold text-york-black dark:text-white">{course.course_code}</p>
+                      <p class="text-sm text-york-muted">{course.title ?? "Untitled course"}</p>
+                    </div>
+                    <span class="text-xs font-medium text-york-muted">{course.termLabel}</span>
+                  </li>
+                ))}
+              </ul>
+            )
+          }
+        </section>
+
+        <section class="surface p-5 xl:col-span-2">
+          <div class="widget-header">
+            <div>
+              <p class="label">Still to complete</p>
+              <h2 class="heading-widget mt-1">Remaining courses</h2>
+            </div>
+            <a href={`/plan?id=${plan.id}`} class="btn-ghost px-3 py-2 text-xs">
+              Mark complete
+            </a>
+          </div>
+          {
+            remainingCourses.length === 0 ? (
+              <p class="empty-state mt-5 text-sm text-york-muted">Nothing left — nice work.</p>
+            ) : (
+              <ul class="mt-5 divide-y divide-york-stone/50 dark:divide-white/10">
+                {remainingCourses.map((course) => (
+                  <li class="flex flex-wrap items-center justify-between gap-3 py-3">
+                    <div>
+                      <p class="font-semibold text-york-black dark:text-white">{course.course_code}</p>
+                      <p class="text-sm text-york-muted">{course.title ?? "Untitled course"}</p>
+                    </div>
+                    <span class="text-xs font-medium text-york-muted">{course.termLabel}</span>
+                  </li>
+                ))}
+              </ul>
+            )
+          }
+        </section>
+      </div>
+    )
+  }
 </DashboardLayout>
+
+<script>
+  import { PLAN_ACTIVE_ID_KEY } from "../../lib/plans";
+
+  const button = document.querySelector<HTMLButtonElement>("[data-progress-load-session]");
+  const savedPlanId = sessionStorage.getItem(PLAN_ACTIVE_ID_KEY);
+
+  if (button && savedPlanId) {
+    button.classList.remove("hidden");
+    button.addEventListener("click", () => {
+      window.location.href = `/progress?planId=${encodeURIComponent(savedPlanId)}`;
+    });
+  }
+</script>

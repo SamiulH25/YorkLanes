@@ -33,6 +33,13 @@ export interface FinanceBudget {
   updatedAt: string;
 }
 
+export interface FinanceMonthlyTotal {
+  month: string;
+  incomeCents: number;
+  expenseCents: number;
+  balanceCents: number;
+}
+
 interface FinanceEntryRow {
   id: string;
   label: string;
@@ -54,6 +61,13 @@ interface FinanceBudgetRow {
   amount_cents: number;
   created_at: string;
   updated_at: string;
+}
+
+interface FinanceMonthlyTotalRow {
+  month: string;
+  income_cents: string;
+  expense_cents: string;
+  balance_cents: string;
 }
 
 export interface CreateFinanceEntryInput {
@@ -116,6 +130,15 @@ function mapBudget(row: FinanceBudgetRow): FinanceBudget {
     amountCents: row.amount_cents,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
+  };
+}
+
+function mapMonthlyTotal(row: FinanceMonthlyTotalRow): FinanceMonthlyTotal {
+  return {
+    month: row.month,
+    incomeCents: Number(row.income_cents),
+    expenseCents: Number(row.expense_cents),
+    balanceCents: Number(row.balance_cents),
   };
 }
 
@@ -214,6 +237,29 @@ export async function createFinanceEntry(
     ],
   );
   return mapEntry(result.rows[0]);
+}
+
+export async function listFinanceMonthlyTotals(
+  pool: pg.Pool,
+  userId?: string | null,
+): Promise<FinanceMonthlyTotal[]> {
+  const scope = scopeClause(userId);
+  const result = await pool.query<FinanceMonthlyTotalRow>(
+    `select
+       to_char(occurred_on, 'YYYY-MM') as month,
+       coalesce(sum(amount_cents) filter (where kind = 'income'), 0)::text as income_cents,
+       coalesce(sum(amount_cents) filter (where kind = 'expense'), 0)::text as expense_cents,
+       (
+         coalesce(sum(amount_cents) filter (where kind = 'income'), 0) -
+         coalesce(sum(amount_cents) filter (where kind = 'expense'), 0)
+       )::text as balance_cents
+     from public.finance_entries
+     ${scope.sql}
+     group by to_char(occurred_on, 'YYYY-MM')
+     order by month desc`,
+    scope.values,
+  );
+  return result.rows.map(mapMonthlyTotal);
 }
 
 export async function deleteFinanceEntry(
@@ -320,6 +366,25 @@ export async function getFinanceSummaryViaRest(userId?: string | null): Promise<
       .map(([category, amountCents]) => ({ category, amountCents }))
       .sort((a, b) => b.amountCents - a.amountCents || a.category.localeCompare(b.category)),
   };
+}
+
+export async function listFinanceMonthlyTotalsViaRest(userId?: string | null): Promise<FinanceMonthlyTotal[]> {
+  const entries = await listFinanceEntriesViaRest(userId);
+  const totals = new Map<string, FinanceMonthlyTotal>();
+  for (const entry of entries) {
+    const month = entry.occurredOn.slice(0, 7);
+    if (!/^\d{4}-\d{2}$/.test(month)) continue;
+    const current = totals.get(month) ?? { month, incomeCents: 0, expenseCents: 0, balanceCents: 0 };
+    if (entry.kind === "income") {
+      current.incomeCents += entry.amountCents;
+    } else {
+      current.expenseCents += entry.amountCents;
+    }
+    current.balanceCents = current.incomeCents - current.expenseCents;
+    totals.set(month, current);
+  }
+
+  return [...totals.values()].sort((a, b) => b.month.localeCompare(a.month));
 }
 
 export async function createFinanceEntryViaRest(input: CreateFinanceEntryInput): Promise<FinanceEntry> {

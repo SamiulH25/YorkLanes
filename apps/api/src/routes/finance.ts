@@ -13,6 +13,8 @@ import {
   getFinanceSummaryViaRest,
   listFinanceEntries,
   listFinanceEntriesViaRest,
+  listFinanceMonthlyTotals,
+  listFinanceMonthlyTotalsViaRest,
   upsertFinanceBudget,
   upsertFinanceBudgetViaRest,
   type FinanceEntryKind,
@@ -120,6 +122,20 @@ financeRouter.get("/entries", async (req, res) => {
           ])
         : await Promise.reject(new Error("No database configured. Set SUPABASE_DB_URL or SUPABASE_URL plus SUPABASE_PUBLISHABLE_KEY."));
     res.json({ entries, summary });
+  } catch (error) {
+    const response = financeError(error);
+    res.status(response.status).json(response.body);
+  }
+});
+
+financeRouter.get("/monthly-summary", async (req, res) => {
+  try {
+    const months = usePostgres()
+      ? await listFinanceMonthlyTotals(getPool(), req.session.userId)
+      : canUseFinanceRest()
+        ? await listFinanceMonthlyTotalsViaRest(req.session.userId)
+        : await Promise.reject(new Error("No database configured. Set SUPABASE_DB_URL or SUPABASE_URL plus SUPABASE_PUBLISHABLE_KEY."));
+    res.json({ months });
   } catch (error) {
     const response = financeError(error);
     res.status(response.status).json(response.body);

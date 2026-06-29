@@ -31,6 +31,13 @@ export interface FinanceBudget {
   updatedAt?: string;
 }
 
+export interface FinanceMonthlyTotal {
+  month: string;
+  incomeCents: number;
+  expenseCents: number;
+  balanceCents: number;
+}
+
 export interface FinanceEntriesResponse {
   entries: FinanceEntry[];
   summary: FinanceSummary;
@@ -53,6 +60,12 @@ export async function fetchFinanceEntries(): Promise<FinanceEntriesResponse> {
   const response = await fetch(`${API_URL}/api/finance/entries`);
   if (!response.ok) throw new Error(`Finance entries API error: ${response.status}`);
   return response.json() as Promise<FinanceEntriesResponse>;
+}
+
+export async function fetchFinanceMonthlySummary(): Promise<{ months: FinanceMonthlyTotal[] }> {
+  const response = await fetch(`${API_URL}/api/finance/monthly-summary`);
+  if (!response.ok) throw new Error(`Finance monthly summary API error: ${response.status}`);
+  return response.json() as Promise<{ months: FinanceMonthlyTotal[] }>;
 }
 
 export async function fetchFinanceBudget(month: string): Promise<{ budget: FinanceBudget }> {

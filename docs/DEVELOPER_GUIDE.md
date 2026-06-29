@@ -255,6 +255,7 @@ apps/api/
 | GET | `/api/progress` | `routes/progress.ts` | Stub |
 | GET | `/api/finance` | `routes/finance.ts` | Working first pass |
 | GET/POST/DELETE | `/api/finance/entries` | `routes/finance.ts` | Working first pass |
+| GET | `/api/finance/monthly-summary` | `routes/finance.ts` | Working first pass |
 | GET/PUT | `/api/finance/budget/:month` | `routes/finance.ts` | Working first pass |
 | GET | `/api/assignments` | `routes/assignments.ts` | Stub |
 

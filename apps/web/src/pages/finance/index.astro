@@ -190,6 +190,26 @@ const categories = ["Tuition", "Rent", "Personal", "Food", "Books", "Income", "O
     <section class="surface p-5">
       <div class="widget-header">
         <div>
+          <p class="label">Monthly review</p>
+          <h2 class="heading-widget mt-1">Income vs expenses</h2>
+        </div>
+        <button type="button" data-finance-export class="btn-ghost px-3 py-2 text-xs">Export CSV</button>
+      </div>
+      <label class="mt-5 flex items-center gap-2 text-sm font-semibold text-york-muted">
+        <input
+          data-finance-month-filter
+          type="checkbox"
+          class="h-4 w-4 rounded border-york-stone text-york-red focus:ring-york-red"
+        />
+        Show selected month only
+      </label>
+      <div data-finance-trend class="mt-5 space-y-3"></div>
+      <p data-finance-trend-empty class="empty-state mt-5 text-sm text-york-muted">No monthly activity yet.</p>
+    </section>
+
+    <section class="surface p-5">
+      <div class="widget-header">
+        <div>
           <p class="label">Recent</p>
           <h2 class="heading-widget mt-1">Entries</h2>
         </div>

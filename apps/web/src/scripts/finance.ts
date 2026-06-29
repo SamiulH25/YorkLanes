@@ -19,6 +19,13 @@ interface FinanceBudget {
   amountCents: number;
 }
 
+interface MonthlyTotal {
+  month: string;
+  incomeCents: number;
+  expenseCents: number;
+  balanceCents: number;
+}
+
 const STORAGE_KEY = "yorklanes.finance.entries";
 const BUDGET_STORAGE_KEY = "yorklanes.finance.budgets";
 const currency = new Intl.NumberFormat("en-CA", {
@@ -32,6 +39,12 @@ function currentMonth(): string {
 
 function formatCents(cents: number): string {
   return currency.format(cents / 100);
+}
+
+function formatMonth(month: string): string {
+  const date = new Date(`${month}-01T00:00:00`);
+  if (Number.isNaN(date.getTime())) return month;
+  return date.toLocaleDateString("en-CA", { month: "short", year: "numeric" });
 }
 
 function readEntries(): FinanceEntry[] {
@@ -132,11 +145,70 @@ function parseAmountCents(value: FormDataEntryValue | null): number {
   return Math.round(amount * 100);
 }
 
-function render(root: HTMLElement, entries: FinanceEntry[], budgetCents: number, selectedMonth: string): void {
-  const incomeCents = entries
+function getVisibleEntries(entries: FinanceEntry[], selectedMonth: string, monthOnly: boolean): FinanceEntry[] {
+  return monthOnly ? entries.filter((entry) => entry.occurredOn.startsWith(selectedMonth)) : entries;
+}
+
+function getMonthlyTotals(entries: FinanceEntry[]): MonthlyTotal[] {
+  const totals = new Map<string, MonthlyTotal>();
+  for (const entry of entries) {
+    const month = entry.occurredOn.slice(0, 7);
+    if (!/^\d{4}-\d{2}$/.test(month)) continue;
+    const current = totals.get(month) ?? { month, incomeCents: 0, expenseCents: 0, balanceCents: 0 };
+    if (entry.kind === "income") {
+      current.incomeCents += entry.amountCents;
+    } else {
+      current.expenseCents += entry.amountCents;
+    }
+    current.balanceCents = current.incomeCents - current.expenseCents;
+    totals.set(month, current);
+  }
+
+  return [...totals.values()].sort((a, b) => b.month.localeCompare(a.month));
+}
+
+function csvCell(value: string): string {
+  return `"${value.replaceAll('"', '""')}"`;
+}
+
+function downloadCsv(entries: FinanceEntry[], selectedMonth: string, monthOnly: boolean): void {
+  const rows = getVisibleEntries(entries, selectedMonth, monthOnly);
+  const csv = [
+    ["Date", "Kind", "Category", "Label", "Amount"].map(csvCell).join(","),
+    ...rows.map((entry) =>
+      [
+        entry.occurredOn,
+        entry.kind,
+        entry.category,
+        entry.label,
+        (entry.amountCents / 100).toFixed(2),
+      ]
+        .map(csvCell)
+        .join(","),
+    ),
+  ].join("\n");
+
+  const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = monthOnly ? `yorklanes-finance-${selectedMonth}.csv` : "yorklanes-finance-all.csv";
+  link.click();
+  URL.revokeObjectURL(url);
+}
+
+function render(
+  root: HTMLElement,
+  entries: FinanceEntry[],
+  budgetCents: number,
+  selectedMonth: string,
+  monthOnly: boolean,
+): void {
+  const visibleEntries = getVisibleEntries(entries, selectedMonth, monthOnly);
+  const incomeCents = visibleEntries
     .filter((entry) => entry.kind === "income")
     .reduce((total, entry) => total + entry.amountCents, 0);
-  const expenseCents = entries
+  const expenseCents = visibleEntries
     .filter((entry) => entry.kind === "expense")
     .reduce((total, entry) => total + entry.amountCents, 0);
 
@@ -147,9 +219,10 @@ function render(root: HTMLElement, entries: FinanceEntry[], budgetCents: number,
   if (income) income.textContent = formatCents(incomeCents);
   if (expenses) expenses.textContent = formatCents(expenseCents);
 
-  renderList(root, entries);
-  renderChart(root, entries);
+  renderList(root, visibleEntries);
+  renderChart(root, visibleEntries);
   renderBudget(root, entries, budgetCents, selectedMonth);
+  renderTrend(root, entries);
 }
 
 function renderList(root: HTMLElement, entries: FinanceEntry[]): void {
@@ -284,6 +357,61 @@ function renderBudget(root: HTMLElement, entries: FinanceEntry[], budgetCents: n
   }
 }
 
+function renderTrend(root: HTMLElement, entries: FinanceEntry[]): void {
+  const trend = root.querySelector<HTMLElement>("[data-finance-trend]");
+  const empty = root.querySelector<HTMLElement>("[data-finance-trend-empty]");
+  if (!trend || !empty) return;
+
+  const rows = getMonthlyTotals(entries).slice(0, 6);
+  const max = Math.max(...rows.map((row) => Math.max(row.incomeCents, row.expenseCents)), 0);
+
+  trend.replaceChildren();
+  trend.hidden = rows.length === 0;
+  empty.hidden = rows.length > 0;
+
+  for (const row of rows) {
+    const wrapper = document.createElement("div");
+    wrapper.className = "space-y-2";
+
+    const top = document.createElement("div");
+    top.className = "flex items-center justify-between gap-3 text-xs";
+
+    const label = document.createElement("span");
+    label.className = "font-semibold text-york-black dark:text-white";
+    label.textContent = formatMonth(row.month);
+
+    const balance = document.createElement("span");
+    balance.className = row.balanceCents >= 0 ? "text-emerald-700 dark:text-emerald-300" : "text-york-red";
+    balance.textContent = formatCents(row.balanceCents);
+
+    const tracks = document.createElement("div");
+    tracks.className = "grid gap-1.5";
+
+    const incomeTrack = document.createElement("div");
+    incomeTrack.className = "h-2 overflow-hidden rounded-full bg-york-cream dark:bg-york-graphite";
+    const incomeBar = document.createElement("div");
+    incomeBar.className = "h-full rounded-full bg-emerald-600";
+    incomeBar.style.width = max > 0 ? `${Math.max(6, Math.round((row.incomeCents / max) * 100))}%` : "0%";
+
+    const expenseTrack = document.createElement("div");
+    expenseTrack.className = "h-2 overflow-hidden rounded-full bg-york-cream dark:bg-york-graphite";
+    const expenseBar = document.createElement("div");
+    expenseBar.className = "h-full rounded-full bg-york-red";
+    expenseBar.style.width = max > 0 ? `${Math.max(6, Math.round((row.expenseCents / max) * 100))}%` : "0%";
+
+    const detail = document.createElement("p");
+    detail.className = "text-xs text-york-muted";
+    detail.textContent = `Income ${formatCents(row.incomeCents)} · Expenses ${formatCents(row.expenseCents)}`;
+
+    top.append(label, balance);
+    incomeTrack.append(incomeBar);
+    expenseTrack.append(expenseBar);
+    tracks.append(incomeTrack, expenseTrack);
+    wrapper.append(top, tracks, detail);
+    trend.append(wrapper);
+  }
+}
+
 function setMode(root: HTMLElement, apiAvailable: boolean): void {
   const mode = root.ownerDocument.querySelector<HTMLElement>("[data-finance-mode]");
   if (!mode) return;
@@ -297,14 +425,17 @@ async function initFinance(root: HTMLElement): Promise<void> {
   const form = root.querySelector<HTMLFormElement>("[data-finance-form]");
   const budgetForm = root.querySelector<HTMLFormElement>("[data-finance-budget-form]");
   const monthInput = root.querySelector<HTMLInputElement>("[data-finance-month]");
+  const monthFilter = root.querySelector<HTMLInputElement>("[data-finance-month-filter]");
+  const exportButton = root.querySelector<HTMLButtonElement>("[data-finance-export]");
   const clear = root.querySelector<HTMLButtonElement>("[data-finance-clear]");
   let entries = readEntries();
   let selectedMonth = currentMonth();
   let budgetCents = readBudgets()[selectedMonth] ?? 0;
+  let monthOnly = false;
   let apiAvailable = false;
 
   if (monthInput) monthInput.value = selectedMonth;
-  render(root, entries, budgetCents, selectedMonth);
+  render(root, entries, budgetCents, selectedMonth, monthOnly);
   setMode(root, apiAvailable);
 
   try {
@@ -315,7 +446,7 @@ async function initFinance(root: HTMLElement): Promise<void> {
     entries = apiEntries;
     budgetCents = apiBudget.amountCents;
     apiAvailable = true;
-    render(root, entries, budgetCents, selectedMonth);
+    render(root, entries, budgetCents, selectedMonth, monthOnly);
     setMode(root, apiAvailable);
   } catch {
     apiAvailable = false;
@@ -346,7 +477,7 @@ async function initFinance(root: HTMLElement): Promise<void> {
         const saved = await postApiEntry(nextEntry);
         entries = [saved, ...entries];
         form.reset();
-        render(root, entries, budgetCents, selectedMonth);
+        render(root, entries, budgetCents, selectedMonth, monthOnly);
         return;
       } catch {
         apiAvailable = false;
@@ -364,7 +495,7 @@ async function initFinance(root: HTMLElement): Promise<void> {
     ];
     writeEntries(entries);
     form.reset();
-    render(root, entries, budgetCents, selectedMonth);
+    render(root, entries, budgetCents, selectedMonth, monthOnly);
   });
 
   budgetForm?.addEventListener("submit", async (event) => {
@@ -380,7 +511,7 @@ async function initFinance(root: HTMLElement): Promise<void> {
       try {
         const saved = await putApiBudget(month, amountCents);
         budgetCents = saved.amountCents;
-        render(root, entries, budgetCents, selectedMonth);
+        render(root, entries, budgetCents, selectedMonth, monthOnly);
         return;
       } catch {
         apiAvailable = false;
@@ -390,7 +521,7 @@ async function initFinance(root: HTMLElement): Promise<void> {
 
     budgetCents = amountCents;
     writeBudget(month, budgetCents);
-    render(root, entries, budgetCents, selectedMonth);
+    render(root, entries, budgetCents, selectedMonth, monthOnly);
   });
 
   monthInput?.addEventListener("change", async () => {
@@ -402,7 +533,7 @@ async function initFinance(root: HTMLElement): Promise<void> {
       try {
         const saved = await fetchApiBudget(month);
         budgetCents = saved.amountCents;
-        render(root, entries, budgetCents, selectedMonth);
+        render(root, entries, budgetCents, selectedMonth, monthOnly);
         return;
       } catch {
         apiAvailable = false;
@@ -411,14 +542,23 @@ async function initFinance(root: HTMLElement): Promise<void> {
     }
 
     budgetCents = readBudgets()[selectedMonth] ?? 0;
-    render(root, entries, budgetCents, selectedMonth);
+    render(root, entries, budgetCents, selectedMonth, monthOnly);
+  });
+
+  monthFilter?.addEventListener("change", () => {
+    monthOnly = monthFilter.checked;
+    render(root, entries, budgetCents, selectedMonth, monthOnly);
+  });
+
+  exportButton?.addEventListener("click", () => {
+    downloadCsv(entries, selectedMonth, monthOnly);
   });
 
   clear?.addEventListener("click", () => {
     if (apiAvailable) return;
     entries = [];
     writeEntries(entries);
-    render(root, entries, budgetCents, selectedMonth);
+    render(root, entries, budgetCents, selectedMonth, monthOnly);
   });
 
   root.addEventListener("click", async (event) => {
@@ -431,7 +571,7 @@ async function initFinance(root: HTMLElement): Promise<void> {
       try {
         await deleteApiEntry(entryId);
         entries = entries.filter((entry) => entry.id !== entryId);
-        render(root, entries, budgetCents, selectedMonth);
+        render(root, entries, budgetCents, selectedMonth, monthOnly);
         return;
       } catch {
         apiAvailable = false;
@@ -441,7 +581,7 @@ async function initFinance(root: HTMLElement): Promise<void> {
 
     entries = entries.filter((entry) => entry.id !== entryId);
     writeEntries(entries);
-    render(root, entries, budgetCents, selectedMonth);
+    render(root, entries, budgetCents, selectedMonth, monthOnly);
   });
 }
 

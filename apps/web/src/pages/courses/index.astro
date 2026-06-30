@@ -1,5 +1,17 @@
 ---
 import DashboardLayout from "../../layouts/DashboardLayout.astro";
+import { fetchCourses, type Course } from "../../lib/courses";
+
+export const prerender = false;
+
+let loadError: string | null = null;
+let courses: Course[] = [];
+
+try {
+  courses = await fetchCourses() ?? [];
+} catch (error) {
+  loadError = error instanceof Error ? error.message : "Courses API unavailable";
+}
 
 ---
 
@@ -13,11 +25,28 @@ import DashboardLayout from "../../layouts/DashboardLayout.astro";
     </div>
   </Fragment>
   
-  <div class="surface mx-auto max-w-lg rounded-2xl p-8 text-center">
-    <p class="text-xs font-medium uppercase tracking-widest text-york-red">Get started</p>
-    <h2 class="mt-2 font-display text-xl font-semibold text-york-black dark:text-white">Search for Courses Codes and Names</h2>
-    <p class="mt-2 text-sm leading-relaxed text-stone-600 dark:text-stone-300">
-      This page will be used to easily locate courses and, for example, learn about their prerequisites.
-    </p>
+  <div class="surface mx-auto max-w-3xl rounded-2xl p-8 text-center">
+    <p style="font-size: 24px; font-weight: bold; margin-bottom: 24px;">Fetched Courses</p>
+    {courses.length === 0
+      ? <h2>No courses to display.</h2>
+      : <table class="w-full table-fixed border border-gray-300 border-collapse">
+          <thead>
+            <tr>
+              <th class="w-40 border border-gray-300 px-3 py-2 text-left">Name</th>
+              <th class="border border-gray-300 px-3 py-2 text-left">Title</th>
+              <th class="w-24 border border-gray-300 px-3 py-2 text-left">Credits</th>
+            </tr>
+          </thead>
+          <tbody>
+            {courses.map((course) => (
+              <tr>
+                <td class="border border-gray-300 px-3 py-2 text-left">{course.code}</td>
+                <td class="border border-gray-300 px-3 py-2 text-left">{course.title}</td>
+                <td class="border border-gray-300 px-3 py-2 text-left">{course.credits}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+    }
   </div>
 </DashboardLayout>

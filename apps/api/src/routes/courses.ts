@@ -1,21 +1,32 @@
 /**
  * Course explorer — Jericho
  * Task guide: docs/tasks/courses.md
- * Next: query the `courses` table and return real rows.
  */
 import { Router } from "express";
+import { getPool } from "../db/index.js";
 
 export const coursesRouter = Router();
 
+interface Course {
+  code: string;
+  title: string;
+  credits: number;
+}
+
 coursesRouter.get("/", async (_req, res) => {
-  res.json({
-    feature: "courses",
-    status: "stub",
-    message: "Stub route — no database query yet.",
-    nextSteps: [
-      "SELECT from public.courses (see services/scraper/README.md)",
-      "Render results on apps/web/src/pages/courses/index.astro",
-    ],
-    courses: [],
-  });
+  try {
+    const result = await getPool().query<Course[]>(
+      `SELECT code, title, credits FROM courses`,
+    );
+    res.json({
+      feature: "courses",
+      status: "ok",
+      message: `Loaded ${result.rows.length} course(s).`,
+      courses: result.rows,
+    });
+  } catch (error) {
+    res.status(500).json({
+      error: error instanceof Error ? error.message : "Failed to load courses",
+    });
+  }
 });

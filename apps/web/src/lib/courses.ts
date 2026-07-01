@@ -6,18 +6,20 @@ import { getApiUrl } from "./api-url";
 
 const API_URL = getApiUrl();
 
-export interface CoursesResponse {
-  feature: string;
-  status: string;
-  message: string;
-  nextSteps: string[];
-  courses: Array<{ code: string; title: string }>;
+interface Course {
+  code: string;
+  title: string;
+  credits: number;
 }
 
-export async function fetchCourses(): Promise<CoursesResponse> {
+export async function fetchCourses(): Promise<Course[]> {
   const response = await fetch(`${API_URL}/api/courses`);
+  const data = (await response.json().catch(() => ({}))) as {
+    courses?: Course[];
+    error?: string;
+  };
   if (!response.ok) {
-    throw new Error(`Courses API error: ${response.status}`);
+    throw new Error(data.error ?? `Courses API error: ${response.status}`);
   }
-  return response.json() as Promise<CoursesResponse>;
+  return data.courses as Course[];
 }

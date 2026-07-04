@@ -41,6 +41,25 @@ def normalize_course_code(subject: str, number: str) -> str:
     return f"{subject.upper()} {number.upper()}"
 
 
+def normalize_stored_code(code: str) -> str:
+    """Normalize legacy codes like EECS4314 to EECS 4314."""
+    cleaned = (code or "").strip().upper()
+    if not cleaned:
+        return cleaned
+
+    if " " in cleaned:
+        parts = cleaned.split(None, 1)
+        if len(parts) == 2 and parts[1][:1].isdigit():
+            return normalize_course_code(parts[0], parts[1].split()[0])
+
+    compact = re.sub(r"[^A-Z0-9]", "", cleaned)
+    match = re.match(r"^([A-Z]{2,6})(\d{4}[A-Z]?)$", compact)
+    if match:
+        return normalize_course_code(match.group(1), match.group(2))
+
+    return cleaned
+
+
 def parse_course_codes(text: str) -> list[str]:
     seen: set[str] = set()
     codes: list[str] = []

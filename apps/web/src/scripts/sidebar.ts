@@ -10,10 +10,7 @@ function applySidebar(collapsed: boolean): void {
 
   document.querySelectorAll<HTMLElement>("[data-sidebar-toggle]").forEach((button) => {
     button.setAttribute("aria-expanded", collapsed ? "false" : "true");
-    button.setAttribute(
-      "aria-label",
-      collapsed ? "Expand sidebar" : "Collapse sidebar",
-    );
+    button.setAttribute("aria-label", collapsed ? "Expand sidebar" : "Collapse sidebar");
     button.setAttribute("title", collapsed ? "Expand sidebar" : "Collapse sidebar");
   });
 }
@@ -28,7 +25,42 @@ function initSidebar(): void {
   applySidebar(collapsed);
 }
 
-initSidebar();
+function navHrefMatches(pathname: string, href: string): boolean {
+  if (href === "/dashboard") return pathname === "/dashboard" || pathname === "/";
+  return pathname === href || pathname.startsWith(`${href}/`);
+}
+
+/** Sync sidebar/dock nav highlight after ClientRouter navigations. */
+function syncNavActiveState(): void {
+  const pathname = window.location.pathname;
+
+  document.querySelectorAll<HTMLAnchorElement>(".sidebar-nav-link").forEach((link) => {
+    const href = link.getAttribute("href") ?? "";
+    const active = navHrefMatches(pathname, href);
+    link.classList.toggle("link-nav-active", active);
+
+    const icon = link.querySelector<HTMLElement>(".sidebar-nav-icon");
+    if (icon) {
+      icon.classList.toggle("nav-icon-bg-active", active);
+      icon.classList.toggle("nav-icon-bg", !active);
+    }
+  });
+
+  document.querySelectorAll<HTMLAnchorElement>('[aria-label="Mobile navigation"] a').forEach((link) => {
+    const href = link.getAttribute("href") ?? "";
+    const active = navHrefMatches(pathname, href);
+    link.classList.toggle("text-brand", active);
+    link.classList.toggle("text-muted", !active);
+  });
+}
+
+function init(): void {
+  initSidebar();
+  syncNavActiveState();
+}
+
+init();
+document.addEventListener("astro:page-load", init);
 
 document.addEventListener("click", (event) => {
   const button = (event.target as Element | null)?.closest("[data-sidebar-toggle]");

@@ -7,7 +7,7 @@ from typing import Iterable
 import psycopg2
 from psycopg2.extras import execute_values
 
-from catalog import CourseRecord
+from catalog import CourseRecord, normalize_stored_code
 
 
 def resolve_database_url() -> str:
@@ -21,6 +21,22 @@ def resolve_database_url() -> str:
 
 def upsert_courses(courses: Iterable[CourseRecord], dry_run: bool = False) -> dict[str, int]:
     course_list = list(courses)
+    normalized: list[CourseRecord] = []
+    for course in course_list:
+        code = normalize_stored_code(course.code)
+        prereqs = [normalize_stored_code(item) for item in course.prerequisite_codes]
+        normalized.append(
+            CourseRecord(
+                code=code,
+                title=course.title,
+                credits=course.credits,
+                department=(course.department or code.split(" ", 1)[0]).upper(),
+                description=course.description,
+                prerequisite_codes=prereqs,
+                source=course.source,
+            )
+        )
+    course_list = normalized
     if dry_run:
         return {
             "courses": len(course_list),

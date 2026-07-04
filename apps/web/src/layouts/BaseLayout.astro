@@ -1,5 +1,6 @@
 ---
 import "../styles/global.css";
+import { ClientRouter } from "astro:transitions";
 import { DEFAULT_THEME_ID } from "../lib/themes";
 
 interface Props {
@@ -12,7 +13,7 @@ const { title = "YorkLanes", fillViewport = false } = Astro.props;
 ---
 
 <!doctype html>
-<html lang="en" class:list={[fillViewport ? "h-dvh overflow-hidden" : "min-h-dvh"]} data-theme={DEFAULT_THEME_ID}>
+<html lang="en" transition:animate="none" class:list={[fillViewport ? "h-dvh overflow-hidden" : "min-h-dvh"]} data-theme={DEFAULT_THEME_ID}>
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
@@ -42,11 +43,13 @@ const { title = "YorkLanes", fillViewport = false } = Astro.props;
         }
       })();
     </script>
+    <ClientRouter fallback="none" />
   </head>
   <body class:list={["page-bg w-full", fillViewport ? "h-dvh overflow-hidden" : "min-h-dvh overflow-x-hidden"]}>
     <slot />
     <script>
       import "../scripts/theme.ts";
+      import "../scripts/motion.ts";
     </script>
   </body>
 </html>

@@ -32,7 +32,10 @@
     "supabase:studio": "supabase studio",
     "scraper:test": "cd services/scraper && python test_scraper.py",
     "scraper:fixture": "cd services/scraper && python scrape_courses.py fixture",
-    "scraper:yoki": "cd services/scraper && python scrape_courses.py yoki --subject eecs --out output/eecs.json"
+    "scraper:yoki": "cd services/scraper && python scrape_courses.py yoki --subject eecs --out output/eecs.json",
+    "scraper:yoki:batch": "cd services/scraper && python scrape_courses.py yoki-batch --out output/catalogue.json",
+    "scraper:db": "cd services/scraper && python scrape_courses.py db --input output/fixture_courses.json",
+    "scraper:import": "npm run scraper:fixture && npm run scraper:db"
   },
   "devDependencies": {
     "concurrently": "^9.1.2",

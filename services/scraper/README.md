@@ -60,4 +60,13 @@ Respectful defaults: 1.5s delay between requests, identifiable User-Agent.
 npm run scraper:test
 npm run scraper:fixture
 npm run scraper:yoki
+npm run scraper:yoki:batch
+npm run scraper:db
+npm run scraper:import
 ```
+
+`scraper:import` runs fixture scrape + DB import (offline dev bootstrap).
+
+`scraper:yoki:batch` downloads multiple subjects into `output/catalogue.json` (skips subjects that 404).
+
+Course codes are normalized to `SUBJECT NUMBER` (e.g. `EECS 4314`) on import.

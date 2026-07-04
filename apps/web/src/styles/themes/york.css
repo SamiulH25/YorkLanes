@@ -33,6 +33,7 @@
   --theme-duration-fast: 150ms;
   --theme-duration-normal: 200ms;
   --theme-ease: cubic-bezier(0.4, 0, 0.2, 1);
+  --theme-ease-out: cubic-bezier(0.22, 1, 0.36, 1);
   --theme-enter-y: 12px;
   --theme-blur: 12px;
   --theme-btn-transform-hover: none;

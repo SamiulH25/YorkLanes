@@ -1,52 +1,128 @@
 ---
 import DashboardLayout from "../../layouts/DashboardLayout.astro";
-import { fetchCourses, type Course } from "../../lib/courses";
+import { courseDetailPath, fetchCourses, fetchDepartments } from "../../lib/courses";
 
 export const prerender = false;
 
+const search = Astro.url.searchParams.get("search")?.trim() ?? "";
+const department = Astro.url.searchParams.get("department")?.trim() ?? "";
+
 let loadError: string | null = null;
-let courses: Course[] = [];
+let courses: Awaited<ReturnType<typeof fetchCourses>>["courses"] = [];
+let total = 0;
+let departments: string[] = [];
 
 try {
-  courses = await fetchCourses() ?? [];
+  const [listResult, departmentList] = await Promise.all([
+    fetchCourses({ search: search || undefined, department: department || undefined }),
+    fetchDepartments(),
+  ]);
+  courses = listResult.courses;
+  total = listResult.total;
+  departments = departmentList;
 } catch (error) {
   loadError = error instanceof Error ? error.message : "Courses API unavailable";
 }
 
+function formatCredits(credits: number | null): string {
+  if (credits === null) return "—";
+  return Number.isInteger(credits) ? String(credits) : credits.toFixed(1);
+}
 ---
 
-<DashboardLayout title="Degree Plan | YorkLanes" activeNav="courses">
+<DashboardLayout title="Courses | YorkLanes" activeNav="courses">
   <Fragment slot="header">
     <div class="flex flex-wrap items-start justify-between gap-4">
       <div>
-        <p class="text-xs font-medium text-york-muted">Course Explorer</p>
-        <h1 class="heading-page">{"Find Course Details"}</h1>
+        <p class="label">Catalogue</p>
+        <h1 class="heading-page">Course Explorer</h1>
+        <p class="mt-0.5 text-sm text-muted">
+          {total === 0 && !loadError
+            ? "No courses in the catalogue yet."
+            : `${total} course${total === 1 ? "" : "s"} in the York catalogue`}
+        </p>
       </div>
     </div>
   </Fragment>
-  
-  <div class="surface mx-auto max-w-3xl rounded-2xl p-8 text-center">
-    <p style="font-size: 24px; font-weight: bold; margin-bottom: 24px;">Fetched Courses</p>
-    {courses.length === 0
-      ? <h2>No courses to display.</h2>
-      : <table class="w-full table-fixed border border-gray-300 border-collapse">
-          <thead>
-            <tr>
-              <th class="w-40 border border-gray-300 px-3 py-2 text-left">Name</th>
-              <th class="border border-gray-300 px-3 py-2 text-left">Title</th>
-              <th class="w-24 border border-gray-300 px-3 py-2 text-left">Credits</th>
-            </tr>
-          </thead>
-          <tbody>
-            {courses.map((course) => (
-              <tr>
-                <td class="border border-gray-300 px-3 py-2 text-left">{course.code}</td>
-                <td class="border border-gray-300 px-3 py-2 text-left">{course.title}</td>
-                <td class="border border-gray-300 px-3 py-2 text-left">{course.credits}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-    }
-  </div>
+
+  {
+    loadError && (
+      <div class="mb-6 rounded-xl border border-accent-soft bg-accent-soft px-4 py-3 text-sm text-secondary">
+        {loadError}
+      </div>
+    )
+  }
+
+  <form method="get" class="surface motion-on-scroll mb-6 flex flex-col gap-4 p-4 sm:flex-row sm:items-end sm:p-5">
+    <div class="min-w-0 flex-1">
+      <label for="course-search" class="label">Search</label>
+      <input
+        id="course-search"
+        name="search"
+        type="search"
+        value={search}
+        placeholder="Code, title, or keywords…"
+        class="field-input"
+      />
+    </div>
+    <div class="sm:w-52">
+      <label for="course-department" class="label">Department</label>
+      <select id="course-department" name="department" class="field-select">
+        <option value="">All departments</option>
+        {departments.map((dept) => (
+          <option value={dept} selected={dept === department}>
+            {dept}
+          </option>
+        ))}
+      </select>
+    </div>
+    <div class="flex gap-2">
+      <button type="submit" class="btn-york px-4 py-2.5 text-sm">Search</button>
+      {
+        (search || department) && (
+          <a href="/courses" class="btn-ghost px-4 py-2.5 text-sm">
+            Clear
+          </a>
+        )
+      }
+    </div>
+  </form>
+
+  {
+    courses.length === 0 && !loadError ? (
+      <div class="empty-state">
+        <p class="text-sm font-semibold text-foreground">No courses match your filters</p>
+        <p class="mt-2 text-sm text-muted">
+          Import courses into the hosted database with{" "}
+          <code class="rounded bg-black/5 px-1.5 py-0.5 font-mono text-xs dark:bg-white/10">npm run scraper:import</code>{" "}
+          (uses <code class="rounded bg-black/5 px-1.5 py-0.5 font-mono text-xs dark:bg-white/10">SUPABASE_DB_URL</code> in{" "}
+          <code class="rounded bg-black/5 px-1.5 py-0.5 font-mono text-xs dark:bg-white/10">apps/api/.env</code>).
+        </p>
+      </div>
+    ) : (
+      <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
+        {
+          courses.map((course) => (
+            <a href={courseDetailPath(course.code)} class="course-card surface group">
+              <div class="flex items-start justify-between gap-2">
+                <span class="font-mono text-sm font-bold tracking-tight text-brand">{course.code}</span>
+                {
+                  course.department && (
+                    <span class="badge bg-surface-muted text-muted shrink-0">{course.department}</span>
+                  )
+                }
+              </div>
+              <p class="course-card__title mt-3 flex-1 text-sm font-semibold leading-snug text-foreground group-hover:text-brand">
+                {course.title}
+              </p>
+              <div class="mt-4 flex items-center justify-between border-t border-shell pt-3">
+                <span class="text-xs font-medium uppercase tracking-wide text-muted">Credits</span>
+                <span class="font-display text-base font-semibold text-foreground">{formatCredits(course.credits)}</span>
+              </div>
+            </a>
+          ))
+        }
+      </div>
+    )
+  }
 </DashboardLayout>

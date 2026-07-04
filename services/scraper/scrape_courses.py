@@ -18,6 +18,18 @@ ROOT = Path(__file__).parent
 FIXTURES = ROOT / "fixtures"
 OUTPUT = ROOT / "output"
 YOKI_BASE = "https://raw.githubusercontent.com/SSADC-at-york/Yoki/main/docs/data/courses"
+DEFAULT_YOKI_SUBJECTS = (
+    "eecs",
+    "math",
+    "phys",
+    "chem",
+    "biol",
+    "psyc",
+    "econ",
+    "adms",
+    "engl",
+    "phil",
+)
 
 
 def load_json_courses(path: Path) -> list[CourseRecord]:
@@ -63,17 +75,47 @@ def cmd_fixture(args: argparse.Namespace) -> int:
     return 0
 
 
-def cmd_yoki(args: argparse.Namespace) -> int:
-    subject = args.subject.lower()
-    url = f"{YOKI_BASE}/{subject}.json"
+def download_yoki_subject(subject: str) -> list[CourseRecord]:
+    url = f"{YOKI_BASE}/{subject.lower()}.json"
     response = requests.get(url, timeout=60)
     response.raise_for_status()
     payload = response.json()
-    courses = [from_yoki_entry(entry, source="yoki") for entry in payload.get("courses", [])]
+    return [from_yoki_entry(entry, source="yoki") for entry in payload.get("courses", [])]
+
+
+def cmd_yoki(args: argparse.Namespace) -> int:
+    courses = download_yoki_subject(args.subject)
     out = Path(args.out)
     save_json(courses, out)
-    print(f"Downloaded {len(courses)} {subject.upper()} courses from Yoki cache")
+    print(f"Downloaded {len(courses)} {args.subject.upper()} courses from Yoki cache")
     print(f"Wrote {out}")
+    return 0
+
+
+def cmd_yoki_batch(args: argparse.Namespace) -> int:
+    subjects = [item.strip().lower() for item in args.subjects.split(",") if item.strip()]
+    all_courses: list[CourseRecord] = []
+    seen: set[str] = set()
+
+    for subject in subjects:
+        try:
+            courses = download_yoki_subject(subject)
+        except requests.HTTPError as exc:
+            print(f"Skipping {subject.upper()}: {exc}", file=sys.stderr)
+            continue
+
+        added = 0
+        for course in courses:
+            if course.code in seen:
+                continue
+            seen.add(course.code)
+            all_courses.append(course)
+            added += 1
+        print(f"  {subject.upper()}: {added} courses")
+
+    out = Path(args.out)
+    save_json(all_courses, out)
+    print(f"Wrote {len(all_courses)} total courses to {out}")
     return 0
 
 
@@ -109,6 +151,15 @@ def build_parser() -> argparse.ArgumentParser:
     yoki.add_argument("--subject", default="eecs")
     yoki.add_argument("--out", default=str(OUTPUT / "yoki_courses.json"))
     yoki.set_defaults(func=cmd_yoki)
+
+    yoki_batch = sub.add_parser("yoki-batch", help="Download multiple subjects from Yoki")
+    yoki_batch.add_argument(
+        "--subjects",
+        default=",".join(DEFAULT_YOKI_SUBJECTS),
+        help="Comma-separated subject codes (default: common faculties)",
+    )
+    yoki_batch.add_argument("--out", default=str(OUTPUT / "catalogue.json"))
+    yoki_batch.set_defaults(func=cmd_yoki_batch)
 
     cdm = sub.add_parser("cdm", help="Live scrape one subject from York CDM (may be blocked)")
     cdm.add_argument("--subject", default="eecs")

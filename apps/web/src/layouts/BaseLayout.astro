@@ -43,6 +43,7 @@ const { title = "YorkLanes", fillViewport = false } = Astro.props;
         }
       })();
     </script>
+    <slot name="head" />
     <ClientRouter fallback="none" />
   </head>
   <body class:list={["page-bg w-full", fillViewport ? "h-dvh overflow-hidden" : "min-h-dvh overflow-x-hidden"]}>

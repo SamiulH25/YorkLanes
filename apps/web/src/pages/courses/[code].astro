@@ -27,7 +27,7 @@ const defaultTerm = availableTerms[0] ?? "";
 
 function formatCredits(credits: number | null): string {
   if (credits === null) return "Not listed";
-  return `${Number.isInteger(credits) ? credits : credits.toFixed(1)} credits`;
+  return `${Number.isInteger(credits) ? credits : credits.toFixed(1)} Credits`;
 }
 
 function groupForTerm(term: string) {
@@ -38,8 +38,7 @@ function groupForTerm(term: string) {
 <DashboardLayout title={course ? `${course.code} | Courses` : "Course | YorkLanes"} activeNav="courses">
   <Fragment slot="header">
     <div class="flex flex-wrap items-start justify-between gap-4">
-      <div class="min-w-0">
-        <a href="/courses" class="text-xs font-medium text-brand hover:underline">← Course Explorer</a>
+      <div>
         {
           course ? (
             <>
@@ -53,22 +52,25 @@ function groupForTerm(term: string) {
               </div>
               <p class="mt-1 text-sm text-muted">{course.title}</p>
             </>
+            <p class="text-xs font-medium text-york-muted">{formatCredits(course.credits)}</p>
+            <h1 class="heading-page [font-variant-numeric:lining-nums]">{course.code}</h1>
+            <p class="mt-0.5 text-sm text-muted">{course.title}</p>
           ) : (
-            <h1 class="heading-page mt-1">Course details</h1>
+            <p class="text-xs font-medium text-york-muted">Credit Value</p>
+            <h1 class="heading-page">Course Code</h1>
+            <p class="mt-0.5 text-sm text-muted">Course Name</p>
           )
         }
       </div>
-      {
-        course && (
-          <div class="flex flex-wrap gap-2">
-            {course.department && <span class="badge bg-surface-muted text-muted">{course.department}</span>}
-            <span class="badge bg-brand-subtle text-brand">{formatCredits(course.credits)}</span>
-          </div>
-        )
-      }
     </div>
   </Fragment>
-
+  
+  {
+    <div class="mb-6">
+        <a href="/courses" class="btn-york px-4 py-2.5 text-sm">← Course Explorer</a>
+    </div>
+  }
+  
   {
     loadError && (
       <div class="mb-6 rounded-xl border border-accent-soft bg-accent-soft px-4 py-3 text-sm text-secondary">
@@ -76,7 +78,7 @@ function groupForTerm(term: string) {
       </div>
     )
   }
-
+  
   {
     course && (
       <div class="grid gap-6 lg:grid-cols-[minmax(0,1fr)_280px]">
@@ -91,7 +93,7 @@ function groupForTerm(term: string) {
             )
           }
         </section>
-
+        
         <aside class="space-y-4">
           <section class="surface relative overflow-hidden p-5">
             <div class="pointer-events-none absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-brand to-accent" aria-hidden="true" />
@@ -118,7 +120,7 @@ function groupForTerm(term: string) {
               )
             }
           </section>
-
+          
           <section class="surface-muted p-5">
             <h2 class="text-sm font-semibold text-foreground">Plan integration</h2>
             <p class="mt-2 text-sm text-muted">

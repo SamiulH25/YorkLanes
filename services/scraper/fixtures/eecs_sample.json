@@ -10,6 +10,14 @@
     },
     {
       "dept": "eecs",
+      "code": "1012",
+      "credit": 3.0,
+      "name": "Introduction to Computing",
+      "prereqs": "",
+      "desc": "Broad introduction to computing concepts and Python programming."
+    },
+    {
+      "dept": "eecs",
       "code": "1021",
       "credit": 3.0,
       "name": "Introduction to Object-Oriented Programming",
@@ -23,6 +31,22 @@
       "name": "Object-Oriented Data Structures and Algorithms",
       "prereqs": "",
       "desc": "Data structures and algorithms in Java. Prerequisites: LE/EECS 1021 3.00; general EECS GPA prerequisite."
+    },
+    {
+      "dept": "eecs",
+      "code": "3311",
+      "credit": 3.0,
+      "name": "Software Design",
+      "prereqs": "EECS 2030",
+      "desc": "Software design patterns and architecture. Prerequisites: LE/EECS 2030 3.00."
+    },
+    {
+      "dept": "eecs",
+      "code": "4314",
+      "credit": 3.0,
+      "name": "Software Team Project",
+      "prereqs": "EECS 3311 EECS 3421",
+      "desc": "Capstone team project integrating design, implementation, and delivery."
     }
   ]
 }

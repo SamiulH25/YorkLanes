@@ -10,14 +10,40 @@ from pathlib import Path
 import requests
 from dotenv import load_dotenv
 
-from catalog import CourseRecord, from_yoki_entry
+from catalog import CourseRecord, SectionRecord, from_yoki_entry
 from cdm_scraper import CdmScraper
-from db_importer import upsert_courses
+from db_importer import upsert_courses, upsert_sections
+from schedule_scraper import ScheduleScraper
 
 ROOT = Path(__file__).parent
 FIXTURES = ROOT / "fixtures"
 OUTPUT = ROOT / "output"
 YOKI_BASE = "https://raw.githubusercontent.com/SSADC-at-york/Yoki/main/docs/data/courses"
+
+
+def report_cdm_block() -> int:
+    print(
+        "CDM blocked this request (HTTP 403). York's course site refuses automated "
+        "clients from some networks (cloud/datacenter IPs, VPNs).\n"
+        "What to do:\n"
+        "  - Run the scraper from a residential or York campus network.\n"
+        "  - Or use the offline fixture path once real HTML is captured:\n"
+        "      python scrape_courses.py schedule-fixture --fixture fixtures/sections --subject eecs",
+        file=sys.stderr,
+    )
+    return 1
+DEFAULT_YOKI_SUBJECTS = (
+    "eecs",
+    "math",
+    "phys",
+    "chem",
+    "biol",
+    "psyc",
+    "econ",
+    "adms",
+    "engl",
+    "phil",
+)
 
 
 def load_json_courses(path: Path) -> list[CourseRecord]:
@@ -53,6 +79,30 @@ def save_json(courses: list[CourseRecord], path: Path) -> None:
     )
 
 
+def load_json_sections(path: Path) -> list[SectionRecord]:
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    entries = payload.get("sections", payload.get("courses", []))
+    sections: list[SectionRecord] = []
+    for entry in entries:
+        sections.append(
+            SectionRecord(
+                term=str(entry.get("term", "")),
+                course_code=str(entry.get("course_code", "")),
+                section_code=str(entry.get("section_code", "")),
+                day=str(entry.get("day", "")),
+                start_time=str(entry.get("start_time", "")),
+                end_time=str(entry.get("end_time", "")),
+                duration=entry.get("duration"),
+                campus=entry.get("campus"),
+                room=entry.get("room"),
+                instructor=entry.get("instructor"),
+                delivery_mode=entry.get("delivery_mode"),
+                source=entry.get("source"),
+            )
+        )
+    return sections
+
+
 def cmd_fixture(args: argparse.Namespace) -> int:
     fixture = Path(args.fixture)
     courses = load_json_courses(fixture)
@@ -63,23 +113,58 @@ def cmd_fixture(args: argparse.Namespace) -> int:
     return 0
 
 
-def cmd_yoki(args: argparse.Namespace) -> int:
-    subject = args.subject.lower()
-    url = f"{YOKI_BASE}/{subject}.json"
+def download_yoki_subject(subject: str) -> list[CourseRecord]:
+    url = f"{YOKI_BASE}/{subject.lower()}.json"
     response = requests.get(url, timeout=60)
     response.raise_for_status()
     payload = response.json()
-    courses = [from_yoki_entry(entry, source="yoki") for entry in payload.get("courses", [])]
+    return [from_yoki_entry(entry, source="yoki") for entry in payload.get("courses", [])]
+
+
+def cmd_yoki(args: argparse.Namespace) -> int:
+    courses = download_yoki_subject(args.subject)
     out = Path(args.out)
     save_json(courses, out)
-    print(f"Downloaded {len(courses)} {subject.upper()} courses from Yoki cache")
+    print(f"Downloaded {len(courses)} {args.subject.upper()} courses from Yoki cache")
     print(f"Wrote {out}")
+    return 0
+
+
+def cmd_yoki_batch(args: argparse.Namespace) -> int:
+    subjects = [item.strip().lower() for item in args.subjects.split(",") if item.strip()]
+    all_courses: list[CourseRecord] = []
+    seen: set[str] = set()
+
+    for subject in subjects:
+        try:
+            courses = download_yoki_subject(subject)
+        except requests.HTTPError as exc:
+            print(f"Skipping {subject.upper()}: {exc}", file=sys.stderr)
+            continue
+
+        added = 0
+        for course in courses:
+            if course.code in seen:
+                continue
+            seen.add(course.code)
+            all_courses.append(course)
+            added += 1
+        print(f"  {subject.upper()}: {added} courses")
+
+    out = Path(args.out)
+    save_json(all_courses, out)
+    print(f"Wrote {len(all_courses)} total courses to {out}")
     return 0
 
 
 def cmd_cdm(args: argparse.Namespace) -> int:
     scraper = CdmScraper()
-    courses = scraper.scrape_subject(args.subject)
+    try:
+        courses = scraper.scrape_subject(args.subject)
+    except requests.HTTPError as exc:
+        if exc.response is not None and exc.response.status_code == 403:
+            return report_cdm_block()
+        raise
     out = Path(args.out)
     save_json(courses, out)
     print(f"Scraped {len(courses)} {args.subject.upper()} courses from CDM")
@@ -87,8 +172,63 @@ def cmd_cdm(args: argparse.Namespace) -> int:
     return 0
 
 
+def _resolve_term(scraper: ScheduleScraper, term_arg: str):
+    terms = scraper.list_terms()
+    if not terms:
+        raise RuntimeError("Could not enumerate CDM session terms")
+    if term_arg in ("current", ""):
+        return terms[0]
+    for term in terms:
+        if term.code.lower() == term_arg.lower():
+            return term
+    codes = ", ".join(t.code for t in terms)
+    raise ValueError(f"Unknown term '{term_arg}'. Available: {codes}")
+
+
+def cmd_schedule(args: argparse.Namespace) -> int:
+    scraper = ScheduleScraper()
+    try:
+        term = _resolve_term(scraper, args.term)
+        sections = scraper.scrape_subject_term(args.subject, term, all_terms=args.all_terms)
+    except requests.HTTPError as exc:
+        if exc.response is not None and exc.response.status_code == 403:
+            return report_cdm_block()
+        raise
+    out = Path(args.out)
+    out.parent.mkdir(parents=True, exist_ok=True)
+    out.write_text(
+        json.dumps({"sections": [s.to_dict() for s in sections]}, indent=2),
+        encoding="utf-8",
+    )
+    scope = "all terms" if args.all_terms else term.code
+    print(f"Scraped {len(sections)} section meetings for {args.subject.upper()} ({scope})")
+    print(f"Wrote {out}")
+    return 0
+
+
+def cmd_schedule_fixture(args: argparse.Namespace) -> int:
+    scraper = ScheduleScraper()
+    sections = scraper.scrape_from_html(Path(args.fixture), args.subject, args.term)
+    out = Path(args.out)
+    out.parent.mkdir(parents=True, exist_ok=True)
+    out.write_text(
+        json.dumps({"sections": [s.to_dict() for s in sections]}, indent=2),
+        encoding="utf-8",
+    )
+    print(f"Parsed {len(sections)} section meetings from fixtures in {args.fixture}")
+    print(f"Wrote {out}")
+    return 0
+
+
 def cmd_db(args: argparse.Namespace) -> int:
     load_dotenv(ROOT.parent.parent / "apps" / "api" / ".env")
+    if args.kind == "sections":
+        sections = load_json_sections(Path(args.input))
+        stats = upsert_sections(sections, dry_run=args.dry_run)
+        action = "Would import" if args.dry_run else "Imported"
+        print(f"{action} {stats['sections']} section meetings")
+        return 0
+
     courses = load_json_courses(Path(args.input))
     stats = upsert_courses(courses, dry_run=args.dry_run)
     action = "Would import" if args.dry_run else "Imported"
@@ -110,13 +250,37 @@ def build_parser() -> argparse.ArgumentParser:
     yoki.add_argument("--out", default=str(OUTPUT / "yoki_courses.json"))
     yoki.set_defaults(func=cmd_yoki)
 
+    yoki_batch = sub.add_parser("yoki-batch", help="Download multiple subjects from Yoki")
+    yoki_batch.add_argument(
+        "--subjects",
+        default=",".join(DEFAULT_YOKI_SUBJECTS),
+        help="Comma-separated subject codes (default: common faculties)",
+    )
+    yoki_batch.add_argument("--out", default=str(OUTPUT / "catalogue.json"))
+    yoki_batch.set_defaults(func=cmd_yoki_batch)
+
     cdm = sub.add_parser("cdm", help="Live scrape one subject from York CDM (may be blocked)")
     cdm.add_argument("--subject", default="eecs")
     cdm.add_argument("--out", default=str(OUTPUT / "cdm_courses.json"))
     cdm.set_defaults(func=cmd_cdm)
 
+    schedule = sub.add_parser("schedule", help="Live scrape section timetables for a subject (may be blocked)")
+    schedule.add_argument("--subject", default="eecs")
+    schedule.add_argument("--term", default="current", help="Term code (e.g. '2026-2027 FW') or 'current'")
+    schedule.add_argument("--all-terms", action="store_true", help="Scrape every available term")
+    schedule.add_argument("--out", default=str(OUTPUT / "sections.json"))
+    schedule.set_defaults(func=cmd_schedule)
+
+    schedule_fixture = sub.add_parser("schedule-fixture", help="Parse section timetables from saved HTML (offline)")
+    schedule_fixture.add_argument("--fixture", default=str(FIXTURES / "sections"))
+    schedule_fixture.add_argument("--subject", default="eecs")
+    schedule_fixture.add_argument("--term", default="2026-2027 FW")
+    schedule_fixture.add_argument("--out", default=str(OUTPUT / "sections.json"))
+    schedule_fixture.set_defaults(func=cmd_schedule_fixture)
+
     db = sub.add_parser("db", help="Upsert scraped JSON into Postgres")
     db.add_argument("--input", default=str(OUTPUT / "fixture_courses.json"))
+    db.add_argument("--kind", choices=("courses", "sections"), default="courses")
     db.add_argument("--dry-run", action="store_true")
     db.set_defaults(func=cmd_db)
 

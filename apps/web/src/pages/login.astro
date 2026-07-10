@@ -2,7 +2,7 @@
 /** Google OAuth sign-in page. */
 import BaseLayout from "../layouts/BaseLayout.astro";
 import YorkMark from "../components/YorkMark.astro";
-import ThemeToggle from "../components/ThemeToggle.astro";
+import SettingsMenu from "../components/SettingsMenu.astro";
 import { fetchAuthStatus, fetchSessionUser, googleSignInUrl } from "../lib/auth";
 
 export const prerender = false;
@@ -44,7 +44,7 @@ const errorNote = errorCode ? errorMessages[errorCode] : null;
           <p class="text-[9px] font-bold uppercase tracking-[0.18em] text-york-red sm:text-[10px]">York University</p>
         </div>
       </a>
-      <ThemeToggle />
+      <SettingsMenu />
     </header>
 
     <main class="login-main">

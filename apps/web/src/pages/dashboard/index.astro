@@ -42,9 +42,9 @@ const today = new Date().toLocaleDateString("en-CA", {
 <DashboardLayout title="Dashboard | YorkLanes" activeNav="dashboard">
   <Fragment slot="header">
     <div>
-      <p class="text-xs font-medium text-york-muted">{today}</p>
+      <p class="text-xs font-medium text-muted">{today}</p>
       <h1 class="heading-page">Hey, {summary.user.displayName}</h1>
-      <p class="mt-0.5 text-sm text-york-muted">
+      <p class="mt-0.5 text-sm text-muted">
         {
           summary.user.programme
             ? `${summary.user.programme} · Class of ${(summary.user.startingYear ?? 0) + 4}`
@@ -56,7 +56,7 @@ const today = new Date().toLocaleDateString("en-CA", {
 
   {
     loadError && (
-      <div class="mb-6 rounded-xl border border-york-gold/40 bg-york-gold/10 px-4 py-3 text-sm text-stone-700 dark:text-stone-200">
+      <div class="mb-6 rounded-xl border border-accent-soft bg-accent-soft px-4 py-3 text-sm text-secondary">
         API offline: {loadError}. Run <code class="rounded bg-black/5 px-1.5 py-0.5 font-mono text-xs dark:bg-white/10">npm run start:dev</code>
       </div>
     )
@@ -64,10 +64,10 @@ const today = new Date().toLocaleDateString("en-CA", {
 
   {
     showOnboardingBanner && (
-      <div class="mb-6 surface-elevated flex flex-wrap items-center justify-between gap-4 border border-york-red/20 bg-york-red/5 p-5 dark:bg-york-red/10">
+      <div class="mb-6 surface-elevated flex flex-wrap items-center justify-between gap-4 border border-brand-soft bg-brand-subtle p-5">
         <div>
-          <p class="text-sm font-semibold text-york-black dark:text-white">Finish setting up YorkLanes</p>
-          <p class="mt-0.5 text-sm text-york-muted">
+          <p class="text-sm font-semibold text-foreground">Finish setting up YorkLanes</p>
+          <p class="mt-0.5 text-sm text-muted">
             Tell us your programme and import your checklist to build your degree plan.
           </p>
         </div>
@@ -78,12 +78,12 @@ const today = new Date().toLocaleDateString("en-CA", {
 
   <div
     id="guest-onboarding-banner"
-    class:list={["mb-6 hidden surface-elevated flex flex-wrap items-center justify-between gap-4 border border-york-red/20 bg-york-red/5 p-5 dark:bg-york-red/10", { hidden: signedIn }]}
+    class:list={["mb-6 hidden surface-elevated flex flex-wrap items-center justify-between gap-4 border border-brand-soft bg-brand-subtle p-5", { hidden: signedIn }]}
     data-signed-in={signedIn ? "true" : "false"}
   >
     <div>
-      <p class="text-sm font-semibold text-york-black dark:text-white">Finish setting up YorkLanes</p>
-      <p class="mt-0.5 text-sm text-york-muted">
+      <p class="text-sm font-semibold text-foreground">Finish setting up YorkLanes</p>
+      <p class="mt-0.5 text-sm text-muted">
         Tell us your programme and import your checklist to build your degree plan.
       </p>
     </div>
@@ -92,8 +92,8 @@ const today = new Date().toLocaleDateString("en-CA", {
 
   <div class="mb-6 surface-elevated flex flex-wrap items-center justify-between gap-4 p-5">
     <div>
-      <p class="text-sm font-medium text-york-muted">Status</p>
-      <p class="mt-0.5 text-sm text-stone-600 dark:text-stone-400">
+      <p class="text-sm font-medium text-muted">Status</p>
+      <p class="mt-0.5 text-sm text-secondary">
         The degree plan is ready. Courses, schedule, and the other tabs are still being built.
       </p>
     </div>
@@ -118,7 +118,7 @@ const today = new Date().toLocaleDateString("en-CA", {
   import { ONBOARDING_COMPLETE_KEY } from "../../lib/onboarding";
 
   const banner = document.getElementById("guest-onboarding-banner");
-  if (banner?.dataset.signedIn !== "true" && !localStorage.getItem(ONBOARDING_COMPLETE_KEY)) {
+  if (banner && banner.dataset.signedIn !== "true" && !localStorage.getItem(ONBOARDING_COMPLETE_KEY)) {
     banner.classList.remove("hidden");
   }
 </script>

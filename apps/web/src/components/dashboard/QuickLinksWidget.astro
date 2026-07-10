@@ -14,16 +14,16 @@ const statusLabel: Record<QuickLink["status"], string> = {
 };
 
 const statusClass: Record<QuickLink["status"], string> = {
-  "not-started": "bg-stone-500/10 text-york-muted",
-  "in-progress": "bg-york-gold/15 text-york-gold",
-  ready: "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400",
+  "not-started": "badge-muted",
+  "in-progress": "badge-progress",
+  ready: "badge-ready",
 };
 ---
 
 <section class="surface p-6">
   <p class="label">Tools</p>
   <h2 class="heading-widget mt-1">Plan your semester</h2>
-  <p class="mt-1 text-sm text-york-muted">Courses, schedule, finances, and the rest.</p>
+  <p class="mt-1 text-sm text-muted">Courses, schedule, finances, and the rest.</p>
 
   <ul class="mt-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
     {
@@ -31,28 +31,22 @@ const statusClass: Record<QuickLink["status"], string> = {
         <li>
           {
             link.href ? (
-              <a
-                href={link.href}
-                class="group flex h-full flex-col rounded-xl border border-york-stone/50 bg-white/50 p-4 transition-all duration-200 hover:-translate-y-0.5 hover:border-york-red/40 hover:shadow-card dark:border-white/[0.06] dark:bg-york-graphite dark:hover:border-york-red/30"
-              >
-                <span class="font-semibold text-york-black transition-colors group-hover:text-york-red dark:text-white">
+              <a href={link.href} class="link-card group flex h-full flex-col p-4">
+                <span class="font-semibold text-foreground transition-colors group-hover:text-brand">
                   {link.label}
                 </span>
                 <span class:list={["badge mt-3 w-fit", statusClass[link.status]]}>
                   {statusLabel[link.status]}
                 </span>
-                <span class="mt-auto pt-4 text-[11px] font-medium text-york-muted">{link.featureOwner}</span>
+                <span class="mt-auto pt-4 text-[11px] font-medium text-muted">{link.featureOwner}</span>
               </a>
             ) : (
-              <div
-                class="flex h-full flex-col rounded-xl border border-york-stone/40 bg-white/30 p-4 opacity-70 dark:border-white/[0.04] dark:bg-york-panel"
-                aria-disabled="true"
-              >
-                <span class="font-semibold text-york-black dark:text-white">{link.label}</span>
+              <div class="link-card-disabled flex h-full flex-col p-4" aria-disabled="true">
+                <span class="font-semibold text-foreground">{link.label}</span>
                 <span class:list={["badge mt-3 w-fit", statusClass[link.status]]}>
                   {statusLabel[link.status]}
                 </span>
-                <span class="mt-auto pt-4 text-[11px] text-york-muted">{link.featureOwner}</span>
+                <span class="mt-auto pt-4 text-[11px] text-muted">{link.featureOwner}</span>
               </div>
             )
           }

@@ -1,7 +1,7 @@
 ---
 import BaseLayout from "../layouts/BaseLayout.astro";
 import YorkMark from "../components/YorkMark.astro";
-import ThemeToggle from "../components/ThemeToggle.astro";
+import SettingsMenu from "../components/SettingsMenu.astro";
 import { fetchSessionUser } from "../lib/auth";
 
 export const prerender = false;
@@ -41,7 +41,7 @@ const features = [
       </a>
 
       <nav class="flex items-center gap-2 sm:gap-3">
-        <ThemeToggle />
+        <SettingsMenu showAccount signedIn={Boolean(sessionUser)} displayName={sessionUser?.displayName} />
         {
           sessionUser ? (
             <a href="/dashboard" class="btn-york px-3 py-2 text-sm sm:px-4">

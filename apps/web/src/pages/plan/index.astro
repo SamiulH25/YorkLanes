@@ -90,6 +90,17 @@ const planId = plan?.id ?? planIdParam ?? "";
 
   {
     plan && (
+      <script is:inline define:vars={{ planId: plan.id }}>
+        try {
+          sessionStorage.setItem("yorklanes-plan-id", planId);
+          document.dispatchEvent(new Event("yorklanes:plan-id"));
+        } catch (_) {}
+      </script>
+    )
+  }
+
+  {
+    plan && (
       <div id="plan-editor" data-plan-id={plan.id}>
         <script id="plan-data" type="application/json" is:inline set:html={JSON.stringify(plan)} />
 
@@ -106,92 +117,108 @@ const planId = plan?.id ?? planIdParam ?? "";
           <div class="plan-editor-stage" id="plan-editor-stage">
             <svg id="plan-deps-svg" class="plan-deps-layer" aria-hidden="true" />
             <div class="plan-editor-columns" id="plan-editor-columns">
-              {plan.terms.map((term) => (
-                <section class="plan-term-column" data-term-id={term.id}>
-                  <div class="mb-3 border-b border-york-stone/50 pb-2 dark:border-white/10">
-                    <p class="text-xs font-semibold uppercase tracking-widest text-york-red">{term.session}</p>
-                    <h2 class="font-display text-base font-semibold text-york-black dark:text-white">{term.label}</h2>
-                    <p class="text-xs text-york-muted">Checklist year {term.checklist_year}</p>
-                  </div>
+              {plan.terms.map((term, termIndex) => {
+                const termCredits = term.courses.reduce((sum, c) => sum + (c.credits ?? 0), 0);
+                const courseCount = term.courses.filter((c) => c.entry_kind !== "stub").length;
+                return (
+                  <section
+                    class="plan-term-column"
+                    data-term-id={term.id}
+                    data-season={term.session.toLowerCase().replace(/[^a-z]+/g, "-")}
+                    style={`--term-index: ${termIndex}`}
+                  >
+                    <div class="plan-term-header">
+                      <p class="plan-term-session">{term.session}</p>
+                      <h2 class="plan-term-title">{term.label}</h2>
+                      <p class="plan-term-meta">Checklist year {term.checklist_year}</p>
+                    </div>
 
-                  <ul class="plan-course-list" data-term-id={term.id} data-drop-zone>
-                    {
-                      term.courses.length > 0 ? (
-                        term.courses.map((course) => {
-                          const isStub = course.entry_kind === "stub";
-                          const displayLabel =
-                            isStub
-                              ? (course.section_label ?? course.title ?? course.course_code)
-                              : course.course_code;
-                          return (
-                          <li
-                            class:list={["plan-course-card", { "plan-course-card--stub": isStub }]}
-                            data-course-id={course.id}
-                            data-course-code={course.course_code}
-                            data-entry-kind={course.entry_kind ?? "course"}
-                          >
-                            {
-                              !isStub && (
-                                <label class="plan-course-complete-wrap" title="Mark as completed">
-                                  <input
-                                    type="checkbox"
-                                    class="plan-course-complete"
-                                    checked={course.completed ?? false}
-                                    aria-label={`Mark ${course.course_code} as completed`}
-                                  />
-                                </label>
-                              )
-                            }
-                            <span class="plan-course-warning" hidden aria-label="Unmet prerequisites">!</span>
-                            <button
-                              type="button"
-                              class="plan-course-handle"
-                              draggable="true"
-                              aria-label={`Drag ${displayLabel} to another term`}
+                    <ul class="plan-course-list" data-term-id={term.id} data-drop-zone>
+                      {
+                        term.courses.length > 0 ? (
+                          term.courses.map((course) => {
+                            const isStub = course.entry_kind === "stub";
+                            const displayLabel =
+                              isStub
+                                ? (course.section_label ?? course.title ?? course.course_code)
+                                : course.course_code;
+                            return (
+                            <li
+                              class:list={["plan-course-card", { "plan-course-card--stub": isStub }]}
+                              data-course-id={course.id}
+                              data-course-code={course.course_code}
+                              data-entry-kind={course.entry_kind ?? "course"}
                             >
-                              ⋮⋮
-                            </button>
-                            <div class="plan-course-body">
                               {
-                                isStub ? (
-                                  <>
-                                    <p class="plan-course-code">{displayLabel}</p>
-                                    {
-                                      course.title && course.title !== displayLabel && (
-                                        <p class="plan-stub-options">{course.title}</p>
-                                      )
-                                    }
-                                    {
-                                      !course.title && (
-                                        <p class="text-xs text-york-muted">Pick from checklist options</p>
-                                      )
-                                    }
-                                  </>
-                                ) : (
-                                  <p class="plan-course-code">{course.course_code}</p>
+                                !isStub && (
+                                  <label class="plan-course-complete-wrap" title="Mark as completed">
+                                    <input
+                                      type="checkbox"
+                                      class="plan-course-complete"
+                                      checked={course.completed ?? false}
+                                      aria-label={`Mark ${course.course_code} as completed`}
+                                    />
+                                  </label>
                                 )
                               }
-                              {
-                                course.title && !isStub && (
-                                  <p class="text-xs text-york-muted">{course.title}</p>
-                                )
-                              }
-                              {
-                                course.credits != null && (
-                                  <p class="text-xs text-york-muted">{course.credits} credits</p>
-                                )
-                              }
-                            </div>
-                          </li>
-                          );
-                        })
-                      ) : (
-                        <li class="plan-course-empty">Drop courses here</li>
-                      )
-                    }
-                  </ul>
-                </section>
-              ))}
+                              <span class="plan-course-warning" hidden aria-label="Unmet prerequisites">!</span>
+                              <button
+                                type="button"
+                                class="plan-course-handle"
+                                draggable="true"
+                                aria-label={`Drag ${displayLabel} to another term`}
+                              >
+                                ⋮⋮
+                              </button>
+                              <div class="plan-course-body">
+                                {
+                                  isStub ? (
+                                    <>
+                                      <p class="plan-course-code">{displayLabel}</p>
+                                      {
+                                        course.title && course.title !== displayLabel && (
+                                          <p class="plan-stub-options">{course.title}</p>
+                                        )
+                                      }
+                                      {
+                                        !course.title && (
+                                          <p class="text-xs text-york-muted">Pick from checklist options</p>
+                                        )
+                                      }
+                                    </>
+                                  ) : (
+                                    <p class="plan-course-code">{course.course_code}</p>
+                                  )
+                                }
+                                {
+                                  course.title && !isStub && (
+                                    <p class="text-xs text-york-muted">{course.title}</p>
+                                  )
+                                }
+                                {
+                                  course.credits != null && (
+                                    <span class="plan-course-credits">{course.credits} cr</span>
+                                  )
+                                }
+                              </div>
+                            </li>
+                            );
+                          })
+                        ) : (
+                          <li class="plan-course-empty">Drop courses here</li>
+                        )
+                      }
+                    </ul>
+
+                    <div class="plan-term-footer">
+                      <span class="plan-term-count">
+                        {courseCount} course{courseCount === 1 ? "" : "s"}
+                      </span>
+                      <span class="plan-term-credits">{termCredits} credits</span>
+                    </div>
+                  </section>
+                );
+              })}
             </div>
           </div>
         </div>

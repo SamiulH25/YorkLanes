@@ -1,0 +1,70 @@
+/* Retro — neubrutalist sticker bomb: halftone, hard offset, zero polish */
+[data-theme="retro"] {
+  --theme-primary: #ff2d6a;
+  --theme-primary-hover: #e01550;
+  --theme-accent: #00d4ff;
+  --theme-background: #fff500;
+  --theme-foreground: #0a0a0a;
+  --theme-muted: #333333;
+  --theme-text-secondary: #1a1a1a;
+  --theme-surface: #fffef0;
+  --theme-surface-muted: #ffe566;
+  --theme-border: #0a0a0a;
+  --theme-shell: #fff500;
+  --theme-shell-solid: #0a0a0a;
+  --theme-sidebar: #fffef0;
+  --theme-header: #fff500;
+  --theme-canvas: #fff500;
+  --theme-nav-icon: rgb(10 10 10 / 0.08);
+  --theme-on-primary: #0a0a0a;
+  --theme-ring: #0a0a0a;
+  --theme-bg-image: radial-gradient(circle at 1px 1px, rgb(10 10 10 / 0.12) 1px, transparent 0);
+  --theme-bg-image-size: 8px 8px;
+  --theme-canvas-image: radial-gradient(circle at 1px 1px, rgb(10 10 10 / 0.08) 1px, transparent 0);
+  --theme-canvas-image-size: 6px 6px;
+  --theme-overlay: none;
+  --theme-font-display: "Space Mono", "Courier New", monospace;
+  --theme-font-sans: "Space Mono", ui-monospace, monospace;
+  --theme-radius: 0px;
+  --theme-radius-button: 0px;
+  --theme-shadow-card: 5px 5px 0 #0a0a0a;
+  --theme-shadow-button: 4px 4px 0 #0a0a0a;
+  --theme-duration-fast: 0ms;
+  --theme-duration-normal: 80ms;
+  --theme-ease: linear;
+  --theme-enter-y: 0px;
+  --theme-blur: 0px;
+  --theme-btn-transform-hover: translate(3px, 3px);
+  --theme-label-tracking: 0.06em;
+  --theme-label-case: uppercase;
+  --theme-chart-1: #ff2d6a;
+  --theme-chart-2: #00d4ff;
+  --theme-chart-3: #0a0a0a;
+  --theme-prereq: #00d4ff;
+  --theme-coreq: #ff2d6a;
+  --theme-warning: #ff4400;
+  --theme-glow: 0 0 0 transparent;
+  --theme-link-glow: 0 0 0 transparent;
+}
+
+[data-theme="retro"].dark {
+  --theme-background: #1a1a2e;
+  --theme-foreground: #fff500;
+  --theme-muted: #ccccaa;
+  --theme-text-secondary: #eeeecc;
+  --theme-surface: #16213e;
+  --theme-surface-muted: #0f3460;
+  --theme-border: #fff500;
+  --theme-shell: #1a1a2e;
+  --theme-sidebar: #16213e;
+  --theme-header: #1a1a2e;
+  --theme-canvas: #1a1a2e;
+  --theme-nav-icon: rgb(255 245 0 / 0.12);
+  --theme-on-primary: #1a1a2e;
+  --theme-bg-image: radial-gradient(circle at 1px 1px, rgb(255 245 0 / 0.15) 1px, transparent 0);
+  --theme-canvas-image: radial-gradient(circle at 1px 1px, rgb(255 245 0 / 0.1) 1px, transparent 0);
+  --theme-shadow-card: 5px 5px 0 #fff500;
+  --theme-shadow-button: 4px 4px 0 #fff500;
+  --theme-primary: #ff2d6a;
+  --theme-accent: #00d4ff;
+}

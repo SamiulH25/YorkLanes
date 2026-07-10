@@ -7,6 +7,6 @@ insert into public.todos (name) values
   ('Assign feature modules to team');
 
 insert into public.courses (code, title, description, credits, department) values
-  ('EECS4314', 'Software Engineering Project', 'Capstone project course.', 3.0, 'EECS'),
-  ('CSE1301', 'Introduction to Computer Programming', 'Introductory programming course.', 3.0, 'CSE')
+  ('EECS 4314', 'Software Engineering Project', 'Capstone project course.', 3.0, 'EECS'),
+  ('CSE 1301', 'Introduction to Computer Programming', 'Introductory programming course.', 3.0, 'CSE')
 on conflict (code) do nothing;

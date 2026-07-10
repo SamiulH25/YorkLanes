@@ -32,7 +32,14 @@
     "supabase:studio": "supabase studio",
     "scraper:test": "cd services/scraper && python test_scraper.py",
     "scraper:fixture": "cd services/scraper && python scrape_courses.py fixture",
-    "scraper:yoki": "cd services/scraper && python scrape_courses.py yoki --subject eecs --out output/eecs.json"
+    "scraper:yoki": "cd services/scraper && python scrape_courses.py yoki --subject eecs --out output/eecs.json",
+    "scraper:yoki:batch": "cd services/scraper && python scrape_courses.py yoki-batch --out output/catalogue.json",
+    "scraper:db": "cd services/scraper && python scrape_courses.py db --input output/fixture_courses.json",
+    "scraper:import": "npm run scraper:fixture && npm run scraper:db",
+    "scraper:schedule": "cd services/scraper && python scrape_courses.py schedule --subject eecs --out output/sections.json",
+    "scraper:schedule:all": "cd services/scraper && python scrape_courses.py schedule --subject eecs --all-terms --out output/sections.json",
+    "scraper:schedule:fixture": "cd services/scraper && python scrape_courses.py schedule-fixture --out output/sections.json",
+    "scraper:schedule:db": "cd services/scraper && python scrape_courses.py db --kind sections --input output/sections.json"
   },
   "devDependencies": {
     "concurrently": "^9.1.2",
@@ -40,6 +47,10 @@
     "supabase": "^2.107.0"
   },
   "engines": {
-    "node": ">=20.0.0"
+    "node": ">=22.12.0"
+  },
+  "overrides": {
+    "volar-service-yaml": "0.0.71",
+    "yaml-language-server": "1.23.0"
   }
 }

@@ -1,10 +1,9 @@
 ---
-/** Finance module — Taziz. Local-first until SUPABASE_DB_URL is available. */
+/** Finance module — Taziz. Guide: docs/tasks/finance.md */
 import DashboardLayout from "../../layouts/DashboardLayout.astro";
+import { EXPENSE_CATEGORIES, INCOME_CATEGORIES } from "../../lib/finance-categories";
 
 export const prerender = false;
-
-const categories = ["Tuition", "Rent", "Personal", "Food", "Books", "Income", "Other"];
 ---
 
 <DashboardLayout title="Finance | YorkLanes" activeNav="finance">
@@ -20,7 +19,12 @@ const categories = ["Tuition", "Rent", "Personal", "Food", "Books", "Income", "O
     </div>
   </Fragment>
 
-  <div data-finance-root class="grid gap-4 xl:grid-cols-[minmax(0,1fr)_24rem]">
+  <div
+    data-finance-root
+    data-expense-categories={EXPENSE_CATEGORIES.join("|")}
+    data-income-categories={INCOME_CATEGORIES.join("|")}
+    class="grid gap-4 xl:grid-cols-[minmax(0,1fr)_24rem]"
+  >
     <section class="grid gap-4 md:grid-cols-3 xl:col-span-2">
       <article class="surface p-5">
         <p class="label">Balance</p>
@@ -107,12 +111,16 @@ const categories = ["Tuition", "Rent", "Personal", "Food", "Books", "Income", "O
     <section class="surface p-5 xl:row-span-2">
       <div class="widget-header">
         <div>
-          <p class="label">New entry</p>
-          <h2 class="heading-widget mt-1">Log money</h2>
+          <p class="label">Entry form</p>
+          <h2 data-finance-form-title class="heading-widget mt-1">Log money</h2>
         </div>
+        <button type="button" data-finance-cancel-edit class="btn-ghost hidden px-3 py-2 text-xs">
+          Cancel edit
+        </button>
       </div>
 
       <form data-finance-form class="mt-5 space-y-4">
+        <input data-finance-edit-id type="hidden" name="entryId" value="" />
         <div class="grid grid-cols-2 gap-2 rounded-xl bg-york-cream/70 p-1 dark:bg-york-graphite">
           <label class="cursor-pointer">
             <input class="peer sr-only" type="radio" name="kind" value="expense" checked />
@@ -131,6 +139,7 @@ const categories = ["Tuition", "Rent", "Personal", "Food", "Books", "Income", "O
         <label class="block">
           <span class="label">Label</span>
           <input
+            data-finance-label
             required
             name="label"
             type="text"
@@ -156,11 +165,13 @@ const categories = ["Tuition", "Rent", "Personal", "Food", "Books", "Income", "O
           <label class="block">
             <span class="label">Category</span>
             <select
+              data-finance-category
               name="category"
               class="mt-2 w-full rounded-xl border border-york-stone/60 bg-white/80 px-3 py-2.5 text-sm text-york-black outline-none transition focus:border-york-red focus:ring-2 focus:ring-york-red/20 dark:border-white/10 dark:bg-york-graphite dark:text-white"
             >
-              {categories.map((category) => <option value={category}>{category}</option>)}
+              {EXPENSE_CATEGORIES.map((category) => <option value={category}>{category}</option>)}
             </select>
+            <span class="mt-1 block text-xs text-york-muted">York student categories (OSAP, tuition, rent, and more).</span>
           </label>
           <label class="block">
             <span class="label">Date</span>
@@ -170,9 +181,25 @@ const categories = ["Tuition", "Rent", "Personal", "Food", "Books", "Income", "O
               class="mt-2 w-full rounded-xl border border-york-stone/60 bg-white/80 px-3 py-2.5 text-sm text-york-black outline-none transition focus:border-york-red focus:ring-2 focus:ring-york-red/20 dark:border-white/10 dark:bg-york-graphite dark:text-white"
             />
           </label>
+          <label class="block">
+            <span class="label">Recurrence</span>
+            <select
+              data-finance-recurrence
+              name="recurrence"
+              class="mt-2 w-full rounded-xl border border-york-stone/60 bg-white/80 px-3 py-2.5 text-sm text-york-black outline-none transition focus:border-york-red focus:ring-2 focus:ring-york-red/20 disabled:cursor-not-allowed disabled:opacity-60 dark:border-white/10 dark:bg-york-graphite dark:text-white"
+            >
+              <option value="none">One-time</option>
+              <option value="weekly">Weekly</option>
+              <option value="monthly">Monthly</option>
+              <option value="yearly">Yearly</option>
+            </select>
+            <span data-finance-recurrence-hint class="mt-1 block text-xs text-york-muted">
+              Log each occurrence when it is due.
+            </span>
+          </label>
         </div>
 
-        <button type="submit" class="btn-york w-full">Add entry</button>
+        <button data-finance-submit type="submit" class="btn-york w-full">Add entry</button>
       </form>
     </section>
 

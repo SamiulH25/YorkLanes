@@ -1,40 +1,38 @@
-/**
- * Shared TypeScript types for dashboard data.
- *
- * EXPAND HERE: keep in sync with apps/api/src/types/dashboard.ts
- */
-// export interface DashboardSummary {
-//   user: {
-//     displayName: string;
-//     programme: string | null;
-//     startingYear: number | null;
-//   };
-//   progress: {
-//     percentComplete: number;
-//     label: string;
-//   };
-//   assignments: {
-//     upcoming: AssignmentPreview[];
-//     message?: string;
-//   };
-//   finance: {
-//     balance: number;
-//     currency: string;
-//     message?: string;
-//   };
-//   quickLinks: QuickLink[];
-// }
+export interface CourseSummary {
+  code: string;
+  title: string;
+  credits: number | null;
+  department: string | null;
+}
 
-// export interface AssignmentPreview {
-//   id: string;
-//   title: string;
-//   dueAt: string;
-//   courseCode?: string;
-// }
+export interface CourseDetail extends CourseSummary {
+  description: string | null;
+  prerequisites: string[];
+}
 
-// export interface QuickLink {
-//   label: string;
-//   href?: string;
-//   featureOwner: string;
-//   status: "not-started" | "in-progress" | "ready";
-// }
+export interface CoursesListResponse {
+  feature: string;
+  status: string;
+  message: string;
+  total: number;
+  courses: CourseSummary[];
+}
+
+export interface CourseDetailResponse {
+  feature: string;
+  status: string;
+  course: CourseDetail;
+}
+
+export interface DepartmentsResponse {
+  feature: string;
+  status: string;
+  departments: string[];
+}
+
+export interface FetchCoursesOptions {
+  department?: string;
+  search?: string;
+  limit?: number;
+  offset?: number;
+}

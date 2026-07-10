@@ -71,11 +71,11 @@ dashboardRouter.get("/summary", async (req, res) => {
     finance,
     quickLinks: [
       { label: "Degree Plan", href: "/plan", featureOwner: "Samiul", status: "ready" },
-      { label: "Course Explorer", href: "/courses", featureOwner: "Jericho", status: "in-progress" },
-      { label: "Schedule Builder", href: "/schedule", featureOwner: "Nabeela", status: "in-progress" },
       { label: "Progress Tracker", href: "/progress", featureOwner: "Thor", status: "in-progress" },
-      { label: "Finance", href: "/finance", featureOwner: "Taziz", status: "in-progress" },
+      { label: "Course Explorer", href: "/courses", featureOwner: "Jericho", status: "ready" },
+      { label: "Schedule Builder", href: "/schedule", featureOwner: "Nabeela", status: "in-progress" },
       { label: "Assignments", href: "/assignments", featureOwner: "Sarah", status: "in-progress" },
+      { label: "Finance", href: "/finance", featureOwner: "Taziz", status: "in-progress" },
     ],
   };
 

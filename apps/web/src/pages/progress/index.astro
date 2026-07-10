@@ -32,6 +32,44 @@ const classYear = plan ? plan.starting_year + 4 : null;
 ---
 
 <DashboardLayout title="Progress | YorkLanes" activeNav="progress">
+  {
+    !planId && (
+      <Fragment slot="head">
+        <script is:inline>
+          try {
+            var savedPlanId = sessionStorage.getItem("yorklanes-plan-id");
+            if (savedPlanId) {
+              document.documentElement.dataset.progressRestoring = "true";
+              window.location.replace("/progress?planId=" + encodeURIComponent(savedPlanId));
+            }
+          } catch (_) {}
+        </script>
+        <style is:inline>
+          html[data-progress-restoring] .page-content {
+            visibility: hidden;
+          }
+        </style>
+      </Fragment>
+    )
+  }
+
+  {
+    !planId && !loadError && (
+      <script is:inline>
+        try {
+          var savedPlanId = sessionStorage.getItem("yorklanes-plan-id");
+          if (savedPlanId) {
+            window.location.replace("/progress?planId=" + encodeURIComponent(savedPlanId));
+          } else {
+            document.documentElement.dataset.progressEmpty = "true";
+          }
+        } catch (_) {
+          document.documentElement.dataset.progressEmpty = "true";
+        }
+      </script>
+    )
+  }
+
   <Fragment slot="header">
     <div class="flex flex-wrap items-start justify-between gap-4">
       <div>
@@ -67,7 +105,7 @@ const classYear = plan ? plan.starting_year + 4 : null;
 
   {
     !planId && !loadError && (
-      <div class="surface mx-auto max-w-lg rounded-2xl p-8">
+      <div class="progress-empty-state surface mx-auto max-w-lg rounded-2xl p-8">
         <p class="text-xs font-medium uppercase tracking-widest text-york-red text-center">Get started</p>
         <h2 class="mt-2 font-display text-xl font-semibold text-york-black dark:text-white text-center">
           Load your degree progress
@@ -97,7 +135,6 @@ const classYear = plan ? plan.starting_year + 4 : null;
 
         <div class="mt-6 flex flex-wrap justify-center gap-3 border-t border-york-stone/50 pt-6 dark:border-white/10">
           <a href="/plan/setup" class="btn-york">Import checklist</a>
-          <button type="button" data-progress-load-session class="btn-ghost hidden">Use saved plan</button>
         </div>
       </div>
     )
@@ -279,16 +316,12 @@ const classYear = plan ? plan.starting_year + 4 : null;
   }
 </DashboardLayout>
 
-<script>
-  import { PLAN_ACTIVE_ID_KEY } from "../../lib/plans";
-
-  const button = document.querySelector<HTMLButtonElement>("[data-progress-load-session]");
-  const savedPlanId = sessionStorage.getItem(PLAN_ACTIVE_ID_KEY);
-
-  if (button && savedPlanId) {
-    button.classList.remove("hidden");
-    button.addEventListener("click", () => {
-      window.location.href = `/progress?planId=${encodeURIComponent(savedPlanId)}`;
-    });
+<style is:global>
+  .progress-empty-state {
+    display: none;
   }
-</script>
+
+  html[data-progress-empty="true"] .progress-empty-state {
+    display: block;
+  }
+</style>

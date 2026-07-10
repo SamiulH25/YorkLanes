@@ -1,0 +1,92 @@
+/* Midnight — phosphor CRT: scanlines, bloom, terminal green on void black */
+[data-theme="midnight"] {
+  --theme-primary: #33ff66;
+  --theme-primary-hover: #22dd55;
+  --theme-accent: #ffb000;
+  --theme-background: #030806;
+  --theme-foreground: #c8ffd4;
+  --theme-muted: #4a7a58;
+  --theme-text-secondary: #7ecf94;
+  --theme-surface: rgb(4 14 8 / 0.94);
+  --theme-surface-muted: rgb(8 22 12 / 0.9);
+  --theme-border: rgb(51 255 102 / 0.22);
+  --theme-shell: rgb(2 6 4 / 0.98);
+  --theme-shell-solid: #010403;
+  --theme-sidebar: rgb(3 10 6 / 0.97);
+  --theme-header: rgb(2 8 5 / 0.95);
+  --theme-canvas: #020504;
+  --theme-nav-icon: rgb(51 255 102 / 0.08);
+  --theme-on-primary: #020504;
+  --theme-ring: rgb(51 255 102 / 0.55);
+  --theme-bg-image:
+    radial-gradient(ellipse 70% 50% at 50% -20%, rgb(51 255 102 / 0.14), transparent 60%),
+    radial-gradient(ellipse 40% 30% at 100% 80%, rgb(255 176 0 / 0.06), transparent 50%);
+  --theme-canvas-image: repeating-linear-gradient(
+    to bottom,
+    rgb(0 0 0 / 0.15) 0px,
+    rgb(0 0 0 / 0.15) 1px,
+    transparent 1px,
+    transparent 3px
+  );
+  --theme-overlay: repeating-linear-gradient(
+    to bottom,
+    transparent 0px,
+    transparent 2px,
+    rgb(0 0 0 / 0.12) 2px,
+    rgb(0 0 0 / 0.12) 3px
+  );
+  --theme-font-display: "Share Tech Mono", "Courier New", monospace;
+  --theme-font-sans: "IBM Plex Mono", ui-monospace, monospace;
+  --theme-radius: 0px;
+  --theme-radius-button: 0px;
+  --theme-shadow-card: 0 0 1px rgb(51 255 102 / 0.5), inset 0 0 40px rgb(51 255 102 / 0.03);
+  --theme-shadow-button: 0 0 20px rgb(51 255 102 / 0.35), 0 0 2px rgb(51 255 102 / 0.8);
+  --theme-duration-fast: 60ms;
+  --theme-duration-normal: 120ms;
+  --theme-ease: steps(4, end);
+  --theme-enter-y: 4px;
+  --theme-blur: 0px;
+  --theme-btn-transform-hover: none;
+  --theme-label-tracking: 0.12em;
+  --theme-label-case: uppercase;
+  --theme-chart-1: #33ff66;
+  --theme-chart-2: #ffb000;
+  --theme-chart-3: #33ccff;
+  --theme-prereq: #33ccff;
+  --theme-coreq: #ffb000;
+  --theme-warning: #ff4466;
+  --theme-glow: 0 0 12px rgb(51 255 102 / 0.45);
+  --theme-link-glow: 0 0 16px rgb(51 255 102 / 0.5);
+}
+
+[data-theme="midnight"].dark {
+  --theme-background: #010302;
+  --theme-surface: rgb(2 10 5 / 0.96);
+  --theme-shadow-card: 0 0 2px rgb(51 255 102 / 0.6), inset 0 0 60px rgb(51 255 102 / 0.04);
+}
+
+/* Amber phosphor — vintage monitor daylight */
+[data-theme="midnight"]:not(.dark) {
+  --theme-primary: #cc8800;
+  --theme-primary-hover: #aa6600;
+  --theme-accent: #336633;
+  --theme-background: #1a1408;
+  --theme-foreground: #ffcc66;
+  --theme-muted: #8a7040;
+  --theme-text-secondary: #c9a050;
+  --theme-surface: rgb(26 20 8 / 0.95);
+  --theme-surface-muted: rgb(34 26 10 / 0.9);
+  --theme-border: rgb(255 204 102 / 0.25);
+  --theme-shell: rgb(20 16 6 / 0.98);
+  --theme-sidebar: rgb(22 18 8 / 0.97);
+  --theme-header: rgb(18 14 6 / 0.96);
+  --theme-canvas: #141008;
+  --theme-nav-icon: rgb(255 204 102 / 0.1);
+  --theme-on-primary: #1a1408;
+  --theme-ring: rgb(255 204 102 / 0.5);
+  --theme-chart-1: #ffcc66;
+  --theme-chart-2: #66aa44;
+  --theme-chart-3: #aa8844;
+  --theme-glow: 0 0 10px rgb(255 204 102 / 0.35);
+  --theme-link-glow: 0 0 14px rgb(255 204 102 / 0.4);
+}

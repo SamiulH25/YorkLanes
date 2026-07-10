@@ -390,15 +390,32 @@
   }
 
   .course-card {
+    position: relative;
     display: flex;
     min-height: 10.5rem;
     flex-direction: column;
+    overflow: hidden;
     padding: 1rem;
     text-decoration: none;
     transition:
       border-color var(--theme-duration-fast),
       box-shadow var(--theme-duration-fast),
       transform var(--theme-duration-fast);
+    animation: motion-pop var(--theme-duration-normal) var(--theme-ease-out) both;
+    animation-delay: calc(var(--card-index, 0) * 35ms);
+  }
+
+  .course-card::after {
+    content: "";
+    @apply absolute inset-x-0 top-0 h-1 origin-left scale-x-0 transition-transform;
+    background: linear-gradient(90deg, var(--theme-primary), var(--theme-accent));
+    transition-duration: var(--theme-duration-fast);
+    transition-timing-function: var(--theme-ease-out);
+  }
+
+  .course-card:hover::after,
+  .course-card:focus-visible::after {
+    @apply scale-x-100;
   }
 
   @media (min-width: 640px) {
@@ -413,11 +430,30 @@
     transform: translateY(-2px);
   }
 
+  .course-card:focus-visible {
+    outline: 2px solid var(--theme-ring);
+    outline-offset: 2px;
+  }
+
   .course-card__title {
     display: -webkit-box;
     -webkit-box-orient: vertical;
     -webkit-line-clamp: 3;
     overflow: hidden;
+  }
+
+  .course-card__cta {
+    @apply mt-auto inline-flex items-center gap-1 text-xs font-semibold;
+    color: var(--theme-primary);
+    opacity: 0;
+    transform: translateX(-4px);
+    transition: opacity var(--theme-duration-fast) var(--theme-ease), transform var(--theme-duration-fast) var(--theme-ease);
+  }
+
+  .course-card:hover .course-card__cta,
+  .course-card:focus-visible .course-card__cta {
+    opacity: 1;
+    transform: translateX(0);
   }
 
   .heading-page {
@@ -657,17 +693,124 @@
     @apply pointer-events-none absolute left-0 top-0 z-30 overflow-visible;
   }
 
+  .plan-deps-layer path {
+    @apply pointer-events-none;
+    filter: drop-shadow(0 0 3px color-mix(in srgb, currentColor 55%, transparent));
+    animation: dep-draw var(--theme-duration-normal) var(--theme-ease-out) both;
+  }
+
+  @keyframes dep-draw {
+    from {
+      opacity: 0;
+      stroke-dashoffset: 16;
+    }
+    to {
+      opacity: 1;
+      stroke-dashoffset: 0;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .plan-term-column,
+    .plan-deps-layer path,
+    .course-card {
+      animation: none;
+    }
+  }
+
   .plan-editor-columns {
     @apply relative z-0 flex min-w-max gap-4;
   }
 
   .plan-term-column {
-    @apply relative z-0 w-64 shrink-0 p-4;
+    @apply relative z-0 w-64 shrink-0 overflow-hidden p-4;
     border-radius: var(--theme-radius);
     border: 1px solid var(--theme-border);
     background: var(--theme-surface);
     box-shadow: var(--theme-shadow-card);
     backdrop-filter: blur(var(--theme-blur));
+    animation: motion-pop var(--theme-duration-normal) var(--theme-ease-out) both;
+    animation-delay: calc(var(--term-index, 0) * 45ms);
+  }
+
+  .plan-term-column::before {
+    content: "";
+    @apply absolute inset-x-0 top-0 h-1;
+    background: linear-gradient(90deg, var(--theme-primary), var(--theme-accent));
+    opacity: 0.85;
+  }
+
+  .plan-term-column[data-season="fall"]::before {
+    background: linear-gradient(90deg, #f59e0b, #e31837);
+  }
+
+  .plan-term-column[data-season="winter"]::before {
+    background: linear-gradient(90deg, #60a5fa, #6366f1);
+  }
+
+  .plan-term-column[data-season="summer"]::before {
+    background: linear-gradient(90deg, #34d399, #fbbf24);
+  }
+
+  .plan-term-column[data-season="full-year"]::before,
+  .plan-term-column[data-season="full"]::before {
+    background: linear-gradient(90deg, #e31837, #6366f1);
+  }
+
+  .plan-term-header {
+    @apply mb-3 border-b border-york-stone/50 pb-3 dark:border-white/10;
+  }
+
+  .plan-term-session {
+    @apply inline-flex rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-widest;
+    background: color-mix(in srgb, var(--theme-primary) 12%, transparent);
+    color: var(--theme-primary);
+    letter-spacing: var(--theme-label-tracking);
+  }
+
+  .plan-term-column[data-season="fall"] .plan-term-session {
+    background: color-mix(in srgb, #f59e0b 16%, transparent);
+    color: #b45309;
+  }
+
+  .plan-term-column[data-season="winter"] .plan-term-session {
+    background: color-mix(in srgb, #60a5fa 18%, transparent);
+    color: #2563eb;
+  }
+
+  .plan-term-column[data-season="summer"] .plan-term-session {
+    background: color-mix(in srgb, #34d399 16%, transparent);
+    color: #059669;
+  }
+
+  .plan-term-column[data-season="full-year"] .plan-term-session,
+  .plan-term-column[data-season="full"] .plan-term-session {
+    background: color-mix(in srgb, #6366f1 16%, transparent);
+    color: #4f46e5;
+  }
+
+  .plan-term-title {
+    @apply mt-1.5 font-display text-base font-semibold leading-tight;
+    color: var(--theme-foreground);
+  }
+
+  .plan-term-meta {
+    @apply text-xs;
+    color: var(--theme-muted);
+  }
+
+  .plan-term-footer {
+    @apply mt-3 flex items-center justify-between border-t border-york-stone/50 pt-3 text-xs dark:border-white/10;
+    color: var(--theme-muted);
+  }
+
+  .plan-term-count {
+    @apply inline-flex items-center gap-1 font-medium;
+    color: var(--theme-foreground);
+  }
+
+  .plan-term-credits {
+    @apply inline-flex items-center gap-1;
   }
 
   .plan-course-list {
@@ -677,6 +820,10 @@
   .plan-course-list--active {
     border-color: color-mix(in srgb, var(--theme-primary) 40%, transparent);
     background: color-mix(in srgb, var(--theme-primary) 6%, transparent);
+  }
+
+  .plan-course-card--dragging {
+    @apply opacity-40;
   }
 
   .plan-course-card--related-prereq {
@@ -691,10 +838,12 @@
 
   .plan-course-card--warning {
     border-color: color-mix(in srgb, var(--theme-warning) 70%, transparent);
+    box-shadow: 0 0 0 1px color-mix(in srgb, var(--theme-warning) 45%, transparent);
   }
 
   .plan-course-card--completed {
     @apply opacity-70;
+    background: color-mix(in srgb, var(--theme-surface-muted) 95%, transparent);
   }
 
   .plan-course-card--completed .plan-course-code {
@@ -713,22 +862,30 @@
   }
 
   .plan-course-warning {
-    @apply absolute -right-1 -top-1 flex h-5 w-5 items-center justify-center text-[11px] font-bold shadow-sm;
+    @apply absolute -right-1.5 -top-1.5 flex h-5 w-5 items-center justify-center text-[11px] font-bold shadow-sm;
     border-radius: 9999px;
-    background: var(--theme-primary);
-    color: var(--theme-on-primary);
+    background: var(--theme-warning);
+    color: #fff;
   }
 
   .plan-course-card {
-    @apply relative flex items-stretch gap-0 overflow-hidden transition-shadow;
+    @apply relative flex items-stretch gap-0 overflow-hidden transition-all;
     border-radius: max(0.375rem, calc(var(--theme-radius) * 0.5));
     border: 1px solid var(--theme-border);
     background: color-mix(in srgb, var(--theme-surface-muted) 85%, var(--theme-surface));
+    transition-duration: var(--theme-duration-fast);
+  }
+
+  .plan-course-card:hover {
+    @apply -translate-y-0.5 shadow-md;
+    box-shadow: var(--theme-shadow-card);
+    border-color: color-mix(in srgb, var(--theme-primary) 35%, var(--theme-border));
   }
 
   .plan-course-card--selected {
     border-color: var(--theme-primary);
     outline: 2px solid color-mix(in srgb, var(--theme-primary) 30%, transparent);
+    @apply shadow-md;
   }
 
   .plan-course-card--stub {
@@ -747,11 +904,22 @@
     color: var(--theme-muted);
   }
 
+  .plan-course-credits {
+    @apply mt-1 inline-flex w-fit items-center rounded-md px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide;
+    background: color-mix(in srgb, var(--theme-foreground) 8%, transparent);
+    color: var(--theme-muted);
+  }
+
   .plan-course-handle {
-    @apply flex w-7 shrink-0 cursor-grab items-center justify-center border-r text-xs active:cursor-grabbing;
+    @apply flex w-7 shrink-0 cursor-grab items-center justify-center border-r text-xs transition-colors active:cursor-grabbing;
     border-color: var(--theme-border);
     background: color-mix(in srgb, var(--theme-border) 35%, transparent);
     color: var(--theme-muted);
+  }
+
+  .plan-course-handle:hover {
+    background: color-mix(in srgb, var(--theme-primary) 12%, transparent);
+    color: var(--theme-primary);
   }
 
   .plan-course-body {
@@ -767,6 +935,52 @@
     @apply rounded-lg border border-dashed px-3 py-4 text-center text-xs;
     border-color: var(--theme-border);
     color: var(--theme-muted);
+  }
+
+  /* Setup / import page */
+  .plan-step-badge {
+    @apply inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-xs font-bold text-york-cream;
+    background: var(--theme-primary);
+    box-shadow: var(--theme-shadow-button);
+  }
+
+  .plan-setup-dropzone {
+    @apply relative flex flex-col items-center justify-center overflow-hidden rounded-2xl border-2 border-dashed px-6 py-10 text-center transition-all;
+    border-color: color-mix(in srgb, var(--theme-border) 100%, transparent);
+    background: color-mix(in srgb, var(--theme-surface-muted) 40%, transparent);
+  }
+
+  .plan-setup-dropzone::before {
+    content: "";
+    @apply pointer-events-none absolute inset-0 opacity-0 transition-opacity;
+    background: radial-gradient(60% 60% at 50% 30%, color-mix(in srgb, var(--theme-primary) 14%, transparent), transparent 70%);
+  }
+
+  .plan-setup-dropzone:hover,
+  .plan-setup-dropzone:focus-within {
+    border-color: color-mix(in srgb, var(--theme-primary) 55%, transparent);
+    background: color-mix(in srgb, var(--theme-primary) 6%, transparent);
+  }
+
+  .plan-setup-dropzone:hover::before,
+  .plan-setup-dropzone:focus-within::before {
+    @apply opacity-100;
+  }
+
+  .plan-setup-dropzone:active {
+    transform: scale(0.995);
+  }
+
+  .plan-setup-dropzone .upload-glyph {
+    @apply transition-transform;
+  }
+
+  .plan-setup-dropzone:hover .upload-glyph {
+    @apply -translate-y-0.5 text-york-red;
+  }
+
+  .plan-file-preview {
+    transition: border-color var(--theme-duration-fast) var(--theme-ease);
   }
 
   /* Theme-specific overrides */

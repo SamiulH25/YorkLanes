@@ -1,6 +1,7 @@
 ---
 import DashboardLayout from "../../layouts/DashboardLayout.astro";
 import { courseDetailPath, fetchCourse } from "../../lib/courses";
+import { fetchCourseSections } from "../../lib/course-sections";
 
 export const prerender = false;
 
@@ -9,46 +10,67 @@ const code = decodeURIComponent(rawCode);
 
 let loadError: string | null = null;
 let course: Awaited<ReturnType<typeof fetchCourse>> | null = null;
+let sectionGroups: Awaited<ReturnType<typeof fetchCourseSections>>["groups"] = [];
 
 try {
   course = await fetchCourse(code);
+  if (course) {
+    const sections = await fetchCourseSections({ courseCode: course.code });
+    sectionGroups = sections.groups;
+  }
 } catch (error) {
   loadError = error instanceof Error ? error.message : "Failed to load course";
 }
 
+const availableTerms = [...new Set(sectionGroups.map((group) => group.term))];
+const defaultTerm = availableTerms[0] ?? "";
+
 function formatCredits(credits: number | null): string {
   if (credits === null) return "Not listed";
-  return `${Number.isInteger(credits) ? credits : credits.toFixed(1)} credits`;
+  return `${Number.isInteger(credits) ? credits : credits.toFixed(1)} Credits`;
+}
+
+function groupForTerm(term: string) {
+  return sectionGroups.find((group) => group.term === term);
 }
 ---
 
 <DashboardLayout title={course ? `${course.code} | Courses` : "Course | YorkLanes"} activeNav="courses">
   <Fragment slot="header">
     <div class="flex flex-wrap items-start justify-between gap-4">
-      <div class="min-w-0">
-        <a href="/courses" class="text-xs font-medium text-brand hover:underline">← Course Explorer</a>
+      <div>
         {
           course ? (
             <>
-              <h1 class="heading-page mt-1 font-mono">{course.code}</h1>
-              <p class="mt-0.5 text-sm text-muted">{course.title}</p>
+              <div class="mt-2 flex flex-wrap items-center gap-3">
+                <h1 class="heading-page mt-1 font-mono">{course.code}</h1>
+                {
+                  course.department && (
+                    <span class="badge bg-surface-muted text-muted">{course.department}</span>
+                  )
+                }
+              </div>
+              <p class="mt-1 text-sm text-muted">{course.title}</p>
             </>
+            <p class="text-xs font-medium text-york-muted">{formatCredits(course.credits)}</p>
+            <h1 class="heading-page [font-variant-numeric:lining-nums]">{course.code}</h1>
+            <p class="mt-0.5 text-sm text-muted">{course.title}</p>
           ) : (
-            <h1 class="heading-page mt-1">Course details</h1>
+            <p class="text-xs font-medium text-york-muted">Credit Value</p>
+            <h1 class="heading-page">Course Code</h1>
+            <p class="mt-0.5 text-sm text-muted">Course Name</p>
           )
         }
       </div>
-      {
-        course && (
-          <div class="flex flex-wrap gap-2">
-            {course.department && <span class="badge bg-surface-muted text-muted">{course.department}</span>}
-            <span class="badge bg-brand-subtle text-brand">{formatCredits(course.credits)}</span>
-          </div>
-        )
-      }
     </div>
   </Fragment>
-
+  
+  {
+    <div class="mb-6">
+        <a href="/courses" class="btn-york px-4 py-2.5 text-sm">← Course Explorer</a>
+    </div>
+  }
+  
   {
     loadError && (
       <div class="mb-6 rounded-xl border border-accent-soft bg-accent-soft px-4 py-3 text-sm text-secondary">
@@ -56,11 +78,12 @@ function formatCredits(credits: number | null): string {
       </div>
     )
   }
-
+  
   {
     course && (
       <div class="grid gap-6 lg:grid-cols-[minmax(0,1fr)_280px]">
-        <section class="surface p-5 sm:p-6">
+        <section class="surface relative overflow-hidden p-5 sm:p-6">
+          <div class="pointer-events-none absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-brand to-accent" aria-hidden="true" />
           <h2 class="text-sm font-semibold text-foreground">Description</h2>
           {
             course.description ? (
@@ -70,39 +93,146 @@ function formatCredits(credits: number | null): string {
             )
           }
         </section>
-
+        
         <aside class="space-y-4">
-          <section class="surface p-5">
+          <section class="surface relative overflow-hidden p-5">
+            <div class="pointer-events-none absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-brand to-accent" aria-hidden="true" />
             <h2 class="text-sm font-semibold text-foreground">Prerequisites</h2>
             {
               course.prerequisites.length > 0 ? (
-                <div class="mt-3 flex flex-wrap gap-2">
+                <ul class="mt-3 space-y-2">
                   {
                     course.prerequisites.map((prereq) => (
-                      <a
-                        href={courseDetailPath(prereq)}
-                        class="rounded-lg border border-shell bg-surface-muted px-3 py-1.5 font-mono text-xs font-semibold text-brand transition hover:border-brand/40 hover:bg-brand-subtle"
-                      >
-                        {prereq}
-                      </a>
+                      <li>
+                        <a
+                          href={courseDetailPath(prereq)}
+                          class="group flex items-center justify-between gap-2 rounded-lg border border-shell bg-surface-muted px-3 py-2 font-mono text-xs font-semibold text-brand transition hover:border-brand/40 hover:bg-brand-subtle"
+                        >
+                          <span>{prereq}</span>
+                          <span class="text-brand/70 transition-transform group-hover:translate-x-0.5" aria-hidden="true">→</span>
+                        </a>
+                      </li>
                     ))
                   }
-                </div>
+                </ul>
               ) : (
                 <p class="mt-3 text-sm text-muted">None listed in the catalogue.</p>
               )
             }
           </section>
-
+          
           <section class="surface-muted p-5">
             <h2 class="text-sm font-semibold text-foreground">Plan integration</h2>
             <p class="mt-2 text-sm text-muted">
               Add this course to your degree plan from the{" "}
               <a href="/plan" class="text-brand hover:underline">degree plan</a> page.
             </p>
+            <a href="/plan" class="btn-york mt-4 inline-flex w-full items-center justify-center gap-2 text-sm">
+              Open degree plan
+              <span aria-hidden="true">→</span>
+            </a>
           </section>
         </aside>
       </div>
+
+      <section class="surface relative overflow-hidden p-5 sm:p-6">
+        <div class="pointer-events-none absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-brand to-accent" aria-hidden="true" />
+        <div class="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <h2 class="text-sm font-semibold text-foreground">Sections &amp; timetable</h2>
+            <p class="mt-1 text-xs text-muted">
+              {sectionGroups.length > 0
+                ? `Scraped from York course timetables across ${availableTerms.length} term${availableTerms.length === 1 ? "" : "s"}.`
+                : "No section timetables scraped for this course yet."}
+            </p>
+          </div>
+          {
+            availableTerms.length > 1 && (
+              <select id="section-term-select" class="field-select sm:w-52" aria-label="Select term">
+                {availableTerms.map((term) => (
+                  <option value={term} selected={term === defaultTerm}>
+                    {term}
+                  </option>
+                ))}
+              </select>
+            )
+          }
+        </div>
+
+        <div id="section-browser" data-default-term={defaultTerm}>
+          {
+            availableTerms.length === 0 && (
+              <p class="mt-4 text-sm text-muted">
+                Run the schedule scraper to populate section data. See{" "}
+                <code class="rounded bg-black/5 px-1.5 py-0.5 font-mono text-xs dark:bg-white/10">npm run scraper:schedule</code>.
+              </p>
+            )
+          }
+          {
+            availableTerms.map((term) => {
+              const group = groupForTerm(term);
+              const sections = group?.sections ?? [];
+              return (
+                <div class="section-term-panel" data-term={term} hidden={term !== defaultTerm}>
+                  {sections.length === 0 ? (
+                    <p class="mt-4 text-sm text-muted">No sections listed for this term.</p>
+                  ) : (
+                    <div class="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
+                      {sections.map((section) => (
+                        <div class="rounded-xl border border-shell bg-surface-muted p-4">
+                          <div class="flex items-center justify-between gap-2">
+                            <span class="font-mono text-sm font-bold text-brand">{section.section_code}</span>
+                            {section.meetings[0]?.delivery_mode && (
+                              <span class="badge bg-brand-subtle text-brand">{section.meetings[0].delivery_mode}</span>
+                            )}
+                          </div>
+                          <ul class="mt-3 space-y-2">
+                            {section.meetings.map((meeting) => (
+                              <li class="flex items-center justify-between gap-2 text-sm">
+                                <span class="font-medium text-foreground">{meeting.day}</span>
+                                <span class="text-muted">
+                                  {meeting.start_time}–{meeting.end_time}
+                                </span>
+                                {(meeting.campus || meeting.room) && (
+                                  <span class="text-xs text-muted">
+                                    {[meeting.campus, meeting.room].filter(Boolean).join(" · ")}
+                                  </span>
+                                )}
+                              </li>
+                            ))}
+                          </ul>
+                          {
+                            section.meetings.some((m) => m.instructor) && (
+                              <p class="mt-3 border-t border-shell pt-2 text-xs text-muted">
+                                {section.meetings.map((m) => m.instructor).filter(Boolean).join(", ")}
+                              </p>
+                            )
+                          }
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              );
+            })
+          }
+        </div>
+      </section>
+    )
+  }
+
+  {
+    availableTerms.length > 1 && (
+      <script>
+        const select = document.getElementById("section-term-select") as HTMLSelectElement | null;
+        const panels = document.querySelectorAll<HTMLElement>(".section-term-panel");
+        select?.addEventListener("change", () => {
+          const term = select.value;
+          panels.forEach((panel) => {
+            panel.hidden = panel.dataset.term !== term;
+          });
+        });
+      </script>
     )
   }
 </DashboardLayout>

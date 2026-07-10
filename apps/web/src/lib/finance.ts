@@ -1,5 +1,6 @@
 /** Task guide: docs/tasks/finance.md */
 import { getApiUrl } from "./api-url";
+import type { FinanceRecurrence } from "./finance-recurrence";
 
 const API_URL = getApiUrl();
 
@@ -12,6 +13,7 @@ export interface FinanceEntry {
   category: string;
   kind: FinanceEntryKind;
   occurredOn: string;
+  recurrence: FinanceRecurrence;
   createdAt: string;
 }
 
@@ -48,6 +50,7 @@ export interface FinanceResponse extends FinanceEntriesResponse {
   status: string;
   message: string;
   balance: number;
+  recurrenceSupported?: boolean;
 }
 
 export async function fetchFinance(): Promise<FinanceResponse> {
@@ -97,6 +100,7 @@ export async function updateFinanceEntry(input: {
   category: string;
   kind: FinanceEntryKind;
   occurredOn?: string;
+  recurrence?: FinanceRecurrence;
 }): Promise<{ entry: FinanceEntry; summary: FinanceSummary }> {
   const response = await fetch(`${API_URL}/api/finance/entries/${input.entryId}`, {
     method: "PATCH",
@@ -107,10 +111,21 @@ export async function updateFinanceEntry(input: {
       category: input.category,
       kind: input.kind,
       occurredOn: input.occurredOn,
+      recurrence: input.recurrence,
     }),
   });
   if (!response.ok) throw new Error(`Finance update API error: ${response.status}`);
   return response.json() as Promise<{ entry: FinanceEntry; summary: FinanceSummary }>;
+}
+
+export async function createNextFinanceEntry(
+  entryId: string,
+): Promise<{ entry: FinanceEntry; summary: FinanceSummary; sourceId: string }> {
+  const response = await fetch(`${API_URL}/api/finance/entries/${entryId}/next`, {
+    method: "POST",
+  });
+  if (!response.ok) throw new Error(`Finance next occurrence API error: ${response.status}`);
+  return response.json() as Promise<{ entry: FinanceEntry; summary: FinanceSummary; sourceId: string }>;
 }
 
 export async function fetchFinanceCategories(): Promise<{

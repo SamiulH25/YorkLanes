@@ -181,6 +181,22 @@ export const prerender = false;
               class="mt-2 w-full rounded-xl border border-york-stone/60 bg-white/80 px-3 py-2.5 text-sm text-york-black outline-none transition focus:border-york-red focus:ring-2 focus:ring-york-red/20 dark:border-white/10 dark:bg-york-graphite dark:text-white"
             />
           </label>
+          <label class="block">
+            <span class="label">Recurrence</span>
+            <select
+              data-finance-recurrence
+              name="recurrence"
+              class="mt-2 w-full rounded-xl border border-york-stone/60 bg-white/80 px-3 py-2.5 text-sm text-york-black outline-none transition focus:border-york-red focus:ring-2 focus:ring-york-red/20 disabled:cursor-not-allowed disabled:opacity-60 dark:border-white/10 dark:bg-york-graphite dark:text-white"
+            >
+              <option value="none">One-time</option>
+              <option value="weekly">Weekly</option>
+              <option value="monthly">Monthly</option>
+              <option value="yearly">Yearly</option>
+            </select>
+            <span data-finance-recurrence-hint class="mt-1 block text-xs text-york-muted">
+              Log each occurrence when it is due.
+            </span>
+          </label>
         </div>
 
         <button data-finance-submit type="submit" class="btn-york w-full">Add entry</button>

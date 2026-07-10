@@ -75,6 +75,7 @@ The API detects whether `completed` exists at runtime (`planCourseSchema.ts`) fo
 | `20250619230000_add_plan_course_completed.sql` | Re-add `completed` if drift on remote |
 | `20250629000000_finance_entries.sql` | `finance_entries` income and expense table |
 | `20250629010000_finance_monthly_budgets.sql` | `finance_monthly_budgets` monthly budget table |
+| `20250710000000_finance_entry_recurrence.sql` | Add recurring-entry schedule support |
 
 ### Finance module
 
@@ -94,6 +95,7 @@ The API detects whether `completed` exists at runtime (`planCourseSchema.ts`) fo
 | `category` | text | Tuition, Rent, Personal, etc. |
 | `kind` | text | `income` or `expense` |
 | `occurred_on` | date | Budget date |
+| `recurrence` | text | `none`, `weekly`, `monthly`, or `yearly` (default `none`) |
 | `created_at` | timestamptz | Insert timestamp |
 
 #### `finance_monthly_budgets` columns

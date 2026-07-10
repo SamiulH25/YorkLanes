@@ -1,3 +1,10 @@
+import {
+  nextOccurredOn,
+  normalizeRecurrence,
+  recurrenceLabel,
+  type FinanceRecurrence,
+} from "../lib/finance-recurrence";
+
 type FinanceKind = "income" | "expense";
 
 interface FinanceEntry {
@@ -7,11 +14,16 @@ interface FinanceEntry {
   amountCents: number;
   kind: FinanceKind;
   occurredOn: string;
+  recurrence: FinanceRecurrence;
   createdAt: string;
 }
 
 interface FinanceEntriesResponse {
   entries: FinanceEntry[];
+}
+
+interface FinanceResponse extends FinanceEntriesResponse {
+  recurrenceSupported?: boolean;
 }
 
 interface FinanceBudget {
@@ -147,6 +159,7 @@ function readEntries(): FinanceEntry[] {
         amountCents: Number(entry.amountCents ?? 0),
         kind: (entry.kind === "income" ? "income" : "expense") as FinanceKind,
         occurredOn: String(entry.occurredOn ?? entry.createdAt ?? new Date().toISOString().slice(0, 10)),
+        recurrence: normalizeRecurrence(entry.recurrence),
         createdAt: String(entry.createdAt ?? new Date().toISOString()),
       }))
       .filter((entry) => entry.amountCents > 0);
@@ -177,11 +190,24 @@ function writeBudget(month: string, amountCents: number): void {
   localStorage.setItem(BUDGET_STORAGE_KEY, JSON.stringify(budgets));
 }
 
+function normalizeEntry(entry: FinanceEntry): FinanceEntry {
+  return {
+    ...entry,
+    recurrence: normalizeRecurrence(entry.recurrence),
+  };
+}
+
 async function fetchApiEntries(): Promise<FinanceEntry[]> {
   const response = await fetch("/api/finance/entries");
   if (!response.ok) throw new Error(`Finance API error: ${response.status}`);
   const data = (await response.json()) as FinanceEntriesResponse;
-  return data.entries;
+  return data.entries.map(normalizeEntry);
+}
+
+async function fetchApiFinance(): Promise<FinanceResponse> {
+  const response = await fetch("/api/finance");
+  if (!response.ok) throw new Error(`Finance API error: ${response.status}`);
+  return response.json() as Promise<FinanceResponse>;
 }
 
 async function postApiEntry(entry: Omit<FinanceEntry, "id" | "createdAt">): Promise<FinanceEntry> {
@@ -194,11 +220,12 @@ async function postApiEntry(entry: Omit<FinanceEntry, "id" | "createdAt">): Prom
       category: entry.category,
       kind: entry.kind,
       occurredOn: entry.occurredOn,
+      recurrence: entry.recurrence,
     }),
   });
   if (!response.ok) throw new Error(`Finance API error: ${response.status}`);
   const data = (await response.json()) as { entry: FinanceEntry };
-  return data.entry;
+  return normalizeEntry(data.entry);
 }
 
 async function deleteApiEntry(entryId: string): Promise<void> {
@@ -219,11 +246,19 @@ async function patchApiEntry(
       category: entry.category,
       kind: entry.kind,
       occurredOn: entry.occurredOn,
+      recurrence: entry.recurrence,
     }),
   });
   if (!response.ok) throw new Error(`Finance update API error: ${response.status}`);
   const data = (await response.json()) as { entry: FinanceEntry };
-  return data.entry;
+  return normalizeEntry(data.entry);
+}
+
+async function postApiNextOccurrence(entryId: string): Promise<FinanceEntry> {
+  const response = await fetch(`/api/finance/entries/${entryId}/next`, { method: "POST" });
+  if (!response.ok) throw new Error(`Finance next occurrence API error: ${response.status}`);
+  const data = (await response.json()) as { entry: FinanceEntry };
+  return normalizeEntry(data.entry);
 }
 
 async function fetchApiBudget(month: string): Promise<FinanceBudget> {
@@ -347,6 +382,8 @@ function setEditMode(root: HTMLElement, entry: FinanceEntry | null): void {
     form.reset();
     const expenseRadio = form.querySelector<HTMLInputElement>('input[name="kind"][value="expense"]');
     if (expenseRadio) expenseRadio.checked = true;
+    const recurrenceSelect = form.querySelector<HTMLSelectElement>("[data-finance-recurrence]");
+    if (recurrenceSelect) recurrenceSelect.value = "none";
     syncKindUi(root, "expense");
     return;
   }
@@ -359,6 +396,7 @@ function setEditMode(root: HTMLElement, entry: FinanceEntry | null): void {
   const labelInput = form.querySelector<HTMLInputElement>('input[name="label"]');
   const amountInput = form.querySelector<HTMLInputElement>('input[name="amount"]');
   const dateInput = form.querySelector<HTMLInputElement>('input[name="occurredOn"]');
+  const recurrenceSelect = form.querySelector<HTMLSelectElement>("[data-finance-recurrence]");
   const kindRadio = form.querySelector<HTMLInputElement>(`input[name="kind"][value="${entry.kind}"]`);
 
   if (kindRadio) kindRadio.checked = true;
@@ -366,6 +404,7 @@ function setEditMode(root: HTMLElement, entry: FinanceEntry | null): void {
   if (labelInput) labelInput.value = entry.label;
   if (amountInput) amountInput.value = (entry.amountCents / 100).toFixed(2);
   if (dateInput) dateInput.value = entry.occurredOn;
+  if (recurrenceSelect) recurrenceSelect.value = entry.recurrence;
 
   labelInput?.focus();
 }
@@ -397,6 +436,19 @@ function renderList(root: HTMLElement, entries: FinanceEntry[], editingId: strin
     detail.className = "mt-0.5 text-xs text-york-muted";
     detail.textContent = `${entry.category} · ${entry.occurredOn}`;
 
+    if (entry.recurrence !== "none") {
+      const recurrence = document.createElement("span");
+      recurrence.className =
+        "mt-1 inline-flex rounded-full bg-york-gold/15 px-2 py-0.5 text-xs font-semibold text-york-gold";
+      const nextDate = nextOccurredOn(entry.occurredOn, entry.recurrence);
+      recurrence.textContent = nextDate
+        ? `${recurrenceLabel(entry.recurrence)} · Next ${nextDate}`
+        : recurrenceLabel(entry.recurrence);
+      meta.append(label, detail, recurrence);
+    } else {
+      meta.append(label, detail);
+    }
+
     const amount = document.createElement("p");
     amount.className =
       entry.kind === "income"
@@ -422,7 +474,16 @@ function renderList(root: HTMLElement, entries: FinanceEntry[], editingId: strin
       "rounded-lg border border-york-stone/60 px-2 py-1 text-xs font-semibold text-york-muted transition hover:border-york-red/30 hover:text-york-red dark:border-white/10";
     remove.textContent = "Delete";
 
-    meta.append(label, detail);
+    if (entry.recurrence !== "none") {
+      const next = document.createElement("button");
+      next.type = "button";
+      next.dataset.financeNext = entry.id;
+      next.className =
+        "rounded-lg border border-york-stone/60 px-2 py-1 text-xs font-semibold text-york-muted transition hover:border-york-red/30 hover:text-york-red dark:border-white/10";
+      next.textContent = "Log next";
+      actions.append(next);
+    }
+
     actions.append(edit, remove);
     row.append(meta, amount, actions);
     list.append(row);
@@ -581,6 +642,25 @@ function setMode(root: HTMLElement, apiAvailable: boolean): void {
     : "rounded-full bg-york-gold/15 px-3 py-1 text-xs font-semibold text-york-gold";
 }
 
+function setRecurrenceAvailability(
+  root: HTMLElement,
+  apiAvailable: boolean,
+  recurrenceSupported: boolean,
+): void {
+  const select = root.querySelector<HTMLSelectElement>("[data-finance-recurrence]");
+  const hint = root.querySelector<HTMLElement>("[data-finance-recurrence-hint]");
+  if (!select || !hint) return;
+
+  const enabled = !apiAvailable || recurrenceSupported;
+  select.disabled = !enabled;
+  if (!enabled) {
+    select.value = "none";
+    hint.textContent = "Recurring entries require the maintainer to apply the recurrence migration.";
+  } else {
+    hint.textContent = "Log each occurrence when it is due.";
+  }
+}
+
 async function initFinance(root: HTMLElement): Promise<void> {
   const form = root.querySelector<HTMLFormElement>("[data-finance-form]");
   const budgetForm = root.querySelector<HTMLFormElement>("[data-finance-budget-form]");
@@ -594,26 +674,33 @@ async function initFinance(root: HTMLElement): Promise<void> {
   let budgetCents = readBudgets()[selectedMonth] ?? 0;
   let monthOnly = false;
   let apiAvailable = false;
+  let recurrenceSupported = true;
   let editingId: string | null = null;
 
   if (monthInput) monthInput.value = selectedMonth;
   syncKindUi(root, "expense");
   render(root, entries, budgetCents, selectedMonth, monthOnly, editingId);
   setMode(root, apiAvailable);
+  setRecurrenceAvailability(root, apiAvailable, recurrenceSupported);
 
   try {
-    const [apiEntries, apiBudget] = await Promise.all([
+    const [apiEntries, apiBudget, apiFinance] = await Promise.all([
       fetchApiEntries(),
       fetchApiBudget(selectedMonth),
+      fetchApiFinance(),
     ]);
     entries = apiEntries;
     budgetCents = apiBudget.amountCents;
     apiAvailable = true;
+    recurrenceSupported = apiFinance.recurrenceSupported === true;
     render(root, entries, budgetCents, selectedMonth, monthOnly, editingId);
     setMode(root, apiAvailable);
+    setRecurrenceAvailability(root, apiAvailable, recurrenceSupported);
   } catch {
     apiAvailable = false;
+    recurrenceSupported = true;
     setMode(root, apiAvailable);
+    setRecurrenceAvailability(root, apiAvailable, recurrenceSupported);
   }
 
   const clearEditMode = (): void => {
@@ -644,6 +731,7 @@ async function initFinance(root: HTMLElement): Promise<void> {
     const amountCents = parseAmountCents(formData.get("amount"));
     const kind: FinanceKind = formData.get("kind") === "income" ? "income" : "expense";
     const occurredOn = String(formData.get("occurredOn") || new Date().toISOString().slice(0, 10));
+    const recurrence = normalizeRecurrence(formData.get("recurrence"));
     const entryId = String(formData.get("entryId") ?? "").trim() || editingId;
 
     if (!label || amountCents <= 0) return;
@@ -654,6 +742,7 @@ async function initFinance(root: HTMLElement): Promise<void> {
       amountCents,
       kind,
       occurredOn,
+      recurrence,
     };
 
     if (entryId) {
@@ -665,7 +754,9 @@ async function initFinance(root: HTMLElement): Promise<void> {
           return;
         } catch {
           apiAvailable = false;
+          recurrenceSupported = true;
           setMode(root, apiAvailable);
+          setRecurrenceAvailability(root, apiAvailable, recurrenceSupported);
         }
       }
 
@@ -689,12 +780,16 @@ async function initFinance(root: HTMLElement): Promise<void> {
         form.reset();
         const expenseRadio = form.querySelector<HTMLInputElement>('input[name="kind"][value="expense"]');
         if (expenseRadio) expenseRadio.checked = true;
+        const recurrenceSelect = form.querySelector<HTMLSelectElement>("[data-finance-recurrence]");
+        if (recurrenceSelect) recurrenceSelect.value = "none";
         syncKindUi(root, "expense");
         render(root, entries, budgetCents, selectedMonth, monthOnly, editingId);
         return;
       } catch {
         apiAvailable = false;
+        recurrenceSupported = true;
         setMode(root, apiAvailable);
+        setRecurrenceAvailability(root, apiAvailable, recurrenceSupported);
       }
     }
 
@@ -710,6 +805,8 @@ async function initFinance(root: HTMLElement): Promise<void> {
     form.reset();
     const expenseRadio = form.querySelector<HTMLInputElement>('input[name="kind"][value="expense"]');
     if (expenseRadio) expenseRadio.checked = true;
+    const recurrenceSelect = form.querySelector<HTMLSelectElement>("[data-finance-recurrence]");
+    if (recurrenceSelect) recurrenceSelect.value = "none";
     syncKindUi(root, "expense");
     render(root, entries, budgetCents, selectedMonth, monthOnly, editingId);
   });
@@ -731,7 +828,9 @@ async function initFinance(root: HTMLElement): Promise<void> {
         return;
       } catch {
         apiAvailable = false;
+        recurrenceSupported = true;
         setMode(root, apiAvailable);
+        setRecurrenceAvailability(root, apiAvailable, recurrenceSupported);
       }
     }
 
@@ -753,7 +852,9 @@ async function initFinance(root: HTMLElement): Promise<void> {
         return;
       } catch {
         apiAvailable = false;
+        recurrenceSupported = true;
         setMode(root, apiAvailable);
+        setRecurrenceAvailability(root, apiAvailable, recurrenceSupported);
       }
     }
 
@@ -793,6 +894,42 @@ async function initFinance(root: HTMLElement): Promise<void> {
       return;
     }
 
+    const nextButton = target.closest<HTMLButtonElement>("[data-finance-next]");
+    if (nextButton) {
+      const entryId = nextButton.dataset.financeNext;
+      const entry = entries.find((item) => item.id === entryId);
+      if (!entry || entry.recurrence === "none") return;
+
+      if (apiAvailable) {
+        try {
+          const saved = await postApiNextOccurrence(entry.id);
+          entries = [saved, ...entries];
+          render(root, entries, budgetCents, selectedMonth, monthOnly, editingId);
+          return;
+        } catch {
+          apiAvailable = false;
+          recurrenceSupported = true;
+          setMode(root, apiAvailable);
+          setRecurrenceAvailability(root, apiAvailable, recurrenceSupported);
+        }
+      }
+
+      const occurredOn = nextOccurredOn(entry.occurredOn, entry.recurrence);
+      if (!occurredOn) return;
+      entries = [
+        {
+          ...entry,
+          id: crypto.randomUUID(),
+          occurredOn,
+          createdAt: new Date().toISOString(),
+        },
+        ...entries,
+      ];
+      writeEntries(entries);
+      render(root, entries, budgetCents, selectedMonth, monthOnly, editingId);
+      return;
+    }
+
     const deleteButton = target.closest<HTMLButtonElement>("[data-finance-delete]");
     if (!deleteButton) return;
     const entryId = deleteButton.dataset.financeDelete;
@@ -810,7 +947,9 @@ async function initFinance(root: HTMLElement): Promise<void> {
         return;
       } catch {
         apiAvailable = false;
+        recurrenceSupported = true;
         setMode(root, apiAvailable);
+        setRecurrenceAvailability(root, apiAvailable, recurrenceSupported);
       }
     }
 

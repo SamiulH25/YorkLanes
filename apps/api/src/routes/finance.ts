@@ -9,8 +9,11 @@ import {
   deleteFinanceEntryViaRest,
   getFinanceBudget,
   getFinanceBudgetViaRest,
+  getFinanceEntry,
+  getFinanceEntryViaRest,
   getFinanceSummary,
   getFinanceSummaryViaRest,
+  isFinanceRecurrenceSupported,
   listFinanceEntries,
   listFinanceEntriesViaRest,
   listFinanceMonthlyTotals,
@@ -25,6 +28,7 @@ import {
   listFinanceCategories,
   normalizeFinanceCategory,
 } from "../services/financeCategories.js";
+import { nextOccurredOn, normalizeRecurrence } from "../services/financeRecurrence.js";
 
 export const financeRouter = Router();
 
@@ -58,6 +62,7 @@ function financeError(error: unknown): { status: number; body: { error: string; 
   const needsMigration =
     message.includes("finance_entries") ||
     message.includes("finance_monthly_budgets") ||
+    message.includes("recurrence migration") ||
     message.includes("relation") ||
     message.includes("does not exist") ||
     message.includes("404");
@@ -90,18 +95,20 @@ financeRouter.get("/categories", (_req, res) => {
 
 financeRouter.get("/", async (req, res) => {
   try {
-    const [entries, summary] = usePostgres()
+    const [entries, summary, recurrenceSupported] = usePostgres()
       ? await (async () => {
           const pool = getPool();
           return Promise.all([
             listFinanceEntries(pool, req.session.userId),
             getFinanceSummary(pool, req.session.userId),
+            isFinanceRecurrenceSupported(pool),
           ]);
         })()
       : canUseFinanceRest()
         ? await Promise.all([
             listFinanceEntriesViaRest(req.session.userId),
             getFinanceSummaryViaRest(req.session.userId),
+            isFinanceRecurrenceSupported(null),
           ])
         : await Promise.reject(new Error("No database configured. Set SUPABASE_DB_URL or SUPABASE_URL plus SUPABASE_PUBLISHABLE_KEY."));
 
@@ -112,6 +119,7 @@ financeRouter.get("/", async (req, res) => {
       entries,
       summary,
       balance: summary.balanceCents / 100,
+      recurrenceSupported,
     });
   } catch (error) {
     const response = financeError(error);
@@ -178,6 +186,7 @@ financeRouter.post("/entries", async (req, res) => {
       amountCents,
       kind,
       occurredOn: normalizeDate(req.body?.occurredOn),
+      recurrence: normalizeRecurrence(req.body?.recurrence),
       userId: req.session.userId,
     };
     const entry = usePostgres()
@@ -217,6 +226,7 @@ financeRouter.patch("/entries/:entryId", async (req, res) => {
       amountCents,
       kind,
       occurredOn: normalizeDate(req.body?.occurredOn),
+      recurrence: normalizeRecurrence(req.body?.recurrence),
       userId: req.session.userId,
     };
     const entry = usePostgres()
@@ -234,6 +244,51 @@ financeRouter.patch("/entries/:entryId", async (req, res) => {
       ? await getFinanceSummary(getPool(), req.session.userId)
       : await getFinanceSummaryViaRest(req.session.userId);
     res.json({ entry, summary });
+  } catch (error) {
+    const response = financeError(error);
+    res.status(response.status).json(response.body);
+  }
+});
+
+financeRouter.post("/entries/:entryId/next", async (req, res) => {
+  try {
+    const source = usePostgres()
+      ? await getFinanceEntry(getPool(), req.params.entryId, req.session.userId)
+      : canUseFinanceRest()
+        ? await getFinanceEntryViaRest(req.params.entryId, req.session.userId)
+        : await Promise.reject(new Error("No database configured. Set SUPABASE_DB_URL or SUPABASE_URL plus SUPABASE_PUBLISHABLE_KEY."));
+
+    if (!source) {
+      res.status(404).json({ error: "Finance entry not found" });
+      return;
+    }
+    if (source.recurrence === "none") {
+      res.status(400).json({ error: "Entry is not recurring" });
+      return;
+    }
+
+    const occurredOn = nextOccurredOn(source.occurredOn, source.recurrence);
+    if (!occurredOn) {
+      res.status(400).json({ error: "Could not calculate the next occurrence date" });
+      return;
+    }
+
+    const input = {
+      label: source.label,
+      category: source.category,
+      amountCents: source.amountCents,
+      kind: source.kind,
+      occurredOn,
+      recurrence: source.recurrence,
+      userId: req.session.userId,
+    };
+    const entry = usePostgres()
+      ? await createFinanceEntry(getPool(), input)
+      : await createFinanceEntryViaRest(input);
+    const summary = usePostgres()
+      ? await getFinanceSummary(getPool(), req.session.userId)
+      : await getFinanceSummaryViaRest(req.session.userId);
+    res.status(201).json({ entry, summary, sourceId: source.id });
   } catch (error) {
     const response = financeError(error);
     res.status(response.status).json(response.body);

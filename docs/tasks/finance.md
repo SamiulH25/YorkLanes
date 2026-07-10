@@ -26,16 +26,18 @@ The category dropdown switches with Expense / Income. The API normalizes common 
 ## Steps
 
 1. Open http://localhost:4321/finance.
-2. Migration: `finance_entries (id, user_id, label, amount_cents, category, kind, occurred_on, created_at)`.
+2. Migration: `finance_entries (id, user_id, label, amount_cents, category, kind, occurred_on, recurrence, created_at)`.
 3. `GET /api/finance/categories` — expense and income category lists.
-4. `POST /api/finance/entries` with `{ label, amount, category, kind, occurredOn }` — insert one row.
-5. `PATCH /api/finance/entries/:entryId` — update label, amount, category, kind, or date.
+4. `POST /api/finance/entries` with `{ label, amount, category, kind, occurredOn, recurrence }` — insert one row. Recurrence is `none`, `weekly`, `monthly`, or `yearly`.
+5. `PATCH /api/finance/entries/:entryId` — update label, amount, category, kind, date, or recurrence.
 6. `DELETE /api/finance/entries/:entryId` — remove mistakes.
-7. `GET /api/finance/entries` — return rows, balance, income/expense totals, and category totals.
-8. `GET` + `PUT /api/finance/budget/:month` — save a monthly budget in `YYYY-MM` format.
-9. `GET /api/finance/monthly-summary` — return income, expenses, and balance by month.
-10. Use `/finance` to filter the selected month, review monthly trends, and export CSV.
-11. PR + maintainer migration push.
+7. `POST /api/finance/entries/:entryId/next` — create the next dated occurrence for a recurring entry.
+8. `GET /api/finance` — returns `recurrenceSupported` so the web app can safely gate recurring controls while a remote database migration is pending.
+9. `GET /api/finance/entries` — return rows, balance, income/expense totals, and category totals.
+10. `GET` + `PUT /api/finance/budget/:month` — save a monthly budget in `YYYY-MM` format.
+11. `GET /api/finance/monthly-summary` — return income, expenses, and balance by month.
+12. Use `/finance` to filter the selected month, review monthly trends, and export CSV.
+13. PR + maintainer migration push.
 
 The API uses `SUPABASE_DB_URL` when available. For this module only, it can also fall back to Supabase REST when `SUPABASE_URL` and `SUPABASE_PUBLISHABLE_KEY` are set and the finance migrations have been applied.
 
@@ -43,12 +45,13 @@ The API uses `SUPABASE_DB_URL` when available. For this module only, it can also
 
 - [x] Edit support for existing entries (`PATCH` + Edit button on the list)
 - [x] Student-specific categories (OSAP, tuition, textbooks, rent, personal, …)
-- [ ] Recurring income or expenses
+- [x] Recurring income or expenses (one-time, weekly, monthly, yearly; log-next action)
 - [ ] Enforce auth and scope finance rows to the signed-in user
+
+Before using recurring entries against the remote database, the maintainer must run `supabase push` to apply `20250710000000_finance_entry_recurrence.sql`. Until then, the web app keeps API-backed entries one-time while local drafts can use recurrence.
 
 ## After that
 
-- Recurring entries
 - Per-user auth scoping
 
 Keep amounts in cents (integer) to avoid float bugs.

@@ -93,18 +93,20 @@ function formatCredits(credits: number | null): string {
   {
     courses.length === 0 && !loadError ? (
       <div class="empty-state">
+        <svg class="mx-auto mb-3 h-9 w-9 text-muted" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-4.35-4.35M11 19a8 8 0 100-16 8 8 0 000 16z" />
+        </svg>
         <p class="text-sm font-semibold text-foreground">No courses match your filters</p>
-        <p class="mt-2 text-sm text-muted">
-          Import courses into the hosted database with{" "}
-          <code class="rounded bg-black/5 px-1.5 py-0.5 font-mono text-xs dark:bg-white/10">npm run scraper:import</code>{" "}
-          (uses <code class="rounded bg-black/5 px-1.5 py-0.5 font-mono text-xs dark:bg-white/10">SUPABASE_DB_URL</code> in{" "}
-          <code class="rounded bg-black/5 px-1.5 py-0.5 font-mono text-xs dark:bg-white/10">apps/api/.env</code>).
+        <p class="mx-auto mt-2 max-w-md text-sm text-muted">
+          Try a different search term or department, or import courses into the hosted database with{" "}
+          <code class="rounded bg-black/5 px-1.5 py-0.5 font-mono text-xs dark:bg-white/10">npm run scraper:import</code>.
         </p>
       </div>
     ) : (
       <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
         {
           courses.map((course, index) => (
+            <a href={courseDetailPath(course.code)} class="course-card surface group" style={`--card-index: ${index}`}>
             <a
               href={courseDetailPath(course.code)}
               class="course-card motion-on-scroll surface group"
@@ -127,9 +129,13 @@ function formatCredits(credits: number | null): string {
               <p class="course-card__title mt-3 flex-1 text-sm font-semibold leading-snug text-foreground group-hover:text-brand">
                 {course.title}
               </p>
-              <div class="mt-4 flex items-center justify-between border-t border-shell pt-3">
-                <span class="text-xs font-medium uppercase tracking-wide text-muted">Credits</span>
-                <span class="font-display text-base font-semibold text-foreground">{formatCredits(course.credits)}</span>
+              <div class="mt-4 flex items-center justify-between gap-2 border-t border-shell pt-3">
+                <span class="inline-flex items-center gap-1 rounded-md bg-surface-muted px-1.5 py-0.5 text-[11px] font-semibold uppercase tracking-wide text-muted">
+                  {formatCredits(course.credits)} cr
+                </span>
+                <span class="course-card__cta" aria-hidden="true">
+                  View course →
+                </span>
               </div>
             </a>
           ))

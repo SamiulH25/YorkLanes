@@ -10,6 +10,7 @@ export interface Assignment {
   description: string | null;
   dueAt: string;
   done: boolean;
+  createdAt?: string;
 }
 
 export interface AssignmentsResponse {
@@ -49,4 +50,29 @@ export async function createAssignment(input: CreateAssignmentInput): Promise<As
   }
 
   return data.assignment as Assignment;
+}
+
+export async function setAssignmentDone(assignmentId: string, done: boolean): Promise<Assignment> {
+  const response = await fetch(`${API_URL}/api/assignments/${assignmentId}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ done }),
+  });
+
+  const data = (await response.json().catch(() => ({}))) as {
+    assignment?: Assignment;
+    error?: string;
+  };
+
+  if (!response.ok) {
+    throw new Error(data.error ?? `Assignments API error: ${response.status}`);
+  }
+
+  return data.assignment as Assignment;
+}
+
+export async function deleteAssignment(assignmentId: string): Promise<{ deleted: boolean }> {
+  const response = await fetch(`${API_URL}/api/assignments/${assignmentId}`, { method: "DELETE" });
+  if (!response.ok) throw new Error(`Assignments delete API error: ${response.status}`);
+  return response.json() as Promise<{ deleted: boolean }>;
 }

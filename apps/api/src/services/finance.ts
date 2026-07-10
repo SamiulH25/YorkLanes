@@ -1,6 +1,15 @@
 import type pg from "pg";
+import {
+  normalizeRecurrence,
+  type FinanceRecurrence,
+} from "./financeRecurrence.js";
+import {
+  financeRecurrenceSupportedPostgres,
+  financeRecurrenceSupportedRest,
+} from "./financeRecurrenceSupport.js";
 
 export type FinanceEntryKind = "income" | "expense";
+export type { FinanceRecurrence };
 
 export interface FinanceEntry {
   id: string;
@@ -9,6 +18,7 @@ export interface FinanceEntry {
   category: string;
   kind: FinanceEntryKind;
   occurredOn: string;
+  recurrence: FinanceRecurrence;
   createdAt: string;
 }
 
@@ -47,6 +57,7 @@ interface FinanceEntryRow {
   category: string;
   kind: FinanceEntryKind;
   occurred_on: string;
+  recurrence?: string | null;
   created_at: string;
 }
 
@@ -76,6 +87,17 @@ export interface CreateFinanceEntryInput {
   category: string;
   kind: FinanceEntryKind;
   occurredOn?: string;
+  recurrence?: FinanceRecurrence;
+  userId?: string | null;
+}
+
+export interface UpdateFinanceEntryInput {
+  label: string;
+  amountCents: number;
+  category: string;
+  kind: FinanceEntryKind;
+  occurredOn?: string;
+  recurrence?: FinanceRecurrence;
   userId?: string | null;
 }
 
@@ -119,6 +141,7 @@ function mapEntry(row: FinanceEntryRow): FinanceEntry {
     category: row.category,
     kind: row.kind,
     occurredOn: row.occurred_on,
+    recurrence: normalizeRecurrence(row.recurrence ?? "none"),
     createdAt: row.created_at,
   };
 }
@@ -154,6 +177,8 @@ export async function listFinanceEntries(
   userId?: string | null,
 ): Promise<FinanceEntry[]> {
   const scope = scopeClause(userId);
+  const withRecurrence = await financeRecurrenceSupportedPostgres(pool);
+  const recurrenceSelect = withRecurrence ? "recurrence," : "'none'::text as recurrence,";
   const result = await pool.query<FinanceEntryRow>(
     `select
        id,
@@ -162,6 +187,7 @@ export async function listFinanceEntries(
        category,
        kind,
        occurred_on::text as occurred_on,
+       ${recurrenceSelect}
        created_at::text as created_at
        from public.finance_entries
        ${scope.sql}
@@ -215,6 +241,42 @@ export async function createFinanceEntry(
   pool: pg.Pool,
   input: CreateFinanceEntryInput,
 ): Promise<FinanceEntry> {
+  const withRecurrence = await financeRecurrenceSupportedPostgres(pool);
+  const recurrence = normalizeRecurrence(input.recurrence);
+
+  if (withRecurrence) {
+    const result = await pool.query<FinanceEntryRow>(
+      `insert into public.finance_entries
+         (user_id, label, amount_cents, category, kind, occurred_on, recurrence)
+       values ($1, $2, $3, $4, $5, coalesce($6::date, current_date), $7)
+       returning
+         id,
+         label,
+         amount_cents,
+         category,
+         kind,
+         occurred_on::text as occurred_on,
+         recurrence,
+         created_at::text as created_at`,
+      [
+        input.userId ?? null,
+        input.label,
+        input.amountCents,
+        input.category,
+        input.kind,
+        input.occurredOn ?? null,
+        recurrence,
+      ],
+    );
+    return mapEntry(result.rows[0]);
+  }
+
+  if (recurrence !== "none") {
+    throw new Error(
+      "Recurring finance entries need the finance recurrence migration. Ask the database maintainer to run supabase push.",
+    );
+  }
+
   const result = await pool.query<FinanceEntryRow>(
     `insert into public.finance_entries
        (user_id, label, amount_cents, category, kind, occurred_on)
@@ -226,6 +288,7 @@ export async function createFinanceEntry(
        category,
        kind,
        occurred_on::text as occurred_on,
+       'none'::text as recurrence,
        created_at::text as created_at`,
     [
       input.userId ?? null,
@@ -260,6 +323,119 @@ export async function listFinanceMonthlyTotals(
     scope.values,
   );
   return result.rows.map(mapMonthlyTotal);
+}
+
+export async function updateFinanceEntry(
+  pool: pg.Pool,
+  entryId: string,
+  input: UpdateFinanceEntryInput,
+): Promise<FinanceEntry | null> {
+  const withRecurrence = await financeRecurrenceSupportedPostgres(pool);
+  const recurrence = normalizeRecurrence(input.recurrence);
+
+  if (withRecurrence) {
+    const scope = input.userId ? "user_id = $8" : "user_id is null";
+    const values = input.userId
+      ? [
+          input.label,
+          input.amountCents,
+          input.category,
+          input.kind,
+          input.occurredOn ?? null,
+          recurrence,
+          entryId,
+          input.userId,
+        ]
+      : [
+          input.label,
+          input.amountCents,
+          input.category,
+          input.kind,
+          input.occurredOn ?? null,
+          recurrence,
+          entryId,
+        ];
+
+    const result = await pool.query<FinanceEntryRow>(
+      `update public.finance_entries
+         set
+           label = $1,
+           amount_cents = $2,
+           category = $3,
+           kind = $4,
+           occurred_on = coalesce($5::date, occurred_on),
+           recurrence = $6
+         where id = $7 and ${scope}
+         returning
+           id,
+           label,
+           amount_cents,
+           category,
+           kind,
+           occurred_on::text as occurred_on,
+           recurrence,
+           created_at::text as created_at`,
+      values,
+    );
+    return result.rows[0] ? mapEntry(result.rows[0]) : null;
+  }
+
+  if (recurrence !== "none") {
+    throw new Error(
+      "Recurring finance entries need the finance recurrence migration. Ask the database maintainer to run supabase push.",
+    );
+  }
+
+  const scope = input.userId ? "user_id = $7" : "user_id is null";
+  const values = input.userId
+    ? [
+        input.label,
+        input.amountCents,
+        input.category,
+        input.kind,
+        input.occurredOn ?? null,
+        entryId,
+        input.userId,
+      ]
+    : [
+        input.label,
+        input.amountCents,
+        input.category,
+        input.kind,
+        input.occurredOn ?? null,
+        entryId,
+      ];
+
+  const result = await pool.query<FinanceEntryRow>(
+    `update public.finance_entries
+       set
+         label = $1,
+         amount_cents = $2,
+         category = $3,
+         kind = $4,
+         occurred_on = coalesce($5::date, occurred_on)
+       where id = $6 and ${scope}
+       returning
+         id,
+         label,
+         amount_cents,
+         category,
+         kind,
+         occurred_on::text as occurred_on,
+         'none'::text as recurrence,
+         created_at::text as created_at`,
+    values,
+  );
+  return result.rows[0] ? mapEntry(result.rows[0]) : null;
+}
+
+export async function getFinanceEntry(
+  pool: pg.Pool,
+  entryId: string,
+  userId?: string | null,
+): Promise<FinanceEntry | null> {
+  const entries = await listFinanceEntries(pool, userId);
+  return entries.find((entry) => entry.id === entryId) ?? null;
 }
 
 export async function deleteFinanceEntry(
@@ -325,11 +501,23 @@ export function canUseFinanceRest(): boolean {
   return Boolean(getSupabaseRestConfig());
 }
 
+export async function isFinanceRecurrenceSupported(pool?: pg.Pool | null): Promise<boolean> {
+  if (pool) return financeRecurrenceSupportedPostgres(pool);
+  if (canUseFinanceRest()) return financeRecurrenceSupportedRest();
+  return false;
+}
+
 export async function listFinanceEntriesViaRest(userId?: string | null): Promise<FinanceEntry[]> {
   const config = requireSupabaseRestConfig();
   const userFilter = userId ? `eq.${encodeURIComponent(userId)}` : "is.null";
+  const withRecurrence = await financeRecurrenceSupportedRest();
   const url = new URL(`${config.url}/rest/v1/finance_entries`);
-  url.searchParams.set("select", "id,label,amount_cents,category,kind,occurred_on,created_at");
+  url.searchParams.set(
+    "select",
+    withRecurrence
+      ? "id,label,amount_cents,category,kind,occurred_on,recurrence,created_at"
+      : "id,label,amount_cents,category,kind,occurred_on,created_at",
+  );
   url.searchParams.set("user_id", userFilter);
   url.searchParams.set("order", "occurred_on.desc,created_at.desc");
 
@@ -389,6 +577,15 @@ export async function listFinanceMonthlyTotalsViaRest(userId?: string | null): P
 
 export async function createFinanceEntryViaRest(input: CreateFinanceEntryInput): Promise<FinanceEntry> {
   const config = requireSupabaseRestConfig();
+  const withRecurrence = await financeRecurrenceSupportedRest();
+  const recurrence = normalizeRecurrence(input.recurrence);
+
+  if (!withRecurrence && recurrence !== "none") {
+    throw new Error(
+      "Recurring finance entries need the finance recurrence migration. Ask the database maintainer to run supabase push.",
+    );
+  }
+
   const response = await fetch(`${config.url}/rest/v1/finance_entries`, {
     method: "POST",
     headers: financeRestHeaders({
@@ -402,6 +599,7 @@ export async function createFinanceEntryViaRest(input: CreateFinanceEntryInput):
       category: input.category,
       kind: input.kind,
       occurred_on: input.occurredOn ?? new Date().toISOString().slice(0, 10),
+      ...(withRecurrence ? { recurrence } : {}),
     }),
   });
 
@@ -411,6 +609,56 @@ export async function createFinanceEntryViaRest(input: CreateFinanceEntryInput):
 
   const rows = (await response.json()) as FinanceEntryRow[];
   return mapEntry(rows[0]);
+}
+
+export async function updateFinanceEntryViaRest(
+  entryId: string,
+  input: UpdateFinanceEntryInput,
+): Promise<FinanceEntry | null> {
+  const config = requireSupabaseRestConfig();
+  const withRecurrence = await financeRecurrenceSupportedRest();
+  const recurrence = normalizeRecurrence(input.recurrence);
+
+  if (!withRecurrence && recurrence !== "none") {
+    throw new Error(
+      "Recurring finance entries need the finance recurrence migration. Ask the database maintainer to run supabase push.",
+    );
+  }
+
+  const url = new URL(`${config.url}/rest/v1/finance_entries`);
+  url.searchParams.set("id", `eq.${entryId}`);
+  url.searchParams.set("user_id", input.userId ? `eq.${encodeURIComponent(input.userId)}` : "is.null");
+
+  const response = await fetch(url, {
+    method: "PATCH",
+    headers: financeRestHeaders({
+      "Content-Type": "application/json",
+      Prefer: "return=representation",
+    }),
+    body: JSON.stringify({
+      label: input.label,
+      amount_cents: input.amountCents,
+      category: input.category,
+      kind: input.kind,
+      ...(input.occurredOn ? { occurred_on: input.occurredOn } : {}),
+      ...(withRecurrence ? { recurrence } : {}),
+    }),
+  });
+
+  if (!response.ok) {
+    throw new Error(`Finance REST update failed: ${response.status} ${await response.text()}`);
+  }
+
+  const rows = (await response.json()) as FinanceEntryRow[];
+  return rows[0] ? mapEntry(rows[0]) : null;
+}
+
+export async function getFinanceEntryViaRest(
+  entryId: string,
+  userId?: string | null,
+): Promise<FinanceEntry | null> {
+  const entries = await listFinanceEntriesViaRest(userId);
+  return entries.find((entry) => entry.id === entryId) ?? null;
 }
 
 export async function deleteFinanceEntryViaRest(

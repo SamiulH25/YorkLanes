@@ -1,5 +1,6 @@
 /** Task guide: docs/tasks/finance.md */
 import { getApiUrl } from "./api-url";
+import type { FinanceRecurrence } from "./finance-recurrence";
 
 const API_URL = getApiUrl();
 
@@ -12,6 +13,7 @@ export interface FinanceEntry {
   category: string;
   kind: FinanceEntryKind;
   occurredOn: string;
+  recurrence: FinanceRecurrence;
   createdAt: string;
 }
 
@@ -48,6 +50,7 @@ export interface FinanceResponse extends FinanceEntriesResponse {
   status: string;
   message: string;
   balance: number;
+  recurrenceSupported?: boolean;
 }
 
 export async function fetchFinance(): Promise<FinanceResponse> {
@@ -88,4 +91,48 @@ export async function deleteFinanceEntry(entryId: string): Promise<{ deleted: bo
   const response = await fetch(`${API_URL}/api/finance/entries/${entryId}`, { method: "DELETE" });
   if (!response.ok) throw new Error(`Finance delete API error: ${response.status}`);
   return response.json() as Promise<{ deleted: boolean; summary: FinanceSummary }>;
+}
+
+export async function updateFinanceEntry(input: {
+  entryId: string;
+  label: string;
+  amount: number;
+  category: string;
+  kind: FinanceEntryKind;
+  occurredOn?: string;
+  recurrence?: FinanceRecurrence;
+}): Promise<{ entry: FinanceEntry; summary: FinanceSummary }> {
+  const response = await fetch(`${API_URL}/api/finance/entries/${input.entryId}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      label: input.label,
+      amount: input.amount,
+      category: input.category,
+      kind: input.kind,
+      occurredOn: input.occurredOn,
+      recurrence: input.recurrence,
+    }),
+  });
+  if (!response.ok) throw new Error(`Finance update API error: ${response.status}`);
+  return response.json() as Promise<{ entry: FinanceEntry; summary: FinanceSummary }>;
+}
+
+export async function createNextFinanceEntry(
+  entryId: string,
+): Promise<{ entry: FinanceEntry; summary: FinanceSummary; sourceId: string }> {
+  const response = await fetch(`${API_URL}/api/finance/entries/${entryId}/next`, {
+    method: "POST",
+  });
+  if (!response.ok) throw new Error(`Finance next occurrence API error: ${response.status}`);
+  return response.json() as Promise<{ entry: FinanceEntry; summary: FinanceSummary; sourceId: string }>;
+}
+
+export async function fetchFinanceCategories(): Promise<{
+  expense: string[];
+  income: string[];
+}> {
+  const response = await fetch(`${API_URL}/api/finance/categories`);
+  if (!response.ok) throw new Error(`Finance categories API error: ${response.status}`);
+  return response.json() as Promise<{ expense: string[]; income: string[] }>;
 }

@@ -75,6 +75,7 @@ Never put the service role key in the frontend.
 | `20250619230000_add_plan_course_completed.sql` | Re-apply completion column if drift |
 | `20250629000000_finance_entries.sql` | Finance income and expense entries |
 | `20250629010000_finance_monthly_budgets.sql` | Finance monthly budget targets |
+| `20260710000000_assignments_user_scope.sql` | Assignments user scoping + RLS |
 
 Full schema reference: [`docs/database.md`](../docs/database.md).
 

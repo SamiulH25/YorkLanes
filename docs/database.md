@@ -76,6 +76,7 @@ The API detects whether `completed` exists at runtime (`planCourseSchema.ts`) fo
 | `20250629000000_finance_entries.sql` | `finance_entries` income and expense table |
 | `20250629010000_finance_monthly_budgets.sql` | `finance_monthly_budgets` monthly budget table |
 | `20250710000000_finance_entry_recurrence.sql` | Add recurring-entry schedule support |
+| `20260710000000_assignments_user_scope.sql` | `assignments` `user_id` + `created_at`, per-user title, RLS |
 
 ### Finance module
 
@@ -109,9 +110,30 @@ The API detects whether `completed` exists at runtime (`planCourseSchema.ts`) fo
 | `created_at` | timestamptz | Insert timestamp |
 | `updated_at` | timestamptz | Last update timestamp |
 
+### Assignments module
+
+| Table | Purpose |
+|-------|---------|
+| `assignments` | Assignment calendar rows for the `/assignments` page |
+
+#### `assignments` columns
+
+| Column | Type | Notes |
+|--------|------|-------|
+| `id` | uuid | Primary key |
+| `user_id` | uuid | Nullable until auth is fully enforced |
+| `title` | text | Assignment name (unique per user) |
+| `course_code` | text | e.g. `EECS 2311` |
+| `description` | text | Optional notes |
+| `due_at` | timestamptz | Due date/time |
+| `done` | boolean | Completion flag (default false) |
+| `created_at` | timestamptz | Insert timestamp |
+
+The base table ships in `20250619000002_yorklanes_core_schema.sql`; `20260710000000_assignments_user_scope.sql` adds `user_id`, `created_at`, per-user title uniqueness, and RLS.
+
 ## Row Level Security
 
-RLS is **enabled** on plan and finance tables. Current policies allow all operations (`using (true)`) because there is no authenticated user session yet. Before production with real users:
+RLS is **enabled** on plan, finance, and assignment tables. Current policies allow all operations (`using (true)`) because there is no authenticated user session yet. Before production with real users:
 
 1. Scope `degree_plans` to `auth.uid()` or API-set `user_id`
 2. Replace open policies with `user_id = current_setting('app.user_id')::uuid` or Supabase Auth helpers

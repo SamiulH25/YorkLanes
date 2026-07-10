@@ -33,13 +33,15 @@ function formatCredits(credits: number | null): string {
 <DashboardLayout title="Courses | YorkLanes" activeNav="courses">
   <Fragment slot="header">
     <div class="flex flex-wrap items-start justify-between gap-4">
-      <div>
-        <p class="label">Catalogue</p>
+      <div> 
+        <p class="text-xs font-medium text-york-muted">Catalogue</p>
         <h1 class="heading-page">Course Explorer</h1>
         <p class="mt-0.5 text-sm text-muted">
-          {total === 0 && !loadError
-            ? "No courses in the catalogue yet."
-            : `${total} course${total === 1 ? "" : "s"} in the York catalogue`}
+          {
+            `Found ${
+              total === 0 ? "no" : total
+            } Course${total === 1 ? "" : "s"} in the York Catalogue`
+          }
         </p>
       </div>
     </div>
@@ -53,7 +55,7 @@ function formatCredits(credits: number | null): string {
     )
   }
 
-  <form method="get" class="surface motion-on-scroll mb-6 flex flex-col gap-4 p-4 sm:flex-row sm:items-end sm:p-5">
+  <form method="get" class="surface mb-6 flex flex-col gap-4 p-4 sm:flex-row sm:items-end sm:p-5">
     <div class="min-w-0 flex-1">
       <label for="course-search" class="label">Search</label>
       <input
@@ -68,7 +70,7 @@ function formatCredits(credits: number | null): string {
     <div class="sm:w-52">
       <label for="course-department" class="label">Department</label>
       <select id="course-department" name="department" class="field-select">
-        <option value="">All departments</option>
+        <option value="">All Departments</option>
         {departments.map((dept) => (
           <option value={dept} selected={dept === department}>
             {dept}
@@ -102,15 +104,25 @@ function formatCredits(credits: number | null): string {
     ) : (
       <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
         {
-          courses.map((course) => (
-            <a href={courseDetailPath(course.code)} class="course-card surface group">
+          courses.map((course, index) => (
+            <a
+              href={courseDetailPath(course.code)}
+              class="course-card motion-on-scroll surface group"
+              style={`transition-delay: ${
+                Math.floor(index / 4) < 4
+                  ? Math.floor(index / 4) * 100 + (index % 4) * 50
+                  : (index % 4) * 50
+              }ms;`}
+            >
               <div class="flex items-start justify-between gap-2">
-                <span class="font-mono text-sm font-bold tracking-tight text-brand">{course.code}</span>
-                {
-                  course.department && (
-                    <span class="badge bg-surface-muted text-muted shrink-0">{course.department}</span>
-                  )
-                }
+                <span class="text-sm font-bold text-brand">{course.code}</span>
+                <!--
+                  {
+                    course.department && (
+                      <span class="badge bg-surface-muted text-muted shrink-0">{course.department}</span>
+                    )
+                  }
+                -->
               </div>
               <p class="course-card__title mt-3 flex-1 text-sm font-semibold leading-snug text-foreground group-hover:text-brand">
                 {course.title}

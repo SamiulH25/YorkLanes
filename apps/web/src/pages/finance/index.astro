@@ -1,5 +1,5 @@
 ---
-/** Finance module — Taziz. Local-first until SUPABASE_DB_URL is available. */
+/** Finance module — Taziz. Guide: docs/tasks/finance.md */
 import DashboardLayout from "../../layouts/DashboardLayout.astro";
 
 export const prerender = false;
@@ -107,12 +107,16 @@ const categories = ["Tuition", "Rent", "Personal", "Food", "Books", "Income", "O
     <section class="surface p-5 xl:row-span-2">
       <div class="widget-header">
         <div>
-          <p class="label">New entry</p>
-          <h2 class="heading-widget mt-1">Log money</h2>
+          <p class="label">Entry form</p>
+          <h2 data-finance-form-title class="heading-widget mt-1">Log money</h2>
         </div>
+        <button type="button" data-finance-cancel-edit class="btn-ghost hidden px-3 py-2 text-xs">
+          Cancel edit
+        </button>
       </div>
 
       <form data-finance-form class="mt-5 space-y-4">
+        <input data-finance-edit-id type="hidden" name="entryId" value="" />
         <div class="grid grid-cols-2 gap-2 rounded-xl bg-york-cream/70 p-1 dark:bg-york-graphite">
           <label class="cursor-pointer">
             <input class="peer sr-only" type="radio" name="kind" value="expense" checked />
@@ -172,7 +176,7 @@ const categories = ["Tuition", "Rent", "Personal", "Food", "Books", "Income", "O
           </label>
         </div>
 
-        <button type="submit" class="btn-york w-full">Add entry</button>
+        <button data-finance-submit type="submit" class="btn-york w-full">Add entry</button>
       </form>
     </section>
 

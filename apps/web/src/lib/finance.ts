@@ -89,3 +89,26 @@ export async function deleteFinanceEntry(entryId: string): Promise<{ deleted: bo
   if (!response.ok) throw new Error(`Finance delete API error: ${response.status}`);
   return response.json() as Promise<{ deleted: boolean; summary: FinanceSummary }>;
 }
+
+export async function updateFinanceEntry(input: {
+  entryId: string;
+  label: string;
+  amount: number;
+  category: string;
+  kind: FinanceEntryKind;
+  occurredOn?: string;
+}): Promise<{ entry: FinanceEntry; summary: FinanceSummary }> {
+  const response = await fetch(`${API_URL}/api/finance/entries/${input.entryId}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      label: input.label,
+      amount: input.amount,
+      category: input.category,
+      kind: input.kind,
+      occurredOn: input.occurredOn,
+    }),
+  });
+  if (!response.ok) throw new Error(`Finance update API error: ${response.status}`);
+  return response.json() as Promise<{ entry: FinanceEntry; summary: FinanceSummary }>;
+}

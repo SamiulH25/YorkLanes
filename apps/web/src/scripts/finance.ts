@@ -121,6 +121,26 @@ async function deleteApiEntry(entryId: string): Promise<void> {
   if (!response.ok) throw new Error(`Finance delete API error: ${response.status}`);
 }
 
+async function patchApiEntry(
+  entryId: string,
+  entry: Omit<FinanceEntry, "id" | "createdAt">,
+): Promise<FinanceEntry> {
+  const response = await fetch(`/api/finance/entries/${entryId}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      label: entry.label,
+      amount: entry.amountCents / 100,
+      category: entry.category,
+      kind: entry.kind,
+      occurredOn: entry.occurredOn,
+    }),
+  });
+  if (!response.ok) throw new Error(`Finance update API error: ${response.status}`);
+  const data = (await response.json()) as { entry: FinanceEntry };
+  return data.entry;
+}
+
 async function fetchApiBudget(month: string): Promise<FinanceBudget> {
   const response = await fetch(`/api/finance/budget/${month}`);
   if (!response.ok) throw new Error(`Finance budget API error: ${response.status}`);
@@ -203,6 +223,7 @@ function render(
   budgetCents: number,
   selectedMonth: string,
   monthOnly: boolean,
+  editingId: string | null = null,
 ): void {
   const visibleEntries = getVisibleEntries(entries, selectedMonth, monthOnly);
   const incomeCents = visibleEntries
@@ -219,13 +240,61 @@ function render(
   if (income) income.textContent = formatCents(incomeCents);
   if (expenses) expenses.textContent = formatCents(expenseCents);
 
-  renderList(root, visibleEntries);
+  renderList(root, visibleEntries, editingId);
   renderChart(root, visibleEntries);
   renderBudget(root, entries, budgetCents, selectedMonth);
   renderTrend(root, entries);
 }
 
-function renderList(root: HTMLElement, entries: FinanceEntry[]): void {
+function setEditMode(root: HTMLElement, entry: FinanceEntry | null): void {
+  const form = root.querySelector<HTMLFormElement>("[data-finance-form]");
+  const editIdInput = root.querySelector<HTMLInputElement>("[data-finance-edit-id]");
+  const title = root.querySelector<HTMLElement>("[data-finance-form-title]");
+  const submit = root.querySelector<HTMLButtonElement>("[data-finance-submit]");
+  const cancel = root.querySelector<HTMLButtonElement>("[data-finance-cancel-edit]");
+  if (!form || !editIdInput || !title || !submit || !cancel) return;
+
+  if (!entry) {
+    editIdInput.value = "";
+    title.textContent = "Log money";
+    submit.textContent = "Add entry";
+    cancel.classList.add("hidden");
+    form.reset();
+    const expenseRadio = form.querySelector<HTMLInputElement>('input[name="kind"][value="expense"]');
+    if (expenseRadio) expenseRadio.checked = true;
+    return;
+  }
+
+  editIdInput.value = entry.id;
+  title.textContent = "Edit entry";
+  submit.textContent = "Save changes";
+  cancel.classList.remove("hidden");
+
+  const labelInput = form.querySelector<HTMLInputElement>('input[name="label"]');
+  const amountInput = form.querySelector<HTMLInputElement>('input[name="amount"]');
+  const categorySelect = form.querySelector<HTMLSelectElement>('select[name="category"]');
+  const dateInput = form.querySelector<HTMLInputElement>('input[name="occurredOn"]');
+  const kindRadio = form.querySelector<HTMLInputElement>(`input[name="kind"][value="${entry.kind}"]`);
+
+  if (labelInput) labelInput.value = entry.label;
+  if (amountInput) amountInput.value = (entry.amountCents / 100).toFixed(2);
+  if (categorySelect) {
+    const hasOption = [...categorySelect.options].some((option) => option.value === entry.category);
+    if (!hasOption) {
+      const option = document.createElement("option");
+      option.value = entry.category;
+      option.textContent = entry.category;
+      categorySelect.append(option);
+    }
+    categorySelect.value = entry.category;
+  }
+  if (dateInput) dateInput.value = entry.occurredOn;
+  if (kindRadio) kindRadio.checked = true;
+
+  labelInput?.focus();
+}
+
+function renderList(root: HTMLElement, entries: FinanceEntry[], editingId: string | null): void {
   const list = root.querySelector<HTMLUListElement>("[data-finance-list]");
   const empty = root.querySelector<HTMLElement>("[data-finance-empty]");
   if (!list || !empty) return;
@@ -236,7 +305,10 @@ function renderList(root: HTMLElement, entries: FinanceEntry[]): void {
 
   for (const entry of entries) {
     const row = document.createElement("li");
-    row.className = "flex items-center justify-between gap-3 py-3";
+    row.className =
+      editingId === entry.id
+        ? "flex items-center justify-between gap-3 py-3 rounded-lg bg-york-cream/60 px-2 dark:bg-york-graphite/80"
+        : "flex items-center justify-between gap-3 py-3";
 
     const meta = document.createElement("div");
     meta.className = "min-w-0";
@@ -247,7 +319,7 @@ function renderList(root: HTMLElement, entries: FinanceEntry[]): void {
 
     const detail = document.createElement("p");
     detail.className = "mt-0.5 text-xs text-york-muted";
-    detail.textContent = `${entry.category} · ${new Date(entry.occurredOn).toLocaleDateString("en-CA")}`;
+    detail.textContent = `${entry.category} · ${entry.occurredOn}`;
 
     const amount = document.createElement("p");
     amount.className =
@@ -256,15 +328,27 @@ function renderList(root: HTMLElement, entries: FinanceEntry[]): void {
         : "shrink-0 text-sm font-semibold text-york-red";
     amount.textContent = `${entry.kind === "income" ? "+" : "-"}${formatCents(entry.amountCents)}`;
 
+    const actions = document.createElement("div");
+    actions.className = "flex shrink-0 items-center gap-2";
+
+    const edit = document.createElement("button");
+    edit.type = "button";
+    edit.dataset.financeEdit = entry.id;
+    edit.className =
+      "rounded-lg border border-york-stone/60 px-2 py-1 text-xs font-semibold text-york-muted transition hover:border-york-red/30 hover:text-york-red dark:border-white/10";
+    edit.textContent = editingId === entry.id ? "Editing" : "Edit";
+    edit.disabled = editingId === entry.id;
+
     const remove = document.createElement("button");
     remove.type = "button";
     remove.dataset.financeDelete = entry.id;
     remove.className =
-      "shrink-0 rounded-lg border border-york-stone/60 px-2 py-1 text-xs font-semibold text-york-muted transition hover:border-york-red/30 hover:text-york-red dark:border-white/10";
+      "rounded-lg border border-york-stone/60 px-2 py-1 text-xs font-semibold text-york-muted transition hover:border-york-red/30 hover:text-york-red dark:border-white/10";
     remove.textContent = "Delete";
 
     meta.append(label, detail);
-    row.append(meta, amount, remove);
+    actions.append(edit, remove);
+    row.append(meta, amount, actions);
     list.append(row);
   }
 }
@@ -428,14 +512,16 @@ async function initFinance(root: HTMLElement): Promise<void> {
   const monthFilter = root.querySelector<HTMLInputElement>("[data-finance-month-filter]");
   const exportButton = root.querySelector<HTMLButtonElement>("[data-finance-export]");
   const clear = root.querySelector<HTMLButtonElement>("[data-finance-clear]");
+  const cancelEdit = root.querySelector<HTMLButtonElement>("[data-finance-cancel-edit]");
   let entries = readEntries();
   let selectedMonth = currentMonth();
   let budgetCents = readBudgets()[selectedMonth] ?? 0;
   let monthOnly = false;
   let apiAvailable = false;
+  let editingId: string | null = null;
 
   if (monthInput) monthInput.value = selectedMonth;
-  render(root, entries, budgetCents, selectedMonth, monthOnly);
+  render(root, entries, budgetCents, selectedMonth, monthOnly, editingId);
   setMode(root, apiAvailable);
 
   try {
@@ -446,12 +532,22 @@ async function initFinance(root: HTMLElement): Promise<void> {
     entries = apiEntries;
     budgetCents = apiBudget.amountCents;
     apiAvailable = true;
-    render(root, entries, budgetCents, selectedMonth, monthOnly);
+    render(root, entries, budgetCents, selectedMonth, monthOnly, editingId);
     setMode(root, apiAvailable);
   } catch {
     apiAvailable = false;
     setMode(root, apiAvailable);
   }
+
+  const clearEditMode = (): void => {
+    editingId = null;
+    setEditMode(root, null);
+    render(root, entries, budgetCents, selectedMonth, monthOnly, editingId);
+  };
+
+  cancelEdit?.addEventListener("click", () => {
+    clearEditMode();
+  });
 
   form?.addEventListener("submit", async (event) => {
     event.preventDefault();
@@ -461,6 +557,7 @@ async function initFinance(root: HTMLElement): Promise<void> {
     const amountCents = parseAmountCents(formData.get("amount"));
     const kind: FinanceKind = formData.get("kind") === "income" ? "income" : "expense";
     const occurredOn = String(formData.get("occurredOn") || new Date().toISOString().slice(0, 10));
+    const entryId = String(formData.get("entryId") ?? "").trim() || editingId;
 
     if (!label || amountCents <= 0) return;
 
@@ -472,12 +569,38 @@ async function initFinance(root: HTMLElement): Promise<void> {
       occurredOn,
     };
 
+    if (entryId) {
+      if (apiAvailable) {
+        try {
+          const saved = await patchApiEntry(entryId, nextEntry);
+          entries = entries.map((entry) => (entry.id === entryId ? saved : entry));
+          clearEditMode();
+          return;
+        } catch {
+          apiAvailable = false;
+          setMode(root, apiAvailable);
+        }
+      }
+
+      entries = entries.map((entry) =>
+        entry.id === entryId
+          ? {
+              ...entry,
+              ...nextEntry,
+            }
+          : entry,
+      );
+      writeEntries(entries);
+      clearEditMode();
+      return;
+    }
+
     if (apiAvailable) {
       try {
         const saved = await postApiEntry(nextEntry);
         entries = [saved, ...entries];
         form.reset();
-        render(root, entries, budgetCents, selectedMonth, monthOnly);
+        render(root, entries, budgetCents, selectedMonth, monthOnly, editingId);
         return;
       } catch {
         apiAvailable = false;
@@ -495,7 +618,7 @@ async function initFinance(root: HTMLElement): Promise<void> {
     ];
     writeEntries(entries);
     form.reset();
-    render(root, entries, budgetCents, selectedMonth, monthOnly);
+    render(root, entries, budgetCents, selectedMonth, monthOnly, editingId);
   });
 
   budgetForm?.addEventListener("submit", async (event) => {
@@ -511,7 +634,7 @@ async function initFinance(root: HTMLElement): Promise<void> {
       try {
         const saved = await putApiBudget(month, amountCents);
         budgetCents = saved.amountCents;
-        render(root, entries, budgetCents, selectedMonth, monthOnly);
+        render(root, entries, budgetCents, selectedMonth, monthOnly, editingId);
         return;
       } catch {
         apiAvailable = false;
@@ -521,7 +644,7 @@ async function initFinance(root: HTMLElement): Promise<void> {
 
     budgetCents = amountCents;
     writeBudget(month, budgetCents);
-    render(root, entries, budgetCents, selectedMonth, monthOnly);
+    render(root, entries, budgetCents, selectedMonth, monthOnly, editingId);
   });
 
   monthInput?.addEventListener("change", async () => {
@@ -533,7 +656,7 @@ async function initFinance(root: HTMLElement): Promise<void> {
       try {
         const saved = await fetchApiBudget(month);
         budgetCents = saved.amountCents;
-        render(root, entries, budgetCents, selectedMonth, monthOnly);
+        render(root, entries, budgetCents, selectedMonth, monthOnly, editingId);
         return;
       } catch {
         apiAvailable = false;
@@ -542,12 +665,12 @@ async function initFinance(root: HTMLElement): Promise<void> {
     }
 
     budgetCents = readBudgets()[selectedMonth] ?? 0;
-    render(root, entries, budgetCents, selectedMonth, monthOnly);
+    render(root, entries, budgetCents, selectedMonth, monthOnly, editingId);
   });
 
   monthFilter?.addEventListener("change", () => {
     monthOnly = monthFilter.checked;
-    render(root, entries, budgetCents, selectedMonth, monthOnly);
+    render(root, entries, budgetCents, selectedMonth, monthOnly, editingId);
   });
 
   exportButton?.addEventListener("click", () => {
@@ -558,20 +681,39 @@ async function initFinance(root: HTMLElement): Promise<void> {
     if (apiAvailable) return;
     entries = [];
     writeEntries(entries);
-    render(root, entries, budgetCents, selectedMonth, monthOnly);
+    clearEditMode();
   });
 
   root.addEventListener("click", async (event) => {
-    const target = event.target instanceof Element ? event.target.closest<HTMLButtonElement>("[data-finance-delete]") : null;
+    const target = event.target instanceof Element ? event.target : null;
     if (!target) return;
-    const entryId = target.dataset.financeDelete;
+
+    const editButton = target.closest<HTMLButtonElement>("[data-finance-edit]");
+    if (editButton) {
+      const entryId = editButton.dataset.financeEdit;
+      if (!entryId) return;
+      const entry = entries.find((item) => item.id === entryId);
+      if (!entry) return;
+      editingId = entry.id;
+      setEditMode(root, entry);
+      render(root, entries, budgetCents, selectedMonth, monthOnly, editingId);
+      return;
+    }
+
+    const deleteButton = target.closest<HTMLButtonElement>("[data-finance-delete]");
+    if (!deleteButton) return;
+    const entryId = deleteButton.dataset.financeDelete;
     if (!entryId) return;
 
     if (apiAvailable) {
       try {
         await deleteApiEntry(entryId);
         entries = entries.filter((entry) => entry.id !== entryId);
-        render(root, entries, budgetCents, selectedMonth, monthOnly);
+        if (editingId === entryId) {
+          clearEditMode();
+          return;
+        }
+        render(root, entries, budgetCents, selectedMonth, monthOnly, editingId);
         return;
       } catch {
         apiAvailable = false;
@@ -581,7 +723,11 @@ async function initFinance(root: HTMLElement): Promise<void> {
 
     entries = entries.filter((entry) => entry.id !== entryId);
     writeEntries(entries);
-    render(root, entries, budgetCents, selectedMonth, monthOnly);
+    if (editingId === entryId) {
+      clearEditMode();
+      return;
+    }
+    render(root, entries, budgetCents, selectedMonth, monthOnly, editingId);
   });
 }
 

@@ -79,6 +79,15 @@ export interface CreateFinanceEntryInput {
   userId?: string | null;
 }
 
+export interface UpdateFinanceEntryInput {
+  label: string;
+  amountCents: number;
+  category: string;
+  kind: FinanceEntryKind;
+  occurredOn?: string;
+  userId?: string | null;
+}
+
 export interface UpsertFinanceBudgetInput {
   month: string;
   amountCents: number;
@@ -262,6 +271,53 @@ export async function listFinanceMonthlyTotals(
   return result.rows.map(mapMonthlyTotal);
 }
 
+export async function updateFinanceEntry(
+  pool: pg.Pool,
+  entryId: string,
+  input: UpdateFinanceEntryInput,
+): Promise<FinanceEntry | null> {
+  const scope = input.userId ? "user_id = $7" : "user_id is null";
+  const values = input.userId
+    ? [
+        input.label,
+        input.amountCents,
+        input.category,
+        input.kind,
+        input.occurredOn ?? null,
+        entryId,
+        input.userId,
+      ]
+    : [
+        input.label,
+        input.amountCents,
+        input.category,
+        input.kind,
+        input.occurredOn ?? null,
+        entryId,
+      ];
+
+  const result = await pool.query<FinanceEntryRow>(
+    `update public.finance_entries
+       set
+         label = $1,
+         amount_cents = $2,
+         category = $3,
+         kind = $4,
+         occurred_on = coalesce($5::date, occurred_on)
+       where id = $6 and ${scope}
+       returning
+         id,
+         label,
+         amount_cents,
+         category,
+         kind,
+         occurred_on::text as occurred_on,
+         created_at::text as created_at`,
+    values,
+  );
+  return result.rows[0] ? mapEntry(result.rows[0]) : null;
+}
+
 export async function deleteFinanceEntry(
   pool: pg.Pool,
   entryId: string,
@@ -411,6 +467,38 @@ export async function createFinanceEntryViaRest(input: CreateFinanceEntryInput):
 
   const rows = (await response.json()) as FinanceEntryRow[];
   return mapEntry(rows[0]);
+}
+
+export async function updateFinanceEntryViaRest(
+  entryId: string,
+  input: UpdateFinanceEntryInput,
+): Promise<FinanceEntry | null> {
+  const config = requireSupabaseRestConfig();
+  const url = new URL(`${config.url}/rest/v1/finance_entries`);
+  url.searchParams.set("id", `eq.${entryId}`);
+  url.searchParams.set("user_id", input.userId ? `eq.${encodeURIComponent(input.userId)}` : "is.null");
+
+  const response = await fetch(url, {
+    method: "PATCH",
+    headers: financeRestHeaders({
+      "Content-Type": "application/json",
+      Prefer: "return=representation",
+    }),
+    body: JSON.stringify({
+      label: input.label,
+      amount_cents: input.amountCents,
+      category: input.category,
+      kind: input.kind,
+      ...(input.occurredOn ? { occurred_on: input.occurredOn } : {}),
+    }),
+  });
+
+  if (!response.ok) {
+    throw new Error(`Finance REST update failed: ${response.status} ${await response.text()}`);
+  }
+
+  const rows = (await response.json()) as FinanceEntryRow[];
+  return rows[0] ? mapEntry(rows[0]) : null;
 }
 
 export async function deleteFinanceEntryViaRest(

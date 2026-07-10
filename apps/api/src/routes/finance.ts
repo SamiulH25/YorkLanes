@@ -15,6 +15,8 @@ import {
   listFinanceEntriesViaRest,
   listFinanceMonthlyTotals,
   listFinanceMonthlyTotalsViaRest,
+  updateFinanceEntry,
+  updateFinanceEntryViaRest,
   upsertFinanceBudget,
   upsertFinanceBudgetViaRest,
   type FinanceEntryKind,
@@ -177,6 +179,53 @@ financeRouter.post("/entries", async (req, res) => {
       ? await getFinanceSummary(getPool(), req.session.userId)
       : await getFinanceSummaryViaRest(req.session.userId);
     res.status(201).json({ entry, summary });
+  } catch (error) {
+    const response = financeError(error);
+    res.status(response.status).json(response.body);
+  }
+});
+
+financeRouter.patch("/entries/:entryId", async (req, res) => {
+  const label = typeof req.body?.label === "string" ? req.body.label.trim() : "";
+  const category =
+    typeof req.body?.category === "string" && req.body.category.trim()
+      ? req.body.category.trim()
+      : "Other";
+  const amountCents = toAmountCents(req.body?.amount);
+
+  if (!label) {
+    res.status(400).json({ error: "label is required" });
+    return;
+  }
+  if (!amountCents || amountCents <= 0) {
+    res.status(400).json({ error: "amount must be greater than 0" });
+    return;
+  }
+
+  try {
+    const input = {
+      label,
+      category,
+      amountCents,
+      kind: normalizeKind(req.body?.kind),
+      occurredOn: normalizeDate(req.body?.occurredOn),
+      userId: req.session.userId,
+    };
+    const entry = usePostgres()
+      ? await updateFinanceEntry(getPool(), req.params.entryId, input)
+      : canUseFinanceRest()
+        ? await updateFinanceEntryViaRest(req.params.entryId, input)
+        : await Promise.reject(new Error("No database configured. Set SUPABASE_DB_URL or SUPABASE_URL plus SUPABASE_PUBLISHABLE_KEY."));
+
+    if (!entry) {
+      res.status(404).json({ error: "Finance entry not found" });
+      return;
+    }
+
+    const summary = usePostgres()
+      ? await getFinanceSummary(getPool(), req.session.userId)
+      : await getFinanceSummaryViaRest(req.session.userId);
+    res.json({ entry, summary });
   } catch (error) {
     const response = financeError(error);
     res.status(response.status).json(response.body);

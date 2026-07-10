@@ -66,12 +66,38 @@ const icons: Record<string, string> = {
 ---
 
 <BaseLayout title={title}>
+  <slot name="head" slot="head" />
   <script is:inline>
-    try {
-      if (localStorage.getItem("sidebar-collapsed") === "1") {
-        document.documentElement.dataset.sidebarCollapsed = "true";
+    (function () {
+      function syncNavPlanLinks() {
+        try {
+          var planId = sessionStorage.getItem("yorklanes-plan-id");
+          document.querySelectorAll("[data-plan-aware-nav]").forEach(function (link) {
+            var kind = link.getAttribute("data-plan-aware-nav");
+            if (planId) {
+              link.setAttribute(
+                "href",
+                kind === "progress"
+                  ? "/progress?planId=" + encodeURIComponent(planId)
+                  : "/plan?id=" + encodeURIComponent(planId),
+              );
+            } else {
+              link.setAttribute("href", kind === "progress" ? "/progress" : "/plan");
+            }
+          });
+        } catch (e) {}
       }
-    } catch (e) {}
+
+      try {
+        if (localStorage.getItem("sidebar-collapsed") === "1") {
+          document.documentElement.dataset.sidebarCollapsed = "true";
+        }
+      } catch (e) {}
+
+      syncNavPlanLinks();
+      document.addEventListener("astro:page-load", syncNavPlanLinks);
+      document.addEventListener("yorklanes:plan-id", syncNavPlanLinks);
+    })();
   </script>
   <div class="app-shell lg:flex-row">
     <aside
@@ -122,6 +148,7 @@ const icons: Record<string, string> = {
                     <a
                       href={item.href}
                       title={item.label}
+                      data-plan-aware-nav={item.id === "plan" || item.id === "progress" ? item.id : undefined}
                       class:list={["link-nav sidebar-nav-link", activeNav === item.id && "link-nav-active"]}
                     >
                       <span
@@ -211,6 +238,7 @@ const icons: Record<string, string> = {
           <li class="flex-1">
             <a
               href={item.href}
+              data-plan-aware-nav={item.id === "plan" || item.id === "progress" ? item.id : undefined}
               class:list={[
                 "flex flex-col items-center gap-0.5 rounded-lg px-2 py-2 text-[10px] font-semibold transition-colors",
                 activeNav === item.id ? "text-brand" : "text-muted hover:text-foreground",

@@ -90,6 +90,17 @@ const planId = plan?.id ?? planIdParam ?? "";
 
   {
     plan && (
+      <script is:inline define:vars={{ planId: plan.id }}>
+        try {
+          sessionStorage.setItem("yorklanes-plan-id", planId);
+          document.dispatchEvent(new Event("yorklanes:plan-id"));
+        } catch (_) {}
+      </script>
+    )
+  }
+
+  {
+    plan && (
       <div id="plan-editor" data-plan-id={plan.id}>
         <script id="plan-data" type="application/json" is:inline set:html={JSON.stringify(plan)} />
 

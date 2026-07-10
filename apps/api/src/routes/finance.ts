@@ -21,6 +21,10 @@ import {
   upsertFinanceBudgetViaRest,
   type FinanceEntryKind,
 } from "../services/finance.js";
+import {
+  listFinanceCategories,
+  normalizeFinanceCategory,
+} from "../services/financeCategories.js";
 
 export const financeRouter = Router();
 
@@ -75,6 +79,14 @@ function financeError(error: unknown): { status: number; body: { error: string; 
 function usePostgres(): boolean {
   return Boolean(process.env.SUPABASE_DB_URL?.trim() || process.env.DATABASE_URL?.trim());
 }
+
+financeRouter.get("/categories", (_req, res) => {
+  const categories = listFinanceCategories();
+  res.json({
+    feature: "finance",
+    ...categories,
+  });
+});
 
 financeRouter.get("/", async (req, res) => {
   try {
@@ -146,10 +158,8 @@ financeRouter.get("/monthly-summary", async (req, res) => {
 
 financeRouter.post("/entries", async (req, res) => {
   const label = typeof req.body?.label === "string" ? req.body.label.trim() : "";
-  const category =
-    typeof req.body?.category === "string" && req.body.category.trim()
-      ? req.body.category.trim()
-      : "Other";
+  const kind = normalizeKind(req.body?.kind);
+  const category = normalizeFinanceCategory(kind, req.body?.category);
   const amountCents = toAmountCents(req.body?.amount);
 
   if (!label) {
@@ -166,7 +176,7 @@ financeRouter.post("/entries", async (req, res) => {
       label,
       category,
       amountCents,
-      kind: normalizeKind(req.body?.kind),
+      kind,
       occurredOn: normalizeDate(req.body?.occurredOn),
       userId: req.session.userId,
     };
@@ -187,10 +197,8 @@ financeRouter.post("/entries", async (req, res) => {
 
 financeRouter.patch("/entries/:entryId", async (req, res) => {
   const label = typeof req.body?.label === "string" ? req.body.label.trim() : "";
-  const category =
-    typeof req.body?.category === "string" && req.body.category.trim()
-      ? req.body.category.trim()
-      : "Other";
+  const kind = normalizeKind(req.body?.kind);
+  const category = normalizeFinanceCategory(kind, req.body?.category);
   const amountCents = toAmountCents(req.body?.amount);
 
   if (!label) {
@@ -207,7 +215,7 @@ financeRouter.patch("/entries/:entryId", async (req, res) => {
       label,
       category,
       amountCents,
-      kind: normalizeKind(req.body?.kind),
+      kind,
       occurredOn: normalizeDate(req.body?.occurredOn),
       userId: req.session.userId,
     };

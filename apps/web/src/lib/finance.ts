@@ -112,3 +112,12 @@ export async function updateFinanceEntry(input: {
   if (!response.ok) throw new Error(`Finance update API error: ${response.status}`);
   return response.json() as Promise<{ entry: FinanceEntry; summary: FinanceSummary }>;
 }
+
+export async function fetchFinanceCategories(): Promise<{
+  expense: string[];
+  income: string[];
+}> {
+  const response = await fetch(`${API_URL}/api/finance/categories`);
+  if (!response.ok) throw new Error(`Finance categories API error: ${response.status}`);
+  return response.json() as Promise<{ expense: string[]; income: string[] }>;
+}

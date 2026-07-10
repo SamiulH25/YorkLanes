@@ -47,6 +47,91 @@ function formatMonth(month: string): string {
   return date.toLocaleDateString("en-CA", { month: "short", year: "numeric" });
 }
 
+const DEFAULT_EXPENSE_CATEGORIES = [
+  "Tuition",
+  "Textbooks",
+  "Rent",
+  "Food",
+  "Transit",
+  "Personal",
+  "Fees",
+  "Other",
+];
+const DEFAULT_INCOME_CATEGORIES = [
+  "OSAP",
+  "Scholarship",
+  "Job",
+  "Family support",
+  "Other income",
+];
+
+function parseCategoryList(value: string | undefined, fallback: string[]): string[] {
+  if (!value?.trim()) return fallback;
+  const parsed = value
+    .split("|")
+    .map((item) => item.trim())
+    .filter(Boolean);
+  return parsed.length > 0 ? parsed : fallback;
+}
+
+function getCategoryLists(root: HTMLElement): { expense: string[]; income: string[] } {
+  return {
+    expense: parseCategoryList(root.dataset.expenseCategories, DEFAULT_EXPENSE_CATEGORIES),
+    income: parseCategoryList(root.dataset.incomeCategories, DEFAULT_INCOME_CATEGORIES),
+  };
+}
+
+function categoriesForKind(root: HTMLElement, kind: FinanceKind): string[] {
+  const lists = getCategoryLists(root);
+  return kind === "income" ? lists.income : lists.expense;
+}
+
+function defaultCategoryForKind(kind: FinanceKind): string {
+  return kind === "income" ? "Other income" : "Other";
+}
+
+function setCategoryOptions(
+  root: HTMLElement,
+  kind: FinanceKind,
+  selected?: string,
+): void {
+  const select = root.querySelector<HTMLSelectElement>("[data-finance-category]");
+  if (!select) return;
+
+  const categories = categoriesForKind(root, kind);
+  select.replaceChildren();
+  for (const category of categories) {
+    const option = document.createElement("option");
+    option.value = category;
+    option.textContent = category;
+    select.append(option);
+  }
+
+  if (selected && ![...select.options].some((option) => option.value === selected)) {
+    const option = document.createElement("option");
+    option.value = selected;
+    option.textContent = selected;
+    select.append(option);
+    select.value = selected;
+  } else if (selected && [...select.options].some((option) => option.value === selected)) {
+    select.value = selected;
+  } else {
+    select.value = categories.includes(defaultCategoryForKind(kind))
+      ? defaultCategoryForKind(kind)
+      : (categories[0] ?? "");
+  }
+}
+
+function syncKindUi(root: HTMLElement, kind: FinanceKind, selectedCategory?: string): void {
+  setCategoryOptions(root, kind, selectedCategory);
+  const labelInput = root.querySelector<HTMLInputElement>("[data-finance-label]");
+  if (labelInput && !labelInput.value) {
+    labelInput.placeholder = kind === "income" ? "OSAP deposit" : "Tuition payment";
+  } else if (labelInput) {
+    labelInput.placeholder = kind === "income" ? "OSAP deposit" : "Tuition payment";
+  }
+}
+
 function readEntries(): FinanceEntry[] {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
@@ -262,6 +347,7 @@ function setEditMode(root: HTMLElement, entry: FinanceEntry | null): void {
     form.reset();
     const expenseRadio = form.querySelector<HTMLInputElement>('input[name="kind"][value="expense"]');
     if (expenseRadio) expenseRadio.checked = true;
+    syncKindUi(root, "expense");
     return;
   }
 
@@ -272,24 +358,14 @@ function setEditMode(root: HTMLElement, entry: FinanceEntry | null): void {
 
   const labelInput = form.querySelector<HTMLInputElement>('input[name="label"]');
   const amountInput = form.querySelector<HTMLInputElement>('input[name="amount"]');
-  const categorySelect = form.querySelector<HTMLSelectElement>('select[name="category"]');
   const dateInput = form.querySelector<HTMLInputElement>('input[name="occurredOn"]');
   const kindRadio = form.querySelector<HTMLInputElement>(`input[name="kind"][value="${entry.kind}"]`);
 
+  if (kindRadio) kindRadio.checked = true;
+  syncKindUi(root, entry.kind, entry.category);
   if (labelInput) labelInput.value = entry.label;
   if (amountInput) amountInput.value = (entry.amountCents / 100).toFixed(2);
-  if (categorySelect) {
-    const hasOption = [...categorySelect.options].some((option) => option.value === entry.category);
-    if (!hasOption) {
-      const option = document.createElement("option");
-      option.value = entry.category;
-      option.textContent = entry.category;
-      categorySelect.append(option);
-    }
-    categorySelect.value = entry.category;
-  }
   if (dateInput) dateInput.value = entry.occurredOn;
-  if (kindRadio) kindRadio.checked = true;
 
   labelInput?.focus();
 }
@@ -521,6 +597,7 @@ async function initFinance(root: HTMLElement): Promise<void> {
   let editingId: string | null = null;
 
   if (monthInput) monthInput.value = selectedMonth;
+  syncKindUi(root, "expense");
   render(root, entries, budgetCents, selectedMonth, monthOnly, editingId);
   setMode(root, apiAvailable);
 
@@ -547,6 +624,16 @@ async function initFinance(root: HTMLElement): Promise<void> {
 
   cancelEdit?.addEventListener("click", () => {
     clearEditMode();
+  });
+
+  form?.querySelectorAll<HTMLInputElement>('input[name="kind"]').forEach((radio) => {
+    radio.addEventListener("change", () => {
+      const kind: FinanceKind = radio.value === "income" ? "income" : "expense";
+      const current = root.querySelector<HTMLSelectElement>("[data-finance-category]")?.value;
+      const keep =
+        current && categoriesForKind(root, kind).includes(current) ? current : undefined;
+      syncKindUi(root, kind, keep);
+    });
   });
 
   form?.addEventListener("submit", async (event) => {
@@ -600,6 +687,9 @@ async function initFinance(root: HTMLElement): Promise<void> {
         const saved = await postApiEntry(nextEntry);
         entries = [saved, ...entries];
         form.reset();
+        const expenseRadio = form.querySelector<HTMLInputElement>('input[name="kind"][value="expense"]');
+        if (expenseRadio) expenseRadio.checked = true;
+        syncKindUi(root, "expense");
         render(root, entries, budgetCents, selectedMonth, monthOnly, editingId);
         return;
       } catch {
@@ -618,6 +708,9 @@ async function initFinance(root: HTMLElement): Promise<void> {
     ];
     writeEntries(entries);
     form.reset();
+    const expenseRadio = form.querySelector<HTMLInputElement>('input[name="kind"][value="expense"]');
+    if (expenseRadio) expenseRadio.checked = true;
+    syncKindUi(root, "expense");
     render(root, entries, budgetCents, selectedMonth, monthOnly, editingId);
   });
 

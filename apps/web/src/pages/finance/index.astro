@@ -1,10 +1,9 @@
 ---
 /** Finance module — Taziz. Guide: docs/tasks/finance.md */
 import DashboardLayout from "../../layouts/DashboardLayout.astro";
+import { EXPENSE_CATEGORIES, INCOME_CATEGORIES } from "../../lib/finance-categories";
 
 export const prerender = false;
-
-const categories = ["Tuition", "Rent", "Personal", "Food", "Books", "Income", "Other"];
 ---
 
 <DashboardLayout title="Finance | YorkLanes" activeNav="finance">
@@ -20,7 +19,12 @@ const categories = ["Tuition", "Rent", "Personal", "Food", "Books", "Income", "O
     </div>
   </Fragment>
 
-  <div data-finance-root class="grid gap-4 xl:grid-cols-[minmax(0,1fr)_24rem]">
+  <div
+    data-finance-root
+    data-expense-categories={EXPENSE_CATEGORIES.join("|")}
+    data-income-categories={INCOME_CATEGORIES.join("|")}
+    class="grid gap-4 xl:grid-cols-[minmax(0,1fr)_24rem]"
+  >
     <section class="grid gap-4 md:grid-cols-3 xl:col-span-2">
       <article class="surface p-5">
         <p class="label">Balance</p>
@@ -135,6 +139,7 @@ const categories = ["Tuition", "Rent", "Personal", "Food", "Books", "Income", "O
         <label class="block">
           <span class="label">Label</span>
           <input
+            data-finance-label
             required
             name="label"
             type="text"
@@ -160,11 +165,13 @@ const categories = ["Tuition", "Rent", "Personal", "Food", "Books", "Income", "O
           <label class="block">
             <span class="label">Category</span>
             <select
+              data-finance-category
               name="category"
               class="mt-2 w-full rounded-xl border border-york-stone/60 bg-white/80 px-3 py-2.5 text-sm text-york-black outline-none transition focus:border-york-red focus:ring-2 focus:ring-york-red/20 dark:border-white/10 dark:bg-york-graphite dark:text-white"
             >
-              {categories.map((category) => <option value={category}>{category}</option>)}
+              {EXPENSE_CATEGORIES.map((category) => <option value={category}>{category}</option>)}
             </select>
+            <span class="mt-1 block text-xs text-york-muted">York student categories (OSAP, tuition, rent, and more).</span>
           </label>
           <label class="block">
             <span class="label">Date</span>

@@ -11,6 +11,8 @@ import {
   listAssignmentsViaRest,
   setAssignmentDone,
   setAssignmentDoneViaRest,
+  updateAssignment,
+  updateAssignmentViaRest,
 } from "../services/assignments.js";
 
 export const assignmentsRouter = Router();
@@ -90,7 +92,7 @@ assignmentsRouter.post("/", async (req, res) => {
       courseCode,
       description: description || null,
       dueAt: dueAt.toISOString(),
-      userId: req.session.userId,
+      userId: req.session?.userId || req.body?.userId || null,
     };
     const assignment = usePostgres()
       ? await createAssignment(getPool(), input)
@@ -127,6 +129,76 @@ assignmentsRouter.patch("/:assignmentId", async (req, res) => {
 
     res.json({ assignment });
   } catch (error) {
+    const response = assignmentsError(error);
+    res.status(response.status).json(response.body);
+  }
+});
+
+// PUT /api/assignments/:assignmentId — update an assignment.
+assignmentsRouter.put("/:assignmentId", async (req, res) => {
+  const { assignmentId } = req.params;
+  
+  // Try to get userId from multiple sources
+  let userId = req.session?.userId || req.body?.userId || null;
+  
+  console.log("=== BACKEND PUT REQUEST ===");
+  console.log("Assignment ID from URL:", assignmentId);
+  console.log("User ID:", req.session.userId);
+  console.log("Request body:", req.body);
+  
+  const title = typeof req.body?.title === "string" ? req.body.title.trim() : "";
+  const courseCode = typeof req.body?.courseCode === "string" ? req.body.courseCode.trim() : "";
+  const description = typeof req.body?.description === "string" ? req.body.description.trim() : "";
+  const dueDate = typeof req.body?.dueDate === "string" ? req.body.dueDate.trim() : "";
+  const done = typeof req.body?.done === "boolean" ? req.body.done : undefined;
+
+  // Validate required fields
+  if (!title || !courseCode || !dueDate) {
+    console.log("❌ Missing required fields:", { title, courseCode, dueDate });
+    res.status(400).json({ error: "title, courseCode, and dueDate are required." });
+    return;
+  }
+
+  // Validate date
+  const dueAt = new Date(dueDate);
+  if (Number.isNaN(dueAt.getTime())) {
+    console.log("❌ Invalid date:", dueDate);
+    res.status(400).json({ error: "dueDate is not a valid date." });
+    return;
+  }
+
+  try {
+    console.log("✅ Calling updateAssignment with ID:", assignmentId);
+    
+    const updatedAssignment = usePostgres()
+      ? await updateAssignment(getPool(), assignmentId, {
+          title,
+          courseCode,
+          description: description || null,
+          dueAt: dueAt.toISOString(),
+          done,
+        }, req.session.userId)
+      : canUseAssignmentsRest()
+        ? await updateAssignmentViaRest(assignmentId, {
+            title,
+            courseCode,
+            description: description || null,
+            dueAt: dueAt.toISOString(),
+            done,
+          }, req.session.userId)
+        : await Promise.reject(NO_DATABASE);
+
+    console.log("✅ Update result:", updatedAssignment);
+
+    if (!updatedAssignment) {
+      console.log("❌ Assignment not found for ID:", assignmentId);
+      res.status(404).json({ error: "Assignment not found" });
+      return;
+    }
+
+    res.json({ assignment: updatedAssignment });
+  } catch (error) {
+    console.error("❌ PUT error:", error);
     const response = assignmentsError(error);
     res.status(response.status).json(response.body);
   }

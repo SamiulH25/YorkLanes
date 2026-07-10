@@ -244,3 +244,192 @@ export async function deleteAssignmentViaRest(
   const rows = (await response.json()) as AssignmentRow[];
   return rows.length > 0;
 }
+
+// For PostgreSQL
+export async function updateAssignment(
+  pool: any,
+  assignmentId: string,
+  data: {
+    title: string;
+    courseCode: string;
+    description: string | null;
+    dueAt: string;
+    done?: boolean;
+  },
+  userId?: string | null  // Make userId optional
+) {
+  console.log("=== updateAssignment DEBUG ===");
+  console.log("assignmentId:", assignmentId);
+  console.log("userId:", userId);
+  
+  // If userId is not provided, don't check it
+  let query: string;
+  let values: any[];
+  
+  if (userId) {
+    // Check if the assignment exists and belongs to the user
+    const checkQuery = `SELECT id FROM assignments WHERE id = $1 AND user_id = $2`;
+    const checkResult = await pool.query(checkQuery, [assignmentId, userId]);
+    
+    if (checkResult.rows.length === 0) {
+      console.log("❌ Assignment not found for user:", userId);
+      return null;
+    }
+    
+    // Update with user check
+    query = `
+      UPDATE assignments
+      SET 
+        title = $1,
+        course_code = $2,
+        description = $3,
+        due_at = $4,
+        done = COALESCE($5, done),
+        updated_at = NOW()
+      WHERE id = $6 AND user_id = $7
+      RETURNING id, title, course_code, description, due_at, done, created_at, updated_at
+    `;
+    
+    values = [
+      data.title,
+      data.courseCode,
+      data.description,
+      data.dueAt,
+      data.done ?? false,
+      assignmentId,
+      userId
+    ];
+  } else {
+    // Update without user check (for testing or if no auth)
+    console.log("⚠️ No userId provided - updating without user check");
+    query = `
+      UPDATE assignments
+      SET 
+        title = $1,
+        course_code = $2,
+        description = $3,
+        due_at = $4,
+        done = COALESCE($5, done),
+        updated_at = NOW()
+      WHERE id = $6
+      RETURNING id, title, course_code, description, due_at, done, created_at, updated_at
+    `;
+    
+    values = [
+      data.title,
+      data.courseCode,
+      data.description,
+      data.dueAt,
+      data.done ?? false,
+      assignmentId
+    ];
+  }
+  
+  console.log("📝 Executing query with values:", values);
+  const result = await pool.query(query, values);
+  console.log("📊 Query result rows:", result.rows.length);
+  
+  if (result.rows.length === 0) {
+    return null;
+  }
+  
+  const row = result.rows[0];
+  return {
+    id: row.id,
+    title: row.title,
+    courseCode: row.course_code,
+    description: row.description,
+    dueAt: row.due_at,
+    done: row.done,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  };
+}
+
+// For REST API (Supabase)
+export async function updateAssignmentViaRest(
+  assignmentId: string,
+  data: {
+    title: string;
+    courseCode: string;
+    description: string | null;
+    dueAt: string;
+    done?: boolean;
+  },
+  userId?: string | null  // Make userId optional
+) {
+  const config = requireSupabaseRestConfig();
+  
+  console.log("=== updateAssignmentViaRest DEBUG ===");
+  console.log("assignmentId:", assignmentId);
+  console.log("userId:", userId);
+  
+  let url: string;
+  
+  if (userId) {
+    // Check if the assignment exists and belongs to the user
+    const checkUrl = `${config.url}/rest/v1/assignments?id=eq.${assignmentId}&user_id=eq.${userId}&select=id`;
+    const checkResponse = await fetch(checkUrl, {
+      headers: assignmentsRestHeaders(),
+    });
+
+    if (!checkResponse.ok) {
+      throw new Error(`Failed to check assignment: ${checkResponse.statusText}`);
+    }
+
+    const checkData = await checkResponse.json();
+    if (checkData.length === 0) {
+      console.log("❌ Assignment not found for user:", userId);
+      return null;
+    }
+    
+    url = `${config.url}/rest/v1/assignments?id=eq.${assignmentId}&user_id=eq.${userId}`;
+  } else {
+    // Update without user check
+    console.log("⚠️ No userId provided - updating without user check");
+    url = `${config.url}/rest/v1/assignments?id=eq.${assignmentId}`;
+  }
+  
+  const payload = {
+    title: data.title,
+    course_code: data.courseCode,
+    description: data.description,
+    due_at: data.dueAt,
+    done: data.done ?? false,
+  };
+  
+  console.log("📤 Sending payload:", payload);
+  console.log("📤 To URL:", url);
+  
+  const response = await fetch(url, {
+    method: 'PATCH',
+    headers: assignmentsRestHeaders({
+      'Content-Type': 'application/json',
+      'Prefer': 'return=representation',
+    }),
+    body: JSON.stringify(payload),
+  });
+  
+  if (!response.ok) {
+    throw new Error(`Failed to update assignment: ${response.statusText}`);
+  }
+  
+  const data_result = await response.json();
+  console.log("📊 Response data:", data_result);
+  
+  if (data_result.length === 0) {
+    return null;
+  }
+  
+  const row = data_result[0];
+  return {
+    id: row.id,
+    title: row.title,
+    courseCode: row.course_code,
+    description: row.description,
+    dueAt: row.due_at,
+    done: row.done,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  };
+}

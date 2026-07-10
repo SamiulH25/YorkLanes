@@ -7,7 +7,7 @@ from typing import Iterable
 import psycopg2
 from psycopg2.extras import execute_values
 
-from catalog import CourseRecord, normalize_stored_code
+from catalog import CourseRecord, SectionRecord, normalize_stored_code
 
 
 def resolve_database_url() -> str:
@@ -105,5 +105,72 @@ def upsert_courses(courses: Iterable[CourseRecord], dry_run: bool = False) -> di
             "courses": len(course_list),
             "prerequisites": sum(len(c.prerequisite_codes) for c in course_list),
         }
+    finally:
+        conn.close()
+
+
+def upsert_sections(sections: Iterable[SectionRecord], dry_run: bool = False) -> dict[str, int]:
+    section_list = [
+        SectionRecord(
+            term=(item.term or "").strip(),
+            course_code=normalize_stored_code(item.course_code),
+            section_code=(item.section_code or "").strip(),
+            day=(item.day or "").strip().upper(),
+            start_time=(item.start_time or "").strip(),
+            end_time=(item.end_time or "").strip(),
+            duration=item.duration,
+            campus=(item.campus or "").strip() or None,
+            room=(item.room or "").strip() or None,
+            instructor=(item.instructor or "").strip() or None,
+            delivery_mode=(item.delivery_mode or "").strip() or None,
+            source=item.source,
+        )
+        for item in sections
+    ]
+
+    if dry_run:
+        return {"sections": len(section_list)}
+
+    if not section_list:
+        return {"sections": 0}
+
+    conn = psycopg2.connect(resolve_database_url())
+    try:
+        with conn.cursor() as cur:
+            section_rows = [
+                (
+                    s.term,
+                    s.course_code,
+                    s.section_code,
+                    s.day,
+                    s.start_time,
+                    s.end_time,
+                    s.campus,
+                    s.room,
+                    s.instructor,
+                    s.delivery_mode,
+                )
+                for s in section_list
+            ]
+
+            execute_values(
+                cur,
+                """
+                INSERT INTO course_sections
+                  (term, course_code, section_code, day, start_time, end_time, campus, room, instructor, delivery_mode)
+                VALUES %s
+                ON CONFLICT (term, course_code, section_code, day, start_time, end_time) DO UPDATE SET
+                  campus = EXCLUDED.campus,
+                  room = EXCLUDED.room,
+                  instructor = EXCLUDED.instructor,
+                  delivery_mode = EXCLUDED.delivery_mode,
+                  scraped_at = NOW()
+                """,
+                section_rows,
+                template="(%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, NOW())",
+            )
+
+        conn.commit()
+        return {"sections": len(section_list)}
     finally:
         conn.close()

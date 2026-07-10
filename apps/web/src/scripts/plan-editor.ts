@@ -456,6 +456,11 @@ export function drawDependencies(state: EditorState): void {
 
     path.setAttribute("data-from", edge.from);
     path.setAttribute("data-to", edge.to);
+    if (isCoreq) {
+      path.style.color = edge.satisfied ? coreqColor : warningColor;
+    } else {
+      path.style.color = edge.satisfied ? prereqColor : warningColor;
+    }
     svg.appendChild(path);
   }
 

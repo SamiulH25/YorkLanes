@@ -36,11 +36,9 @@ function formatCredits(credits: number | null): string {
       <div> 
         <p class="text-xs font-medium text-york-muted">Catalogue</p>
         <h1 class="heading-page">Course Explorer</h1>
-        <p class="mt-0.5 text-sm text-muted">
+        <p class="mt-0.5 text-sm text-muted [font-variant-numeric:lining-nums]">
           {
-            `Found ${
-              total === 0 ? "no" : total
-            } Course${total === 1 ? "" : "s"} in the York Catalogue`
+            `Found ${total} Course${total === 1 ? "" : "s"} in the York Catalogue`
           }
         </p>
       </div>
@@ -106,7 +104,6 @@ function formatCredits(credits: number | null): string {
       <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
         {
           courses.map((course, index) => (
-            <a href={courseDetailPath(course.code)} class="course-card surface group" style={`--card-index: ${index}`}>
             <a
               href={courseDetailPath(course.code)}
               class="course-card motion-on-scroll surface group"
@@ -130,11 +127,11 @@ function formatCredits(credits: number | null): string {
                 {course.title}
               </p>
               <div class="mt-4 flex items-center justify-between gap-2 border-t border-shell pt-3">
-                <span class="inline-flex items-center gap-1 rounded-md bg-surface-muted px-1.5 py-0.5 text-[11px] font-semibold uppercase tracking-wide text-muted">
-                  {formatCredits(course.credits)} cr
+                <span class="inline-flex items-center gap-1 rounded-md bg-surface-muted px-1.5 py-0.5 text-[11px] font-semibold tracking-wide">
+                  {formatCredits(course.credits)} CREDITS
                 </span>
                 <span class="course-card__cta" aria-hidden="true">
-                  View course →
+                  View Course →
                 </span>
               </div>
             </a>

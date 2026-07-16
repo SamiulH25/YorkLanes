@@ -401,7 +401,6 @@
       border-color var(--theme-duration-fast),
       box-shadow var(--theme-duration-fast),
       transform var(--theme-duration-fast);
-    animation: motion-pop var(--theme-duration-normal) var(--theme-ease-out) both;
     animation-delay: calc(var(--card-index, 0) * 35ms);
   }
 

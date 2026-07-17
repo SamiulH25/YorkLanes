@@ -30,6 +30,7 @@ function flashThemeSwitch(): void {
   window.setTimeout(() => {
     document.documentElement.classList.remove("theme-switching");
   }, SWITCH_MS);
+  document.dispatchEvent(new Event("yorklanes:theme-change"));
 }
 
 function applyMode(dark: boolean): void {

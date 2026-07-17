@@ -33,7 +33,7 @@ function formatCredits(credits: number | null): string {
 <DashboardLayout title="Courses | YorkLanes" activeNav="courses">
   <Fragment slot="header">
     <div class="flex flex-wrap items-start justify-between gap-4">
-      <div> 
+      <div>
         <p class="text-xs font-medium text-york-muted">Catalogue</p>
         <h1 class="heading-page">Course Explorer</h1>
         <p class="mt-0.5 text-sm text-muted">
@@ -106,7 +106,6 @@ function formatCredits(credits: number | null): string {
       <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
         {
           courses.map((course, index) => (
-            <a href={courseDetailPath(course.code)} class="course-card surface group" style={`--card-index: ${index}`}>
             <a
               href={courseDetailPath(course.code)}
               class="course-card motion-on-scroll surface group"

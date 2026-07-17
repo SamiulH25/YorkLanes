@@ -201,13 +201,14 @@ export async function buildPlanGraph(pool: Pool, plan: DegreePlanRow): Promise<P
 
   const dependencies: CourseDependencyEdge[] = [];
   const edgeKeys = new Set<string>();
+  const courseCodeSet = new Set(courseCodes);
 
   function addEdge(
     kind: DependencyKind,
     fromCode: string,
     toCode: string,
   ): void {
-    if (!courseCodes.includes(fromCode)) {
+    if (!courseCodeSet.has(fromCode)) {
       return;
     }
 
@@ -271,39 +272,50 @@ export async function applyPlanLayoutMoves(
     return null;
   }
 
+  const courseIds = [...new Set(moves.map((move) => move.courseId))];
+  const termIds = [...new Set(moves.map((move) => move.termId))];
+
   const client = await pool.connect();
   try {
     await client.query("BEGIN");
 
-    for (const move of moves) {
-      const owner = await client.query<{ plan_id: string }>(
-        `SELECT pt.plan_id
-         FROM plan_courses pc
-         INNER JOIN plan_terms pt ON pt.id = pc.term_id
-         WHERE pc.id = $1`,
-        [move.courseId],
-      );
+    const ownedCourses = await client.query<{ id: string }>(
+      `SELECT pc.id
+       FROM plan_courses pc
+       INNER JOIN plan_terms pt ON pt.id = pc.term_id
+       WHERE pt.plan_id = $1 AND pc.id = ANY($2::uuid[])`,
+      [planId, courseIds],
+    );
 
-      if (owner.rows.length === 0 || owner.rows[0].plan_id !== planId) {
-        throw new Error("Course does not belong to this plan");
-      }
-
-      const termOwner = await client.query<{ plan_id: string }>(
-        `SELECT plan_id FROM plan_terms WHERE id = $1`,
-        [move.termId],
-      );
-
-      if (termOwner.rows.length === 0 || termOwner.rows[0].plan_id !== planId) {
-        throw new Error("Term does not belong to this plan");
-      }
-
-      await client.query(
-        `UPDATE plan_courses
-         SET term_id = $2, sort_order = $3
-         WHERE id = $1`,
-        [move.courseId, move.termId, move.sortOrder],
-      );
+    if (ownedCourses.rows.length !== courseIds.length) {
+      throw new Error("Course does not belong to this plan");
     }
+
+    const ownedTerms = await client.query<{ id: string }>(
+      `SELECT id FROM plan_terms WHERE plan_id = $1 AND id = ANY($2::uuid[])`,
+      [planId, termIds],
+    );
+
+    if (ownedTerms.rows.length !== termIds.length) {
+      throw new Error("Term does not belong to this plan");
+    }
+
+    await client.query(
+      `UPDATE plan_courses AS pc
+       SET term_id = v.term_id,
+           sort_order = v.sort_order
+       FROM (
+         SELECT *
+         FROM unnest($1::uuid[], $2::uuid[], $3::int[])
+           AS t(id, term_id, sort_order)
+       ) AS v
+       WHERE pc.id = v.id`,
+      [
+        moves.map((move) => move.courseId),
+        moves.map((move) => move.termId),
+        moves.map((move) => move.sortOrder),
+      ],
+    );
 
     await client.query(`UPDATE degree_plans SET updated_at = NOW() WHERE id = $1`, [planId]);
 

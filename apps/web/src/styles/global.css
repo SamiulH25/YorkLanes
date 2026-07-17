@@ -695,24 +695,25 @@
 
   .plan-deps-layer path {
     @apply pointer-events-none;
-    filter: drop-shadow(0 0 3px color-mix(in srgb, currentColor 55%, transparent));
+  }
+
+  /* Draw animation only on selection changes — not on scroll redraws. */
+  .plan-deps-layer--animate path {
     animation: dep-draw var(--theme-duration-normal) var(--theme-ease-out) both;
   }
 
   @keyframes dep-draw {
     from {
       opacity: 0;
-      stroke-dashoffset: 16;
     }
     to {
       opacity: 1;
-      stroke-dashoffset: 0;
     }
   }
 
   @media (prefers-reduced-motion: reduce) {
     .plan-term-column,
-    .plan-deps-layer path,
+    .plan-deps-layer--animate path,
     .course-card {
       animation: none;
     }
@@ -728,9 +729,9 @@
     border: 1px solid var(--theme-border);
     background: var(--theme-surface);
     box-shadow: var(--theme-shadow-card);
-    backdrop-filter: blur(var(--theme-blur));
     animation: motion-pop var(--theme-duration-normal) var(--theme-ease-out) both;
     animation-delay: calc(var(--term-index, 0) * 45ms);
+    contain: layout paint;
   }
 
   .plan-term-column::before {
@@ -869,17 +870,16 @@
   }
 
   .plan-course-card {
-    @apply relative flex items-stretch gap-0 overflow-hidden transition-all;
+    @apply relative flex items-stretch gap-0 overflow-hidden;
     border-radius: max(0.375rem, calc(var(--theme-radius) * 0.5));
     border: 1px solid var(--theme-border);
     background: color-mix(in srgb, var(--theme-surface-muted) 85%, var(--theme-surface));
-    transition-duration: var(--theme-duration-fast);
+    contain: layout style;
   }
 
   .plan-course-card:hover {
-    @apply -translate-y-0.5 shadow-md;
-    box-shadow: var(--theme-shadow-card);
     border-color: color-mix(in srgb, var(--theme-primary) 35%, var(--theme-border));
+    background: color-mix(in srgb, var(--theme-surface) 96%, var(--theme-primary));
   }
 
   .plan-course-card--selected {

@@ -6,6 +6,7 @@
  */
 import {
   cachePlanGraphSnapshot,
+  readPlanGraphSnapshot,
   type PlanGraphSnapshot,
 } from "../lib/plan-store";
 import {
@@ -23,7 +24,23 @@ interface EditorState {
   selectedCourseId: string | null;
   draggingCourseId: string | null;
   saving: boolean;
+  theme: {
+    prereq: string;
+    coreq: string;
+    warning: string;
+  };
 }
+
+type RedrawOptions = {
+  /** Refresh selection/warning/completed chrome. Default true for interaction, false for scroll. */
+  chrome?: boolean;
+  /** Play path draw animation. Default true for selection changes, false for scroll. */
+  animate?: boolean;
+};
+
+let redrawRaf = 0;
+let pendingChrome = false;
+let pendingAnimate = false;
 
 function getStage(): HTMLElement | null {
   return document.getElementById("plan-editor-stage");
@@ -59,8 +76,15 @@ interface EdgeLayout {
   toCol: number;
 }
 
-function getCardRect(stage: HTMLElement, card: HTMLElement): CardRect {
-  const stageRect = stage.getBoundingClientRect();
+function readThemeColors(): EditorState["theme"] {
+  return {
+    prereq: readThemeColor("--theme-prereq"),
+    coreq: readThemeColor("--theme-coreq"),
+    warning: readThemeColor("--theme-warning"),
+  };
+}
+
+function getCardRect(stageRect: DOMRect, card: HTMLElement): CardRect {
   const rect = card.getBoundingClientRect();
   const left = rect.left - stageRect.left;
   const top = rect.top - stageRect.top;
@@ -74,11 +98,18 @@ function getCardRect(stage: HTMLElement, card: HTMLElement): CardRect {
   };
 }
 
-function getTermColumnIndex(stage: HTMLElement, card: HTMLElement): number {
+function buildColumnIndexMap(stage: HTMLElement): Map<HTMLElement, number> {
+  const map = new Map<HTMLElement, number>();
+  stage.querySelectorAll<HTMLElement>(".plan-term-column").forEach((column, index) => {
+    map.set(column, index);
+  });
+  return map;
+}
+
+function getTermColumnIndex(card: HTMLElement, columnMap: Map<HTMLElement, number>): number {
   const column = card.closest(".plan-term-column") as HTMLElement | null;
   if (!column) return 0;
-  const columns = [...stage.querySelectorAll<HTMLElement>(".plan-term-column")];
-  return columns.indexOf(column);
+  return columnMap.get(column) ?? 0;
 }
 
 function computeAnchors(
@@ -147,8 +178,7 @@ function shouldDrawEdge(
 
 function clearSelection(state: EditorState): void {
   state.selectedCourseId = null;
-  highlightSelection(state);
-  drawDependencies(state);
+  scheduleRedraw(state, { chrome: true, animate: false });
   updateSelectionLegend(state);
 }
 
@@ -174,10 +204,7 @@ function assignLanes(layouts: EdgeLayout[]): Map<EdgeLayout, number> {
   return lanes;
 }
 
-function createMarker(
-  id: string,
-  color: string,
-): SVGMarkerElement {
+function createMarker(id: string, color: string): SVGMarkerElement {
   const marker = document.createElementNS("http://www.w3.org/2000/svg", "marker");
   marker.setAttribute("id", id);
   marker.setAttribute("viewBox", "0 0 10 10");
@@ -207,12 +234,13 @@ function updateDependencySummary(state: EditorState): void {
   if (!el || !state.graph) return;
 
   const total = state.graph.dependencies.length;
-  const violations = state.graph.dependencies.filter(
-    (d) => !d.satisfied && d.kind === "prerequisite",
-  ).length;
-  const coreqIssues = state.graph.dependencies.filter(
-    (d) => !d.satisfied && d.kind === "corequisite",
-  ).length;
+  let violations = 0;
+  let coreqIssues = 0;
+  for (const d of state.graph.dependencies) {
+    if (d.satisfied) continue;
+    if (d.kind === "prerequisite") violations += 1;
+    else coreqIssues += 1;
+  }
 
   if (total === 0) {
     el.textContent = "No prerequisite or co-requisite links in catalog for these courses yet.";
@@ -243,19 +271,25 @@ function updateSelectionLegend(state: EditorState): void {
     return;
   }
 
-  const prereqs = state.graph.dependencies.filter(
-    (edge) =>
-      edge.kind === "prerequisite" && edge.to_course_id === state.selectedCourseId,
-  );
-  const coreqs = state.graph.dependencies.filter(
-    (edge) =>
+  let prereqCount = 0;
+  let coreqCount = 0;
+  for (const edge of state.graph.dependencies) {
+    if (
+      edge.kind === "prerequisite" &&
+      edge.to_course_id === state.selectedCourseId
+    ) {
+      prereqCount += 1;
+    } else if (
       edge.kind === "corequisite" &&
       (edge.from_course_id === state.selectedCourseId ||
-        edge.to_course_id === state.selectedCourseId),
-  );
+        edge.to_course_id === state.selectedCourseId)
+    ) {
+      coreqCount += 1;
+    }
+  }
 
   el.classList.remove("hidden");
-  el.textContent = `Blue = prerequisite (${prereqs.length}) · Amber dashed = co-requisite (${coreqs.length})`;
+  el.textContent = `Blue = prerequisite (${prereqCount}) · Amber dashed = co-requisite (${coreqCount})`;
 }
 
 function updateWarningBadges(state: EditorState): void {
@@ -296,7 +330,7 @@ function updateCompletedStyles(state: EditorState): void {
     const isCompleted = completedIds.has(id);
     card.classList.toggle("plan-course-card--completed", isCompleted);
     const checkbox = card.querySelector<HTMLInputElement>(".plan-course-complete");
-    if (checkbox) {
+    if (checkbox && checkbox.checked !== isCompleted) {
       checkbox.checked = isCompleted;
     }
   });
@@ -345,7 +379,7 @@ function highlightSelection(state: EditorState): void {
   }
 
   const card = document.querySelector<HTMLElement>(
-    `.plan-course-card[data-course-id="${state.selectedCourseId}"]`,
+    `.plan-course-card[data-course-id="${CSS.escape(state.selectedCourseId)}"]`,
   );
   selectedEl.textContent = card?.dataset.courseCode
     ? card.dataset.entryKind === "stub"
@@ -354,10 +388,37 @@ function highlightSelection(state: EditorState): void {
     : "";
 }
 
-export function drawDependencies(state: EditorState): void {
+function syncCardChrome(state: EditorState): void {
+  highlightSelection(state);
+  updateWarningBadges(state);
+  updateCompletedStyles(state);
+}
+
+function clearSvg(svg: SVGSVGElement): void {
+  while (svg.firstChild) {
+    svg.removeChild(svg.firstChild);
+  }
+}
+
+function redrawSvg(state: EditorState, options: RedrawOptions = {}): void {
   const stage = getStage();
   const svg = getSvg();
   if (!stage || !svg) return;
+
+  const animate = options.animate !== false;
+  svg.classList.toggle("plan-deps-layer--animate", animate);
+
+  // Nothing selected → empty SVG (cheap early exit, still size the layer).
+  if (!state.selectedCourseId || !state.graph) {
+    const w = stage.scrollWidth;
+    const h = stage.scrollHeight;
+    svg.setAttribute("width", String(w));
+    svg.setAttribute("height", String(h));
+    svg.style.width = `${w}px`;
+    svg.style.height = `${h}px`;
+    clearSvg(svg);
+    return;
+  }
 
   const w = stage.scrollWidth;
   const h = stage.scrollHeight;
@@ -366,13 +427,9 @@ export function drawDependencies(state: EditorState): void {
   svg.style.width = `${w}px`;
   svg.style.height = `${h}px`;
 
-  while (svg.firstChild) {
-    svg.removeChild(svg.firstChild);
-  }
+  clearSvg(svg);
 
-  const prereqColor = readThemeColor("--theme-prereq");
-  const coreqColor = readThemeColor("--theme-coreq");
-  const warningColor = readThemeColor("--theme-warning");
+  const { prereq: prereqColor, coreq: coreqColor, warning: warningColor } = state.theme;
 
   const defs = document.createElementNS("http://www.w3.org/2000/svg", "defs");
   defs.appendChild(createMarker("arrow-prereq", prereqColor));
@@ -381,7 +438,28 @@ export function drawDependencies(state: EditorState): void {
   defs.appendChild(createMarker("arrow-coreq-warn", warningColor));
   svg.appendChild(defs);
 
-  if (!state.graph) return;
+  const stageRect = stage.getBoundingClientRect();
+  const columnMap = buildColumnIndexMap(stage);
+  const cardCache = new Map<string, HTMLElement | null>();
+  const rectCache = new Map<string, CardRect>();
+
+  function resolveCard(courseId: string): HTMLElement | null {
+    if (cardCache.has(courseId)) return cardCache.get(courseId) ?? null;
+    const card = stage!.querySelector<HTMLElement>(
+      `[data-course-id="${CSS.escape(courseId)}"]`,
+    );
+    cardCache.set(courseId, card);
+    return card;
+  }
+
+  function resolveRect(courseId: string, card: HTMLElement): CardRect {
+    let rect = rectCache.get(courseId);
+    if (!rect) {
+      rect = getCardRect(stageRect, card);
+      rectCache.set(courseId, rect);
+    }
+    return rect;
+  }
 
   const layouts: EdgeLayout[] = [];
 
@@ -389,21 +467,17 @@ export function drawDependencies(state: EditorState): void {
     if (!edge.from_course_id || !edge.to_course_id) continue;
     if (!shouldDrawEdge(edge, state)) continue;
 
-    const fromCard = stage.querySelector<HTMLElement>(
-      `[data-course-id="${edge.from_course_id}"]`,
-    );
-    const toCard = stage.querySelector<HTMLElement>(
-      `[data-course-id="${edge.to_course_id}"]`,
-    );
+    const fromCard = resolveCard(edge.from_course_id);
+    const toCard = resolveCard(edge.to_course_id);
     if (!fromCard || !toCard) continue;
     if (fromCard.dataset.entryKind === "stub" || toCard.dataset.entryKind === "stub") continue;
 
     layouts.push({
       edge,
-      fromRect: getCardRect(stage, fromCard),
-      toRect: getCardRect(stage, toCard),
-      fromCol: getTermColumnIndex(stage, fromCard),
-      toCol: getTermColumnIndex(stage, toCard),
+      fromRect: resolveRect(edge.from_course_id, fromCard),
+      toRect: resolveRect(edge.to_course_id, toCard),
+      fromCol: getTermColumnIndex(fromCard, columnMap),
+      toCol: getTermColumnIndex(toCard, columnMap),
     });
   }
 
@@ -415,6 +489,8 @@ export function drawDependencies(state: EditorState): void {
     if (a.edge.satisfied !== b.edge.satisfied) return a.edge.satisfied ? -1 : 1;
     return 0;
   });
+
+  const fragment = document.createDocumentFragment();
 
   for (const layout of sortedLayouts) {
     const { edge, fromRect, toRect, fromCol, toCol } = layout;
@@ -456,21 +532,47 @@ export function drawDependencies(state: EditorState): void {
 
     path.setAttribute("data-from", edge.from);
     path.setAttribute("data-to", edge.to);
-    if (isCoreq) {
-      path.style.color = edge.satisfied ? coreqColor : warningColor;
-    } else {
-      path.style.color = edge.satisfied ? prereqColor : warningColor;
-    }
-    svg.appendChild(path);
+    fragment.appendChild(path);
   }
 
-  highlightSelection(state);
-  updateWarningBadges(state);
-  updateCompletedStyles(state);
+  svg.appendChild(fragment);
+}
+
+/** Public entry used by callers that expect a full paint + chrome sync. */
+export function drawDependencies(state: EditorState): void {
+  redrawSvg(state, { animate: true });
+  syncCardChrome(state);
+}
+
+function scheduleRedraw(state: EditorState, options: RedrawOptions = {}): void {
+  if (options.chrome !== false) pendingChrome = true;
+  if (options.animate) pendingAnimate = true;
+
+  if (redrawRaf) return;
+
+  redrawRaf = requestAnimationFrame(() => {
+    redrawRaf = 0;
+    const chrome = pendingChrome;
+    const animate = pendingAnimate;
+    pendingChrome = false;
+    pendingAnimate = false;
+
+    // Skip SVG work on scroll when nothing is selected.
+    if (!state.selectedCourseId && !chrome) {
+      const svg = getSvg();
+      if (svg && svg.childNodes.length > 0) clearSvg(svg);
+      return;
+    }
+
+    redrawSvg(state, { animate });
+    if (chrome) syncCardChrome(state);
+  });
 }
 
 function moveCourseInDom(courseId: string, targetList: HTMLElement, insertIndex: number): void {
-  const card = document.querySelector<HTMLElement>(`.plan-course-card[data-course-id="${courseId}"]`);
+  const card = document.querySelector<HTMLElement>(
+    `.plan-course-card[data-course-id="${CSS.escape(courseId)}"]`,
+  );
   if (!card) return;
 
   const items = [...targetList.querySelectorAll<HTMLElement>(".plan-course-card")].filter(
@@ -496,6 +598,32 @@ function computeInsertIndex(list: HTMLElement, clientY: number): number {
   return cards.length;
 }
 
+/** Diff DOM layout against in-memory plan — only ship courses that actually moved. */
+function collectChangedMoves(state: EditorState): PlanLayoutMove[] {
+  const previous = new Map<string, { termId: string; sortOrder: number }>();
+  for (const term of state.plan.terms) {
+    term.courses.forEach((course, index) => {
+      previous.set(course.id, { termId: term.id, sortOrder: index });
+    });
+  }
+
+  const moves: PlanLayoutMove[] = [];
+  document.querySelectorAll<HTMLElement>(".plan-course-list[data-term-id]").forEach((list) => {
+    const termId = list.dataset.termId;
+    if (!termId) return;
+    list.querySelectorAll<HTMLElement>(".plan-course-card").forEach((card, index) => {
+      const courseId = card.dataset.courseId;
+      if (!courseId) return;
+      const prior = previous.get(courseId);
+      if (!prior || prior.termId !== termId || prior.sortOrder !== index) {
+        moves.push({ courseId, termId, sortOrder: index });
+      }
+    });
+  });
+
+  return moves;
+}
+
 async function toggleCourseCompletion(
   state: EditorState,
   courseId: string,
@@ -515,7 +643,7 @@ async function toggleCourseCompletion(
     cachePlanGraphSnapshot(state.graph);
     updateDependencySummary(state);
     setStatus(completed ? "Marked complete" : "Marked incomplete");
-    drawDependencies(state);
+    scheduleRedraw(state, { chrome: true, animate: false });
   } catch (error) {
     setStatus(error instanceof Error ? error.message : "Failed to update completion", true);
     updateCompletedStyles(state);
@@ -525,17 +653,11 @@ async function toggleCourseCompletion(
 }
 
 async function persistLayout(state: EditorState): Promise<void> {
-  const moves: PlanLayoutMove[] = [];
-  document.querySelectorAll<HTMLElement>(".plan-course-list[data-term-id]").forEach((list) => {
-    const termId = list.dataset.termId;
-    if (!termId) return;
-    list.querySelectorAll<HTMLElement>(".plan-course-card").forEach((card, index) => {
-      const courseId = card.dataset.courseId;
-      if (courseId) moves.push({ courseId, termId, sortOrder: index });
-    });
-  });
-
-  if (moves.length === 0) return;
+  const moves = collectChangedMoves(state);
+  if (moves.length === 0) {
+    setStatus("Layout up to date");
+    return;
+  }
 
   state.saving = true;
   setStatus("Saving layout…");
@@ -551,7 +673,7 @@ async function persistLayout(state: EditorState): Promise<void> {
     cachePlanGraphSnapshot(state.graph);
     updateDependencySummary(state);
     setStatus("Layout saved");
-    drawDependencies(state);
+    scheduleRedraw(state, { chrome: true, animate: false });
   } catch (error) {
     setStatus(error instanceof Error ? error.message : "Failed to save layout", true);
   } finally {
@@ -625,7 +747,7 @@ function bindDragAndDrop(state: EditorState): void {
 
     const insertIndex = computeInsertIndex(list, event.clientY);
     moveCourseInDom(courseId, list, insertIndex);
-    drawDependencies(state);
+    scheduleRedraw(state, { chrome: true, animate: false });
     void persistLayout(state);
   });
 }
@@ -642,8 +764,7 @@ function bindSelection(state: EditorState): void {
     const card = target.closest(".plan-course-body")?.closest<HTMLElement>(".plan-course-card");
     if (card?.dataset.courseId) {
       state.selectedCourseId = card.dataset.courseId;
-      highlightSelection(state);
-      drawDependencies(state);
+      scheduleRedraw(state, { chrome: true, animate: true });
       updateSelectionLegend(state);
       return;
     }
@@ -678,45 +799,70 @@ function bindRedrawOnLayoutChange(state: EditorState): void {
   const stage = getStage();
   if (!canvas || !stage) return;
 
-  const redraw = () => drawDependencies(state);
-  canvas.addEventListener("scroll", redraw, { passive: true });
-  window.addEventListener("resize", redraw);
+  // Scroll/resize: SVG geometry only — never walk card chrome.
+  const onScrollOrResize = () => scheduleRedraw(state, { chrome: false, animate: false });
+  canvas.addEventListener("scroll", onScrollOrResize, { passive: true });
+  window.addEventListener("resize", onScrollOrResize);
 
   if (typeof ResizeObserver !== "undefined") {
-    const observer = new ResizeObserver(redraw);
+    const observer = new ResizeObserver(onScrollOrResize);
     observer.observe(stage);
   }
 }
 
+function applyGraphResponse(
+  state: EditorState,
+  response: { plan: DegreePlan; graph: Omit<PlanGraphSnapshot, "plan" | "updated_at"> },
+): void {
+  state.plan = response.plan;
+  state.graph = {
+    ...response.graph,
+    plan: response.plan,
+    updated_at: new Date().toISOString(),
+  };
+  cachePlanGraphSnapshot(state.graph);
+}
+
 async function loadGraph(state: EditorState): Promise<void> {
-  setStatus("Loading prerequisites…");
+  // Instant paint from session cache when available, then revalidate.
+  const cached = readPlanGraphSnapshot(state.plan.id);
+  if (cached?.dependencies) {
+    state.graph = {
+      ...cached,
+      plan: cached.plan ?? state.plan,
+    };
+    updateDependencySummary(state);
+    scheduleRedraw(state, { chrome: true, animate: false });
+    setStatus("Refreshing prerequisites…");
+  } else {
+    setStatus("Loading prerequisites…");
+  }
+
   try {
     const response = await fetchPlanGraph(state.plan.id);
-    state.plan = response.plan;
-    state.graph = {
-      ...response.graph,
-      plan: response.plan,
-      updated_at: new Date().toISOString(),
-    };
-    cachePlanGraphSnapshot(state.graph);
+    applyGraphResponse(state, response);
     updateDependencySummary(state);
     setStatus("Click a course to see prereqs · tick completed courses you have already taken");
-    drawDependencies(state);
+    scheduleRedraw(state, { chrome: true, animate: false });
     updateSelectionLegend(state);
   } catch (error) {
-    setStatus(
-      error instanceof Error ? error.message : "Could not load prerequisite graph",
-      true,
-    );
-    state.graph = {
-      plan_id: state.plan.id,
-      plan: state.plan,
-      placements: [],
-      dependencies: [],
-      course_codes: [],
-      updated_at: new Date().toISOString(),
-    };
-    cachePlanGraphSnapshot(state.graph);
+    if (!state.graph) {
+      setStatus(
+        error instanceof Error ? error.message : "Could not load prerequisite graph",
+        true,
+      );
+      state.graph = {
+        plan_id: state.plan.id,
+        plan: state.plan,
+        placements: [],
+        dependencies: [],
+        course_codes: [],
+        updated_at: new Date().toISOString(),
+      };
+      cachePlanGraphSnapshot(state.graph);
+    } else {
+      setStatus("Using cached prerequisites (refresh failed)", true);
+    }
   }
 }
 
@@ -730,7 +876,13 @@ export function initPlanEditor(plan: DegreePlan): void {
     selectedCourseId: null,
     draggingCourseId: null,
     saving: false,
+    theme: readThemeColors(),
   };
+
+  document.addEventListener("yorklanes:theme-change", () => {
+    state.theme = readThemeColors();
+    scheduleRedraw(state, { chrome: false, animate: false });
+  });
 
   bindDragAndDrop(state);
   bindSelection(state);

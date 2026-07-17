@@ -325,19 +325,40 @@ export async function getPlanById(pool: Pool, planId: string): Promise<DegreePla
     [planId],
   );
 
-  const terms: PlanTermRow[] = [];
-
   const includeCompleted = await planCoursesHaveCompletedColumn(pool);
+  const termIds = termsResult.rows.map((term) => term.id);
+  const coursesByTerm = new Map<string, PlanCourseRow[]>();
 
-  for (const term of termsResult.rows) {
-    const coursesResult = await pool.query<PlanCourseRow>(
-      `SELECT ${planCourseSelectSql(includeCompleted)}
-       FROM plan_courses WHERE term_id = $1 ORDER BY sort_order`,
-      [term.id],
+  if (termIds.length > 0) {
+    const coursesResult = await pool.query<PlanCourseRow & { term_id: string }>(
+      `SELECT ${planCourseSelectSql(includeCompleted)}, term_id
+       FROM plan_courses
+       WHERE term_id = ANY($1::uuid[])
+       ORDER BY sort_order`,
+      [termIds],
     );
 
-    terms.push({ ...term, courses: coursesResult.rows });
+    for (const course of coursesResult.rows) {
+      const list = coursesByTerm.get(course.term_id) ?? [];
+      list.push({
+        id: course.id,
+        course_code: course.course_code,
+        credits: course.credits,
+        title: course.title,
+        checklist_year: course.checklist_year,
+        sort_order: course.sort_order,
+        entry_kind: course.entry_kind,
+        section_label: course.section_label,
+        completed: course.completed,
+      });
+      coursesByTerm.set(course.term_id, list);
+    }
   }
+
+  const terms: PlanTermRow[] = termsResult.rows.map((term) => ({
+    ...term,
+    courses: coursesByTerm.get(term.id) ?? [],
+  }));
 
   const warnings = Array.isArray(plan.parse_warnings)
     ? (plan.parse_warnings as string[])

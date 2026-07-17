@@ -1,6 +1,7 @@
 ---
 import DashboardLayout from "../../layouts/DashboardLayout.astro";
 import { fetchMyPlan, fetchPlan } from "../../lib/plans";
+import type { PlanCourse, PlanTerm } from "../../types/plan";
 
 // Must be server-rendered so ?id= query param and plan data resolve per request.
 export const prerender = false;
@@ -29,9 +30,88 @@ if (planIdParam) {
 }
 
 const planId = plan?.id ?? planIdParam ?? "";
+
+type Season = "fall" | "winter" | "summer" | "other";
+
+interface YearColumn {
+  checklistYear: number;
+  academicYear: number;
+  fall: PlanTerm | null;
+  winter: PlanTerm | null;
+  summer: PlanTerm | null;
+}
+
+function normalizeSeason(session: string): Season {
+  const value = session.toLowerCase();
+  if (value.includes("fall") || value.includes("autumn")) return "fall";
+  if (value.includes("winter")) return "winter";
+  if (value.includes("summer")) return "summer";
+  return "other";
+}
+
+function groupTermsByYear(terms: PlanTerm[]): YearColumn[] {
+  const byYear = new Map<number, YearColumn>();
+
+  for (const term of terms) {
+    const key = term.checklist_year;
+    let column = byYear.get(key);
+    if (!column) {
+      column = {
+        checklistYear: key,
+        academicYear: term.academic_year,
+        fall: null,
+        winter: null,
+        summer: null,
+      };
+      byYear.set(key, column);
+    }
+
+    const season = normalizeSeason(term.session);
+    if (season === "fall") column.fall = term;
+    else if (season === "winter") column.winter = term;
+    else if (season === "summer") column.summer = term;
+    else if (!column.fall) column.fall = term;
+    else if (!column.winter) column.winter = term;
+    else column.summer = term;
+  }
+
+  return [...byYear.values()].sort((a, b) => a.checklistYear - b.checklistYear);
+}
+
+function termCredits(term: PlanTerm): number {
+  return term.courses.reduce((sum, course) => sum + (course.credits ?? 0), 0);
+}
+
+function courseCount(term: PlanTerm): number {
+  return term.courses.filter((course) => course.entry_kind !== "stub").length;
+}
+
+function academicSpan(year: number): string {
+  return `${year}–${String(year + 1).slice(-2)}`;
+}
+
+interface SeasonSlot {
+  key: Season;
+  term: PlanTerm | null;
+  label: string;
+}
+
+function seasonSlotsForYear(year: YearColumn, includeSummer: boolean): SeasonSlot[] {
+  const seasons: SeasonSlot[] = [
+    { key: "fall", term: year.fall, label: "Fall" },
+    { key: "winter", term: year.winter, label: "Winter" },
+  ];
+  if (includeSummer) {
+    seasons.push({ key: "summer", term: year.summer, label: "Summer" });
+  }
+  return seasons;
+}
+
+const yearColumns = plan ? groupTermsByYear(plan.terms) : [];
+const showSummerRow = yearColumns.some((column) => column.summer !== null);
 ---
 
-<DashboardLayout title="Degree Plan | YorkLanes" activeNav="plan">
+<DashboardLayout title="Degree Plan | YorkLanes" activeNav="plan" collapseSidebar>
   <Fragment slot="header">
     <div class="flex flex-wrap items-start justify-between gap-4">
       <div>
@@ -40,7 +120,7 @@ const planId = plan?.id ?? planIdParam ?? "";
         {
           plan && (
             <p class="mt-0.5 text-sm text-york-muted">
-              Started {plan.starting_year} · {plan.terms.length} terms · from {plan.source_filename}
+              Started {plan.starting_year} · {yearColumns.length} year{yearColumns.length === 1 ? "" : "s"} · from {plan.source_filename}
             </p>
           )
         }
@@ -116,109 +196,152 @@ const planId = plan?.id ?? planIdParam ?? "";
         <div class="plan-editor-canvas" id="plan-editor-canvas">
           <div class="plan-editor-stage" id="plan-editor-stage">
             <svg id="plan-deps-svg" class="plan-deps-layer" aria-hidden="true" />
-            <div class="plan-editor-columns" id="plan-editor-columns">
-              {plan.terms.map((term, termIndex) => {
-                const termCredits = term.courses.reduce((sum, c) => sum + (c.credits ?? 0), 0);
-                const courseCount = term.courses.filter((c) => c.entry_kind !== "stub").length;
-                return (
-                  <section
-                    class="plan-term-column"
-                    data-term-id={term.id}
-                    data-season={term.session.toLowerCase().replace(/[^a-z]+/g, "-")}
-                    style={`--term-index: ${termIndex}`}
-                  >
-                    <div class="plan-term-header">
-                      <p class="plan-term-session">{term.session}</p>
-                      <h2 class="plan-term-title">{term.label}</h2>
-                      <p class="plan-term-meta">Checklist year {term.checklist_year}</p>
-                    </div>
+            <div
+              class:list={["plan-year-board", showSummerRow && "plan-year-board--with-summer"]}
+              id="plan-editor-columns"
+              style={`--year-count: ${Math.max(yearColumns.length, 1)}`}
+            >
+              {
+                yearColumns.map((year, yearIndex) => {
+                  const seasons = seasonSlotsForYear(year, showSummerRow);
 
-                    <ul class="plan-course-list" data-term-id={term.id} data-drop-zone>
+                  return (
+                    <section
+                      class="plan-year-column"
+                      data-checklist-year={year.checklistYear}
+                      style={`--year-index: ${yearIndex}`}
+                    >
+                      <header class="plan-year-header">
+                        <p class="plan-year-kicker">Year {year.checklistYear}</p>
+                        <h2 class="plan-year-title">{academicSpan(year.academicYear)}</h2>
+                      </header>
+
                       {
-                        term.courses.length > 0 ? (
-                          term.courses.map((course) => {
-                            const isStub = course.entry_kind === "stub";
-                            const displayLabel =
-                              isStub
-                                ? (course.section_label ?? course.title ?? course.course_code)
-                                : course.course_code;
+                        seasons.map(({ key, term, label }) => {
+                          if (!term) {
                             return (
-                            <li
-                              class:list={["plan-course-card", { "plan-course-card--stub": isStub }]}
-                              data-course-id={course.id}
-                              data-course-code={course.course_code}
-                              data-entry-kind={course.entry_kind ?? "course"}
-                            >
-                              {
-                                !isStub && (
-                                  <label class="plan-course-complete-wrap" title="Mark as completed">
-                                    <input
-                                      type="checkbox"
-                                      class="plan-course-complete"
-                                      checked={course.completed ?? false}
-                                      aria-label={`Mark ${course.course_code} as completed`}
-                                    />
-                                  </label>
-                                )
-                              }
-                              <span class="plan-course-warning" hidden aria-label="Unmet prerequisites">!</span>
-                              <button
-                                type="button"
-                                class="plan-course-handle"
-                                draggable="true"
-                                aria-label={`Drag ${displayLabel} to another term`}
+                              <div
+                                class:list={[
+                                  "plan-term-bubble plan-term-bubble--empty",
+                                  `plan-term-bubble--${key}`,
+                                ]}
+                                data-season={key}
                               >
-                                ⋮⋮
-                              </button>
-                              <div class="plan-course-body">
-                                {
-                                  isStub ? (
-                                    <>
-                                      <p class="plan-course-code">{displayLabel}</p>
-                                      {
-                                        course.title && course.title !== displayLabel && (
-                                          <p class="plan-stub-options">{course.title}</p>
-                                        )
-                                      }
-                                      {
-                                        !course.title && (
-                                          <p class="text-xs text-york-muted">Pick from checklist options</p>
-                                        )
-                                      }
-                                    </>
-                                  ) : (
-                                    <p class="plan-course-code">{course.course_code}</p>
-                                  )
-                                }
-                                {
-                                  course.title && !isStub && (
-                                    <p class="text-xs text-york-muted">{course.title}</p>
-                                  )
-                                }
-                                {
-                                  course.credits != null && (
-                                    <span class="plan-course-credits">{course.credits} cr</span>
-                                  )
-                                }
+                                <div class="plan-term-header">
+                                  <p class="plan-term-session">{label}</p>
+                                  <p class="plan-term-meta">No courses scheduled</p>
+                                </div>
+                                <div class="plan-term-empty-body">
+                                  <p>Add a {label.toLowerCase()} term to place courses here.</p>
+                                </div>
                               </div>
-                            </li>
                             );
-                          })
-                        ) : (
-                          <li class="plan-course-empty">Drop courses here</li>
-                        )
-                      }
-                    </ul>
+                          }
 
-                    <div class="plan-term-footer">
-                      <span class="plan-term-count">
-                        {courseCount} course{courseCount === 1 ? "" : "s"}
-                      </span>
-                      <span class="plan-term-credits">{termCredits} credits</span>
-                    </div>
-                  </section>
-                );
-              })}
+                          const credits = termCredits(term);
+                          const count = courseCount(term);
+
+                          return (
+                            <div
+                              class:list={["plan-term-bubble", `plan-term-bubble--${key}`]}
+                              data-term-id={term.id}
+                              data-season={key}
+                            >
+                              <div class="plan-term-header">
+                                <p class="plan-term-session">{label}</p>
+                                <h3 class="plan-term-title">{term.label}</h3>
+                              </div>
+
+                              <ul class="plan-course-list" data-term-id={term.id} data-drop-zone>
+                                {
+                                  term.courses.length > 0 ? (
+                                    term.courses.map((course: PlanCourse) => {
+                                      const isStub = course.entry_kind === "stub";
+                                      const displayLabel = isStub
+                                        ? (course.section_label ?? course.title ?? course.course_code)
+                                        : course.course_code;
+                                      return (
+                                        <li
+                                          class:list={["plan-course-card", { "plan-course-card--stub": isStub }]}
+                                          data-course-id={course.id}
+                                          data-course-code={course.course_code}
+                                          data-entry-kind={course.entry_kind ?? "course"}
+                                        >
+                                          {
+                                            !isStub && (
+                                              <label class="plan-course-complete-wrap" title="Mark as completed">
+                                                <input
+                                                  type="checkbox"
+                                                  class="plan-course-complete"
+                                                  checked={course.completed ?? false}
+                                                  aria-label={`Mark ${course.course_code} as completed`}
+                                                />
+                                              </label>
+                                            )
+                                          }
+                                          <span class="plan-course-warning" hidden aria-label="Unmet prerequisites">!</span>
+                                          <button
+                                            type="button"
+                                            class="plan-course-handle"
+                                            draggable="true"
+                                            aria-label={`Drag ${displayLabel} to another term`}
+                                          >
+                                            ⋮⋮
+                                          </button>
+                                          <div class="plan-course-body">
+                                            {
+                                              isStub ? (
+                                                <Fragment>
+                                                  <p class="plan-course-code">{displayLabel}</p>
+                                                  {
+                                                    course.title && course.title !== displayLabel && (
+                                                      <p class="plan-stub-options">{course.title}</p>
+                                                    )
+                                                  }
+                                                  {
+                                                    !course.title && (
+                                                      <p class="text-xs text-york-muted">Pick from checklist options</p>
+                                                    )
+                                                  }
+                                                </Fragment>
+                                              ) : (
+                                                <p class="plan-course-code">{course.course_code}</p>
+                                              )
+                                            }
+                                            {
+                                              course.title && !isStub && (
+                                                <p class="text-xs text-york-muted">{course.title}</p>
+                                              )
+                                            }
+                                            {
+                                              course.credits != null && (
+                                                <span class="plan-course-credits">{course.credits} cr</span>
+                                              )
+                                            }
+                                          </div>
+                                        </li>
+                                      );
+                                    })
+                                  ) : (
+                                    <li class="plan-course-empty">Drop courses here</li>
+                                  )
+                                }
+                              </ul>
+
+                              <div class="plan-term-footer">
+                                <span class="plan-term-count">
+                                  {count} course{count === 1 ? "" : "s"}
+                                </span>
+                                <span class="plan-term-credits">{credits} credits</span>
+                              </div>
+                            </div>
+                          );
+                        })
+                      }
+                    </section>
+                  );
+                })
+              }
             </div>
           </div>
         </div>

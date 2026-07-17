@@ -11,6 +11,7 @@ import cors from "cors";
 import express from "express";
 import { getAuthConfig } from "./config/auth.js";
 import { getDatabaseTarget } from "./db/index.js";
+import { requireAuth } from "./middleware/auth.js";
 import { createSessionMiddleware } from "./middleware/session.js";
 import { assignmentsRouter } from "./routes/assignments.js";
 import { authRouter } from "./routes/auth.js";
@@ -42,15 +43,15 @@ app.use(createSessionMiddleware());
 
 app.use("/health", healthRouter);
 app.use("/api/auth", authRouter);
-app.use("/api/dashboard", dashboardRouter);
-app.use("/api/onboarding", onboardingRouter);
-app.use("/api/plans", plansRouter);
+app.use("/api/dashboard", requireAuth, dashboardRouter);
+app.use("/api/onboarding", requireAuth, onboardingRouter);
+app.use("/api/plans", requireAuth, plansRouter);
 app.use("/api/courses", coursesRouter);
 app.use("/api/course-sections", courseSectionsRouter);
-app.use("/api/schedules", schedulesRouter);
-app.use("/api/progress", progressRouter);
-app.use("/api/finance", financeRouter);
-app.use("/api/assignments", assignmentsRouter);
+app.use("/api/schedules", requireAuth, schedulesRouter);
+app.use("/api/progress", requireAuth, progressRouter);
+app.use("/api/finance", requireAuth, financeRouter);
+app.use("/api/assignments", requireAuth, assignmentsRouter);
 
 app.listen(port, () => {
   console.log(`YorkLanes API listening on http://localhost:${port}`);

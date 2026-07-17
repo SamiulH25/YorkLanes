@@ -80,11 +80,6 @@ document.addEventListener("astro:before-swap", (event) => {
   if (!newRoot) return;
 
   applyThemeToElement(newRoot);
-
-  const collapsed = document.documentElement.dataset.sidebarCollapsed;
-  if (collapsed) {
-    newRoot.dataset.sidebarCollapsed = collapsed;
-  }
 });
 
 document.addEventListener("astro:page-load", restoreThemeAfterNavigation);

@@ -24,53 +24,54 @@ try {
 
 const availableTerms = [...new Set(sectionGroups.map((group) => group.term))];
 const defaultTerm = availableTerms[0] ?? "";
+const totalSections = sectionGroups.reduce((sum, group) => sum + group.sections.length, 0);
 
-function formatCredits(credits: number | null): string {
-  if (credits === null) return "Not listed";
-  return `${Number.isInteger(credits) ? credits : credits.toFixed(1)} Credits`;
+function formatCreditsValue(credits: number | null): string {
+  if (credits === null) return "—";
+  return Number.isInteger(credits) ? String(credits) : credits.toFixed(1);
+}
+
+function formatCreditsLabel(credits: number | null): string {
+  if (credits === null) return "Credits";
+  return credits === 1 ? "Credit" : "Credits";
 }
 
 function groupForTerm(term: string) {
   return sectionGroups.find((group) => group.term === term);
 }
+
+function meetingInstructors(section: (typeof sectionGroups)[number]["sections"][number]): string {
+  return [...new Set(section.meetings.map((m) => m.instructor).filter(Boolean))].join(", ");
+}
+
+function dayShort(day: string): string {
+  const map: Record<string, string> = {
+    Monday: "Mon",
+    Tuesday: "Tue",
+    Wednesday: "Wed",
+    Thursday: "Thu",
+    Friday: "Fri",
+    Saturday: "Sat",
+    Sunday: "Sun",
+  };
+  return map[day] ?? day.slice(0, 3);
+}
 ---
 
 <DashboardLayout title={course ? `${course.code} | Courses` : "Course | YorkLanes"} activeNav="courses">
   <Fragment slot="header">
-    <div class="flex flex-wrap items-start justify-between gap-4">
-      <div>
-        {
-          course ? (
-            <>
-              <div class="mt-2 flex flex-wrap items-center gap-3">
-                <h1 class="heading-page mt-1 font-mono">{course.code}</h1>
-                {
-                  course.department && (
-                    <span class="badge bg-surface-muted text-muted">{course.department}</span>
-                  )
-                }
-              </div>
-              <p class="mt-1 text-sm text-muted">{course.title}</p>
-            </>
-            <p class="text-xs font-medium text-york-muted">{formatCredits(course.credits)}</p>
-            <h1 class="heading-page [font-variant-numeric:lining-nums]">{course.code}</h1>
-            <p class="mt-0.5 text-sm text-muted">{course.title}</p>
-          ) : (
-            <p class="text-xs font-medium text-york-muted">Credit Value</p>
-            <h1 class="heading-page">Course Code</h1>
-            <p class="mt-0.5 text-sm text-muted">Course Name</p>
-          )
-        }
-      </div>
+    <div>
+      <a href="/courses" class="courses-back">
+        <span aria-hidden="true">←</span>
+        Catalogue
+      </a>
+      <h1 class="heading-page">{course?.code ?? "Course"}</h1>
+      <p class="mt-0.5 text-sm text-muted">
+        {course?.title ?? "Catalogue entry"}
+      </p>
     </div>
   </Fragment>
-  
-  {
-    <div class="mb-6">
-        <a href="/courses" class="btn-york px-4 py-2.5 text-sm">← Course Explorer</a>
-    </div>
-  }
-  
+
   {
     loadError && (
       <div class="mb-6 rounded-xl border border-accent-soft bg-accent-soft px-4 py-3 text-sm text-secondary">
@@ -78,158 +79,255 @@ function groupForTerm(term: string) {
       </div>
     )
   }
-  
+
   {
     course && (
-      <div class="grid gap-6 lg:grid-cols-[minmax(0,1fr)_280px]">
-        <section class="surface relative overflow-hidden p-5 sm:p-6">
-          <div class="pointer-events-none absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-brand to-accent" aria-hidden="true" />
-          <h2 class="text-sm font-semibold text-foreground">Description</h2>
-          {
-            course.description ? (
-              <p class="mt-3 whitespace-pre-wrap text-sm leading-relaxed text-secondary">{course.description}</p>
-            ) : (
-              <p class="mt-3 text-sm text-muted">No description available for this course yet.</p>
-            )
-          }
-        </section>
-        
-        <aside class="space-y-4">
-          <section class="surface relative overflow-hidden p-5">
-            <div class="pointer-events-none absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-brand to-accent" aria-hidden="true" />
-            <h2 class="text-sm font-semibold text-foreground">Prerequisites</h2>
+      <article class="course-sheet">
+        <header class="course-hero">
+          <div class="course-hero__glow" aria-hidden="true" />
+          <p class="course-hero__eyebrow">York University catalogue</p>
+          <div class="course-hero__topline">
+            <h2 class="course-hero__code">{course.code}</h2>
             {
-              course.prerequisites.length > 0 ? (
-                <ul class="mt-3 space-y-2">
-                  {
-                    course.prerequisites.map((prereq) => (
-                      <li>
-                        <a
-                          href={courseDetailPath(prereq)}
-                          class="group flex items-center justify-between gap-2 rounded-lg border border-shell bg-surface-muted px-3 py-2 font-mono text-xs font-semibold text-brand transition hover:border-brand/40 hover:bg-brand-subtle"
-                        >
-                          <span>{prereq}</span>
-                          <span class="text-brand/70 transition-transform group-hover:translate-x-0.5" aria-hidden="true">→</span>
-                        </a>
-                      </li>
-                    ))
-                  }
-                </ul>
-              ) : (
-                <p class="mt-3 text-sm text-muted">None listed in the catalogue.</p>
+              course.department && (
+                <span class="course-hero__dept">{course.department}</span>
               )
             }
-          </section>
-          
-          <section class="surface-muted p-5">
-            <h2 class="text-sm font-semibold text-foreground">Plan integration</h2>
-            <p class="mt-2 text-sm text-muted">
-              Add this course to your degree plan from the{" "}
-              <a href="/plan" class="text-brand hover:underline">degree plan</a> page.
-            </p>
-            <a href="/plan" class="btn-york mt-4 inline-flex w-full items-center justify-center gap-2 text-sm">
-              Open degree plan
-              <span aria-hidden="true">→</span>
-            </a>
-          </section>
-        </aside>
-      </div>
-
-      <section class="surface relative overflow-hidden p-5 sm:p-6">
-        <div class="pointer-events-none absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-brand to-accent" aria-hidden="true" />
-        <div class="flex flex-wrap items-center justify-between gap-3">
-          <div>
-            <h2 class="text-sm font-semibold text-foreground">Sections &amp; timetable</h2>
-            <p class="mt-1 text-xs text-muted">
-              {sectionGroups.length > 0
-                ? `Scraped from York course timetables across ${availableTerms.length} term${availableTerms.length === 1 ? "" : "s"}.`
-                : "No section timetables scraped for this course yet."}
-            </p>
           </div>
-          {
-            availableTerms.length > 1 && (
-              <select id="section-term-select" class="field-select sm:w-52" aria-label="Select term">
-                {availableTerms.map((term) => (
-                  <option value={term} selected={term === defaultTerm}>
-                    {term}
-                  </option>
-                ))}
-              </select>
-            )
-          }
-        </div>
+          <p class="course-hero__title">{course.title}</p>
 
-        <div id="section-browser" data-default-term={defaultTerm}>
-          {
-            availableTerms.length === 0 && (
-              <p class="mt-4 text-sm text-muted">
-                Run the schedule scraper to populate section data. See{" "}
-                <code class="rounded bg-black/5 px-1.5 py-0.5 font-mono text-xs dark:bg-white/10">npm run scraper:schedule</code>.
-              </p>
-            )
-          }
-          {
-            availableTerms.map((term) => {
-              const group = groupForTerm(term);
-              const sections = group?.sections ?? [];
-              return (
-                <div class="section-term-panel" data-term={term} hidden={term !== defaultTerm}>
-                  {sections.length === 0 ? (
-                    <p class="mt-4 text-sm text-muted">No sections listed for this term.</p>
-                  ) : (
-                    <div class="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
-                      {sections.map((section) => (
-                        <div class="rounded-xl border border-shell bg-surface-muted p-4">
-                          <div class="flex items-center justify-between gap-2">
-                            <span class="font-mono text-sm font-bold text-brand">{section.section_code}</span>
-                            {section.meetings[0]?.delivery_mode && (
-                              <span class="badge bg-brand-subtle text-brand">{section.meetings[0].delivery_mode}</span>
-                            )}
-                          </div>
-                          <ul class="mt-3 space-y-2">
-                            {section.meetings.map((meeting) => (
-                              <li class="flex items-center justify-between gap-2 text-sm">
-                                <span class="font-medium text-foreground">{meeting.day}</span>
-                                <span class="text-muted">
-                                  {meeting.start_time}–{meeting.end_time}
-                                </span>
-                                {(meeting.campus || meeting.room) && (
-                                  <span class="text-xs text-muted">
-                                    {[meeting.campus, meeting.room].filter(Boolean).join(" · ")}
-                                  </span>
-                                )}
-                              </li>
-                            ))}
-                          </ul>
-                          {
-                            section.meetings.some((m) => m.instructor) && (
-                              <p class="mt-3 border-t border-shell pt-2 text-xs text-muted">
-                                {section.meetings.map((m) => m.instructor).filter(Boolean).join(", ")}
-                              </p>
-                            )
-                          }
-                        </div>
-                      ))}
-                    </div>
-                  )}
+          <dl class="course-facts">
+            <div class="course-fact">
+              <dt>{formatCreditsLabel(course.credits)}</dt>
+              <dd>{formatCreditsValue(course.credits)}</dd>
+            </div>
+            <div class="course-fact">
+              <dt>Prerequisites</dt>
+              <dd>{course.prerequisites.length}</dd>
+            </div>
+            <div class="course-fact">
+              <dt>Sections</dt>
+              <dd>{totalSections}</dd>
+            </div>
+            <div class="course-fact">
+              <dt>Terms</dt>
+              <dd>{availableTerms.length || "—"}</dd>
+            </div>
+          </dl>
+        </header>
+
+        <div class="course-sheet__body">
+          <div class="course-sheet__primary">
+            <section class="course-panel course-panel--prose">
+              <div class="course-panel__heading">
+                <h3 class="course-panel__label">Description</h3>
+              </div>
+              {
+                course.description ? (
+                  <p class="course-prose">{course.description}</p>
+                ) : (
+                  <p class="course-panel__body course-panel__body--muted">
+                    No description is listed in the catalogue for this course yet.
+                  </p>
+                )
+              }
+            </section>
+
+            <section class="course-panel">
+              <div class="course-panel__heading course-panel__heading--split">
+                <div>
+                  <h3 class="course-panel__label">Sections &amp; timetable</h3>
+                  <p class="course-panel__hint">
+                    {
+                      sectionGroups.length > 0
+                        ? `${totalSections} section${totalSections === 1 ? "" : "s"} across ${availableTerms.length} term${availableTerms.length === 1 ? "" : "s"}`
+                        : "No scraped timetable data yet"
+                    }
+                  </p>
                 </div>
-              );
-            })
-          }
+              </div>
+
+              {
+                availableTerms.length > 1 && (
+                  <div class="term-tabs" role="tablist" aria-label="Select term">
+                    {availableTerms.map((term) => (
+                      <button
+                        type="button"
+                        class:list={["term-tab", term === defaultTerm && "term-tab--active"]}
+                        data-term-tab={term}
+                        aria-selected={term === defaultTerm}
+                      >
+                        {term}
+                      </button>
+                    ))}
+                  </div>
+                )
+              }
+
+              {
+                availableTerms.length === 1 && (
+                  <p class="course-term-single">{defaultTerm}</p>
+                )
+              }
+
+              <div id="section-browser" data-default-term={defaultTerm}>
+                {
+                  availableTerms.length === 0 ? (
+                    <div class="course-sections-empty">
+                      <p>Section times will show up here after the schedule scraper runs for this course.</p>
+                      <a href="/schedule" class="text-brand text-sm font-semibold hover:underline">
+                        Open schedule →
+                      </a>
+                    </div>
+                  ) : (
+                    availableTerms.map((term) => {
+                      const group = groupForTerm(term);
+                      const sections = group?.sections ?? [];
+                      return (
+                        <div
+                          class="section-term-panel"
+                          data-term={term}
+                          role="tabpanel"
+                          hidden={term !== defaultTerm}
+                        >
+                          {sections.length === 0 ? (
+                            <p class="mt-4 text-sm text-muted">No sections listed for this term.</p>
+                          ) : (
+                            <ul class="section-list">
+                              {sections.map((section) => (
+                                <li class="section-block">
+                                  <div class="section-block__head">
+                                    <span class="section-block__code">{section.section_code}</span>
+                                    {
+                                      section.meetings[0]?.delivery_mode && (
+                                        <span class="section-mode">{section.meetings[0].delivery_mode}</span>
+                                      )
+                                    }
+                                  </div>
+                                  <ul class="section-meetings">
+                                    {section.meetings.map((meeting) => (
+                                      <li class="section-meeting">
+                                        <span class="section-day" title={meeting.day}>
+                                          {dayShort(meeting.day)}
+                                        </span>
+                                        <span class="section-meeting__time">
+                                          {meeting.start_time}
+                                          <span class="section-meeting__dash">–</span>
+                                          {meeting.end_time}
+                                        </span>
+                                        <span class="section-meeting__place">
+                                          {[meeting.campus, meeting.room].filter(Boolean).join(" · ") || "Location TBA"}
+                                        </span>
+                                      </li>
+                                    ))}
+                                  </ul>
+                                  {
+                                    meetingInstructors(section) && (
+                                      <p class="section-block__instructor">
+                                        <span class="section-block__instructor-label">Instructor</span>
+                                        {meetingInstructors(section)}
+                                      </p>
+                                    )
+                                  }
+                                </li>
+                              ))}
+                            </ul>
+                          )}
+                        </div>
+                      );
+                    })
+                  )
+                }
+              </div>
+            </section>
+          </div>
+
+          <aside class="course-rail" aria-label="Course requirements">
+            <header class="course-rail__mast">
+              <p class="course-rail__kicker">Before you take</p>
+              <p class="course-rail__subject">{course.code}</p>
+            </header>
+
+            <section class="course-rail__block">
+              <h3 class="course-rail__heading">Required first</h3>
+              {
+                course.prerequisites.length > 0 ? (
+                  <ol class="prereq-chain">
+                    {
+                      course.prerequisites.map((prereq) => (
+                        <li class="prereq-chain__step">
+                          <span class="prereq-chain__node" aria-hidden="true" />
+                          <a href={courseDetailPath(prereq)} class="prereq-chain__link">
+                            {prereq}
+                          </a>
+                        </li>
+                      ))
+                    }
+                    <li class="prereq-chain__step prereq-chain__step--current" aria-current="step">
+                      <span class="prereq-chain__node prereq-chain__node--current" aria-hidden="true" />
+                      <span class="prereq-chain__current">{course.code}</span>
+                    </li>
+                  </ol>
+                ) : (
+                  <p class="course-rail__empty">
+                    No prerequisites listed. You can schedule this course without catalogue blockers.
+                  </p>
+                )
+              }
+            </section>
+
+            <section class="course-rail__block course-rail__block--plan">
+              <h3 class="course-rail__heading">On your degree plan</h3>
+              <p class="course-rail__note">
+                Slot <span class="course-rail__inline-code">{course.code}</span> into a term and check timing against the graph.
+              </p>
+              <a href="/plan" class="course-rail__plan-link">
+                Open plan editor
+                <span aria-hidden="true">↗</span>
+              </a>
+            </section>
+          </aside>
         </div>
-      </section>
+      </article>
+    )
+  }
+
+  {
+    !course && !loadError && (
+      <div class="courses-empty">
+        <div class="courses-empty__mark" aria-hidden="true">?</div>
+        <h2 class="mt-3 font-display text-lg font-semibold text-foreground">Course not found</h2>
+        <p class="mx-auto mt-2 max-w-md text-sm text-muted">
+          That code is not in the catalogue. Go back and try another search.
+        </p>
+        <a href="/courses" class="btn-york mt-5 inline-flex px-4 py-2.5 text-sm">
+          Back to courses
+        </a>
+      </div>
     )
   }
 
   {
     availableTerms.length > 1 && (
       <script>
-        const select = document.getElementById("section-term-select") as HTMLSelectElement | null;
+        const tabs = document.querySelectorAll<HTMLButtonElement>("[data-term-tab]");
         const panels = document.querySelectorAll<HTMLElement>(".section-term-panel");
-        select?.addEventListener("change", () => {
-          const term = select.value;
+
+        function selectTerm(term: string) {
+          tabs.forEach((tab) => {
+            const active = tab.dataset.termTab === term;
+            tab.classList.toggle("term-tab--active", active);
+            tab.setAttribute("aria-selected", active ? "true" : "false");
+          });
           panels.forEach((panel) => {
             panel.hidden = panel.dataset.term !== term;
+          });
+        }
+
+        tabs.forEach((tab) => {
+          tab.addEventListener("click", () => {
+            const term = tab.dataset.termTab;
+            if (term) selectTerm(term);
           });
         });
       </script>

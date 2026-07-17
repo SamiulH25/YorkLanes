@@ -6,12 +6,13 @@ import { getApiUrl } from "../../lib/api-url";
 export const prerender = false;
 
 const apiUrl = getApiUrl();
+const cookie = Astro.request.headers.get("cookie");
 
 let faculties: Awaited<ReturnType<typeof fetchFaculties>> = [];
 let loadError: string | null = null;
 
 try {
-  faculties = await fetchFaculties();
+  faculties = await fetchFaculties(cookie);
 } catch (error) {
   loadError = error instanceof Error ? error.message : "Could not reach API";
 }

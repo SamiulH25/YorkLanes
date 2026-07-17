@@ -100,14 +100,14 @@ function getCardRect(stageRect: DOMRect, card: HTMLElement): CardRect {
 
 function buildColumnIndexMap(stage: HTMLElement): Map<HTMLElement, number> {
   const map = new Map<HTMLElement, number>();
-  stage.querySelectorAll<HTMLElement>(".plan-term-column").forEach((column, index) => {
+  stage.querySelectorAll<HTMLElement>(".plan-year-column").forEach((column, index) => {
     map.set(column, index);
   });
   return map;
 }
 
 function getTermColumnIndex(card: HTMLElement, columnMap: Map<HTMLElement, number>): number {
-  const column = card.closest(".plan-term-column") as HTMLElement | null;
+  const column = card.closest(".plan-year-column") as HTMLElement | null;
   if (!column) return 0;
   return columnMap.get(column) ?? 0;
 }

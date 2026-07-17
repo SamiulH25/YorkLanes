@@ -1,7 +1,7 @@
 ---
 import OnboardingLayout from "../../layouts/OnboardingLayout.astro";
 import { fetchFaculties } from "../../lib/plans";
-import { fetchSessionUser, googleSignInUrl } from "../../lib/auth";
+import { fetchSessionUser } from "../../lib/auth";
 import { fetchOnboardingStatus } from "../../lib/onboarding";
 
 export const prerender = false;
@@ -11,25 +11,26 @@ const stepParam = Number(Astro.url.searchParams.get("step") ?? "1");
 const step = Number.isInteger(stepParam) && stepParam >= 1 && stepParam <= 4 ? stepParam : 1;
 
 const sessionUser = await fetchSessionUser(cookie);
+if (!sessionUser) {
+  const returnTo = `${Astro.url.pathname}${Astro.url.search}`;
+  return Astro.redirect(`/login?returnTo=${encodeURIComponent(returnTo)}`);
+}
+
 const onboardingStatus = await fetchOnboardingStatus(cookie);
 
 if (onboardingStatus.completed && step < 4) {
   return Astro.redirect("/dashboard");
 }
 
-if (sessionUser && step === 3) {
+if (step === 3) {
   return Astro.redirect("/onboarding?step=4");
-}
-
-if (!sessionUser && step === 4) {
-  return Astro.redirect("/onboarding?step=3");
 }
 
 let faculties: Awaited<ReturnType<typeof fetchFaculties>> = [];
 let facultiesError: string | null = null;
 
 try {
-  faculties = await fetchFaculties();
+  faculties = await fetchFaculties(cookie);
 } catch (error) {
   facultiesError = error instanceof Error ? error.message : "Could not load faculties";
 }
@@ -37,7 +38,6 @@ try {
 const currentYear = new Date().getFullYear();
 const yearOptions = Array.from({ length: 8 }, (_, index) => currentYear - 3 + index);
 
-const signInUrl = googleSignInUrl("/onboarding?step=4");
 const inputClass =
   "mt-2 w-full rounded-xl border border-york-stone/60 bg-white/80 px-3 py-2.5 text-sm text-york-black outline-none transition focus:border-york-red focus:ring-2 focus:ring-york-red/20 dark:border-white/10 dark:bg-york-graphite dark:text-white";
 
@@ -47,12 +47,12 @@ const setupSteps = [
     body: "Faculty, major, and start year so import is pre-filled.",
   },
   {
-    title: "Sign in with Google",
-    body: "Required before you can import or open the dashboard.",
-  },
-  {
     title: "Upload your checklist",
     body: "Pdf or docx from your faculty page. We parse it into a term plan.",
+  },
+  {
+    title: "Open your degree plan",
+    body: "Move courses between terms and track progress from the dashboard.",
   },
 ];
 ---
@@ -63,11 +63,11 @@ const setupSteps = [
       <div>
         <p class="label">Setup</p>
         <h1 class="mt-1 font-display text-2xl font-semibold text-york-black dark:text-white sm:text-3xl">
-          Get your account set up
+          Finish setting up YorkLanes
         </h1>
         <p class="mt-3 text-sm leading-relaxed text-stone-600 dark:text-stone-300">
-          YorkLanes needs you signed in before you can import a checklist or open the dashboard.
-          This takes a few minutes if you have your programme details handy.
+          You're signed in. Next, tell us your programme and import your checklist so we can build
+          your degree plan.
         </p>
 
         <ul class="mt-6 space-y-3">
@@ -157,31 +157,6 @@ const setupSteps = [
   }
 
   {
-    step === 3 && (
-      <div>
-        <p class="label">Account</p>
-        <h1 class="mt-1 font-display text-2xl font-semibold text-york-black dark:text-white sm:text-3xl">
-          Sign in to continue
-        </h1>
-        <p class="mt-3 text-sm leading-relaxed text-stone-600 dark:text-stone-300">
-          You need a YorkLanes account to import a checklist or use the dashboard. Sign in with
-          Google and we will bring you back here for the upload step.
-        </p>
-
-        <div class="mt-8">
-          <a href={signInUrl} class="btn-york inline-flex w-full justify-center sm:w-auto">
-            Sign in with Google
-          </a>
-        </div>
-
-        <a href="/onboarding?step=2" class="mt-6 inline-block text-sm font-medium text-york-muted hover:text-york-red">
-          Back
-        </a>
-      </div>
-    )
-  }
-
-  {
     step === 4 && (
       <div>
         <p class="label">Last step</p>
@@ -218,7 +193,7 @@ const setupSteps = [
     id="onboarding-boot"
     class="hidden"
     data-step={step}
-    data-signed-in={sessionUser ? "true" : "false"}
+    data-signed-in="true"
     data-faculties={JSON.stringify(faculties.map((f) => ({ key: f.key, name: f.name })))}
   />
 
@@ -230,7 +205,7 @@ const setupSteps = [
       initOnboardingPage({
         step: Number(boot.dataset.step ?? "1"),
         signedIn: boot.dataset.signedIn === "true",
-        faculties: JSON.parse(boot.dataset.faculties ?? "[]"),
+        faculties: JSON.parse(boot.dataset.faculties ?? "[]") as { key: string; name: string }[],
       });
     }
   </script>

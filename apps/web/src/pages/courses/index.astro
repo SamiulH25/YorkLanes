@@ -28,22 +28,40 @@ function formatCredits(credits: number | null): string {
   if (credits === null) return "—";
   return Number.isInteger(credits) ? String(credits) : credits.toFixed(1);
 }
+
+function deptHref(dept: string): string {
+  const params = new URLSearchParams();
+  if (search) params.set("search", search);
+  if (dept) params.set("department", dept);
+  const query = params.toString();
+  return query ? `/courses?${query}` : "/courses";
+}
+
+const hasFilters = Boolean(search || department);
+const resultLabel =
+  total === 0
+    ? "No courses"
+    : `${total} course${total === 1 ? "" : "s"}`;
 ---
 
 <DashboardLayout title="Courses | YorkLanes" activeNav="courses">
   <Fragment slot="header">
-    <div class="flex flex-wrap items-start justify-between gap-4">
+    <div class="flex flex-wrap items-end justify-between gap-3">
       <div>
-        <p class="text-xs font-medium text-york-muted">Catalogue</p>
-        <h1 class="heading-page">Course Explorer</h1>
-        <p class="mt-0.5 text-sm text-muted">
-          {
-            `Found ${
-              total === 0 ? "no" : total
-            } Course${total === 1 ? "" : "s"} in the York Catalogue`
-          }
+        <p class="label">York catalogue</p>
+        <h1 class="heading-page">Courses</h1>
+        <p class="mt-1 text-sm text-muted">
+          Search by code or title, then open a course for description, prereqs, and sections.
         </p>
       </div>
+      {
+        !loadError && (
+          <p class="courses-count" aria-live="polite">
+            <span class="courses-count__value">{total}</span>
+            <span class="courses-count__label">listed</span>
+          </p>
+        )
+      }
     </div>
   </Fragment>
 
@@ -55,33 +73,35 @@ function formatCredits(credits: number | null): string {
     )
   }
 
-  <form method="get" class="surface mb-6 flex flex-col gap-4 p-4 sm:flex-row sm:items-end sm:p-5">
-    <div class="min-w-0 flex-1">
+  <form method="get" class="courses-filter" role="search">
+    <div class="courses-filter__search">
       <label for="course-search" class="label">Search</label>
-      <input
-        id="course-search"
-        name="search"
-        type="search"
-        value={search}
-        placeholder="Code, title, or keywords…"
-        class="field-input"
-      />
+      <div class="courses-search-wrap">
+        <svg class="courses-search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" aria-hidden="true">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-4.35-4.35M11 19a8 8 0 100-16 8 8 0 000 16z" />
+        </svg>
+        <input
+          id="course-search"
+          name="search"
+          type="search"
+          value={search}
+          placeholder="EECS 3311, software design…"
+          class="field-input courses-search-input"
+          autocomplete="off"
+        />
+      </div>
     </div>
-    <div class="sm:w-52">
-      <label for="course-department" class="label">Department</label>
-      <select id="course-department" name="department" class="field-select">
-        <option value="">All Departments</option>
-        {departments.map((dept) => (
-          <option value={dept} selected={dept === department}>
-            {dept}
-          </option>
-        ))}
-      </select>
-    </div>
-    <div class="flex gap-2">
+
+    {
+      department && (
+        <input type="hidden" name="department" value={department} />
+      )
+    }
+
+    <div class="courses-filter__actions">
       <button type="submit" class="btn-york px-4 py-2.5 text-sm">Search</button>
       {
-        (search || department) && (
+        hasFilters && (
           <a href="/courses" class="btn-ghost px-4 py-2.5 text-sm">
             Clear
           </a>
@@ -91,51 +111,89 @@ function formatCredits(credits: number | null): string {
   </form>
 
   {
+    departments.length > 0 && (
+      <nav class="dept-rail" aria-label="Filter by department">
+        <a
+          href={deptHref("")}
+          class:list={["dept-chip", !department && "dept-chip--active"]}
+        >
+          All
+        </a>
+        {
+          departments.map((dept) => (
+            <a
+              href={deptHref(dept)}
+              class:list={["dept-chip", department === dept && "dept-chip--active"]}
+            >
+              {dept}
+            </a>
+          ))
+        }
+      </nav>
+    )
+  }
+
+  <div class="courses-toolbar">
+    <p class="text-sm text-muted">
+      <span class="font-semibold text-foreground">{resultLabel}</span>
+      {
+        search && (
+          <>
+            {" "}matching <span class="font-mono text-brand">{search}</span>
+          </>
+        )
+      }
+      {
+        department && (
+          <>
+            {" "}in <span class="font-semibold text-foreground">{department}</span>
+          </>
+        )
+      }
+    </p>
+  </div>
+
+  {
     courses.length === 0 && !loadError ? (
-      <div class="empty-state">
-        <svg class="mx-auto mb-3 h-9 w-9 text-muted" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
-          <path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-4.35-4.35M11 19a8 8 0 100-16 8 8 0 000 16z" />
-        </svg>
-        <p class="text-sm font-semibold text-foreground">No courses match your filters</p>
+      <div class="courses-empty">
+        <div class="courses-empty__mark" aria-hidden="true">∅</div>
+        <h2 class="mt-3 font-display text-lg font-semibold text-foreground">No courses match</h2>
         <p class="mx-auto mt-2 max-w-md text-sm text-muted">
-          Try a different search term or department, or import courses into the hosted database with{" "}
-          <code class="rounded bg-black/5 px-1.5 py-0.5 font-mono text-xs dark:bg-white/10">npm run scraper:import</code>.
+          Try another code, keyword, or department
+          {hasFilters ? ", or clear filters to browse everything." : "."}
         </p>
+        {
+          hasFilters && (
+            <a href="/courses" class="btn-york mt-5 inline-flex px-4 py-2.5 text-sm">
+              Clear filters
+            </a>
+          )
+        }
       </div>
     ) : (
-      <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
+      <div class="course-ledger" role="list">
+        <div class="course-ledger__head" aria-hidden="true">
+          <span>Code</span>
+          <span>Title</span>
+          <span>Dept</span>
+          <span>Credits</span>
+        </div>
         {
           courses.map((course, index) => (
             <a
               href={courseDetailPath(course.code)}
-              class="course-card motion-on-scroll surface group"
-              style={`transition-delay: ${
-                Math.floor(index / 4) < 4
-                  ? Math.floor(index / 4) * 100 + (index % 4) * 50
-                  : (index % 4) * 50
-              }ms;`}
+              class="course-ledger__row"
+              role="listitem"
+              style={`--row-index: ${Math.min(index, 24)}`}
             >
-              <div class="flex items-start justify-between gap-2">
-                <span class="text-sm font-bold text-brand">{course.code}</span>
-                <!--
-                  {
-                    course.department && (
-                      <span class="badge bg-surface-muted text-muted shrink-0">{course.department}</span>
-                    )
-                  }
-                -->
-              </div>
-              <p class="course-card__title mt-3 flex-1 text-sm font-semibold leading-snug text-foreground group-hover:text-brand">
-                {course.title}
-              </p>
-              <div class="mt-4 flex items-center justify-between gap-2 border-t border-shell pt-3">
-                <span class="inline-flex items-center gap-1 rounded-md bg-surface-muted px-1.5 py-0.5 text-[11px] font-semibold uppercase tracking-wide text-muted">
-                  {formatCredits(course.credits)} cr
-                </span>
-                <span class="course-card__cta" aria-hidden="true">
-                  View course →
-                </span>
-              </div>
+              <span class="course-ledger__code">{course.code}</span>
+              <span class="course-ledger__title">{course.title}</span>
+              <span class="course-ledger__dept">{course.department ?? "—"}</span>
+              <span class="course-ledger__credits">
+                <span class="course-ledger__credits-value">{formatCredits(course.credits)}</span>
+                <span class="course-ledger__credits-unit">cr</span>
+              </span>
+              <span class="course-ledger__arrow" aria-hidden="true">→</span>
             </a>
           ))
         }

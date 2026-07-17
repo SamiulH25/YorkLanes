@@ -29,10 +29,10 @@ function planRequestInit(cookieHeader?: string | null, init?: RequestInit): Requ
   };
 }
 
-export async function fetchFaculties(): Promise<FacultyChecklistInfo[]> {
+export async function fetchFaculties(cookieHeader?: string | null): Promise<FacultyChecklistInfo[]> {
   const response = await fetch(
     `${getApiUrl()}/api/plans/faculties`,
-    planRequestInit(),
+    planRequestInit(cookieHeader),
   );
   if (!response.ok) {
     throw new Error("Failed to load faculty checklist links");

@@ -241,9 +241,10 @@ function updateDependencySummary(state: EditorState): void {
     if (d.kind === "prerequisite") violations += 1;
     else coreqIssues += 1;
   }
+  const scheduleIssues = state.graph.schedule_warnings?.length ?? 0;
 
-  if (total === 0) {
-    el.textContent = "No prerequisite or co-requisite links in catalog for these courses yet.";
+  if (total === 0 && scheduleIssues === 0) {
+    el.textContent = "No prerequisite, co-requisite, or season offering issues for these courses yet.";
     return;
   }
 
@@ -254,8 +255,16 @@ function updateDependencySummary(state: EditorState): void {
   if (coreqIssues > 0) {
     parts.push(`${coreqIssues} co-req scheduling issue${coreqIssues === 1 ? "" : "s"}`);
   }
+  if (scheduleIssues > 0) {
+    parts.push(
+      `${scheduleIssues} season offering warning${scheduleIssues === 1 ? "" : "s"}`,
+    );
+  }
   if (parts.length === 0) {
-    el.textContent = `${total} catalog link${total === 1 ? "" : "s"}. Click a course to inspect.`;
+    el.textContent =
+      total > 0
+        ? `${total} catalog link${total === 1 ? "" : "s"}. Click a course to inspect.`
+        : "No issues found. Click a course to inspect.";
     return;
   }
   el.textContent = `${parts.join(" · ")}. Click a course for details.`;
@@ -302,15 +311,30 @@ function updateWarningBadges(state: EditorState): void {
     }
   }
 
+  const scheduleByCourse = new Map<string, string>();
+  for (const warning of state.graph.schedule_warnings ?? []) {
+    scheduleByCourse.set(warning.course_id, warning.message);
+  }
+
   document.querySelectorAll<HTMLElement>(".plan-course-card").forEach((card) => {
     const id = card.dataset.courseId ?? "";
     const count = unmet.get(id) ?? 0;
+    const scheduleMessage = scheduleByCourse.get(id) ?? "";
+
     card.classList.toggle("plan-course-card--warning", count > 0);
+    card.classList.toggle("plan-course-card--schedule-warn", Boolean(scheduleMessage));
+
     const badge = card.querySelector<HTMLElement>(".plan-course-warning");
     if (badge) {
       badge.hidden = count === 0;
       badge.title = count > 0 ? `${count} unmet prerequisite${count === 1 ? "" : "s"}` : "";
       badge.textContent = count > 0 ? "!" : "";
+    }
+
+    const scheduleBadge = card.querySelector<HTMLElement>(".plan-course-schedule-warn");
+    if (scheduleBadge) {
+      scheduleBadge.hidden = !scheduleMessage;
+      scheduleBadge.title = scheduleMessage;
     }
   });
 }
@@ -381,11 +405,21 @@ function highlightSelection(state: EditorState): void {
   const card = document.querySelector<HTMLElement>(
     `.plan-course-card[data-course-id="${CSS.escape(state.selectedCourseId)}"]`,
   );
-  selectedEl.textContent = card?.dataset.courseCode
-    ? card.dataset.entryKind === "stub"
-      ? `Selected placeholder: ${card.querySelector(".plan-course-code")?.textContent ?? card.dataset.courseCode}`
-      : `Selected: ${card.dataset.courseCode}`
-    : "";
+  const scheduleWarning = state.graph?.schedule_warnings?.find(
+    (warning) => warning.course_id === state.selectedCourseId,
+  );
+
+  let label = "";
+  if (card?.dataset.courseCode) {
+    label =
+      card.dataset.entryKind === "stub"
+        ? `Selected placeholder: ${card.querySelector(".plan-course-code")?.textContent ?? card.dataset.courseCode}`
+        : `Selected: ${card.dataset.courseCode}`;
+  }
+  if (scheduleWarning) {
+    label = label ? `${label} · ${scheduleWarning.message}` : scheduleWarning.message;
+  }
+  selectedEl.textContent = label;
 }
 
 function syncCardChrome(state: EditorState): void {
@@ -857,6 +891,8 @@ async function loadGraph(state: EditorState): Promise<void> {
         placements: [],
         dependencies: [],
         course_codes: [],
+        offering_seasons: {},
+        schedule_warnings: [],
         updated_at: new Date().toISOString(),
       };
       cachePlanGraphSnapshot(state.graph);

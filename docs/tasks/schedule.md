@@ -19,10 +19,22 @@
 4. Add a minimal form on the page: course code + day + time → `POST` to your route.
 5. `npm run check`, PR, ping maintainer for migration push.
 
-## After that
+## After that (Phase 2 — scraped sections)
 
-- Pull planned courses from the degree plan (`readActivePlanGraphSnapshot` in `apps/web/src/lib/plan-store.ts`)
-- Week grid layout
-- Export to calendar format
+Pull real York meeting times into the builder using the schedule scraper data.
+
+**Read this next:** [Schedule integration guide](../features/schedule-integration.md)
+
+It covers:
+
+- `GET /api/course-sections` and `GET /api/course-sections/summary`
+- Day code conversion (`MON` ↔ `Monday`)
+- Reading planned courses from `readActivePlanGraphSnapshot()`
+- Keeping `course_sections` read-only vs writing to your `schedules` table
+
+Also useful:
+
+- Degree plan season warnings (`schedule_warnings` on the plan graph)
+- Course detail **Typical scheduling** panel on `/courses/[code]`
 
 See the degree plan editor for drag-and-drop ideas: `apps/web/src/scripts/plan-editor.ts`.

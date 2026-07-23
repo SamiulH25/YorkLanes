@@ -157,14 +157,15 @@ def upsert_sections(sections: Iterable[SectionRecord], dry_run: bool = False) ->
                 cur,
                 """
                 INSERT INTO course_sections
-                  (term, course_code, section_code, day, start_time, end_time, campus, room, instructor, delivery_mode)
+                  (term, course_code, section_code, day, start_time, end_time,
+                   campus, room, instructor, delivery_mode, scraped_at)
                 VALUES %s
                 ON CONFLICT (term, course_code, section_code, day, start_time, end_time) DO UPDATE SET
                   campus = EXCLUDED.campus,
                   room = EXCLUDED.room,
                   instructor = EXCLUDED.instructor,
                   delivery_mode = EXCLUDED.delivery_mode,
-                  scraped_at = NOW()
+                  scraped_at = EXCLUDED.scraped_at
                 """,
                 section_rows,
                 template="(%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, NOW())",

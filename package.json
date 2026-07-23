@@ -13,6 +13,8 @@
     "dev": "npm run start:dev",
     "dev:web": "npm run dev -w apps/web",
     "dev:api": "npm run dev -w apps/api",
+    "dev:remote": "npm run start:dev:remote",
+    "start:dev:remote": "concurrently -n api,web -c blue,magenta \"npm run dev -w apps/api\" \"npm run dev:remote -w apps/web\"",
     "setup": "node scripts/tools.mjs setup",
     "doctor": "node scripts/tools.mjs doctor",
     "smoke": "node scripts/tools.mjs smoke",
@@ -30,21 +32,23 @@
     "supabase:push": "supabase db push",
     "supabase:diff": "supabase db diff -f",
     "supabase:studio": "supabase studio",
-    "scraper:test": "cd services/scraper && python test_scraper.py",
-    "scraper:fixture": "cd services/scraper && python scrape_courses.py fixture",
-    "scraper:yoki": "cd services/scraper && python scrape_courses.py yoki --subject eecs --out output/eecs.json",
-    "scraper:yoki:batch": "cd services/scraper && python scrape_courses.py yoki-batch --out output/catalogue.json",
-    "scraper:db": "cd services/scraper && python scrape_courses.py db --input output/fixture_courses.json",
+    "scraper:setup": "node scripts/scraper-setup.mjs",
+    "scraper:test": "node scripts/scraper-run.mjs test_scraper.py",
+    "scraper:fixture": "node scripts/scraper-run.mjs fixture",
+    "scraper:yoki": "node scripts/scraper-run.mjs yoki --subject eecs --out output/eecs.json",
+    "scraper:yoki:batch": "node scripts/scraper-run.mjs yoki-batch --out output/catalogue.json",
+    "scraper:db": "node scripts/scraper-run.mjs db --input output/fixture_courses.json",
     "scraper:import": "npm run scraper:fixture && npm run scraper:db",
-    "scraper:schedule": "cd services/scraper && python scrape_courses.py schedule --subject eecs --out output/sections.json",
-    "scraper:schedule:all": "cd services/scraper && python scrape_courses.py schedule --subject eecs --all-terms --out output/sections.json",
-    "scraper:schedule:fixture": "cd services/scraper && python scrape_courses.py schedule-fixture --out output/sections.json",
-    "scraper:schedule:db": "cd services/scraper && python scrape_courses.py db --kind sections --input output/sections.json"
+    "scraper:schedule": "node scripts/scraper-run.mjs schedule --subject eecs --out output/sections.json",
+    "scraper:schedule:all": "node scripts/scraper-run.mjs schedule-batch --out output/sections.json",
+    "scraper:schedule:all-terms": "node scripts/scraper-run.mjs schedule --subject eecs --all-terms --out output/sections.json",
+    "scraper:schedule:fixture": "node scripts/scraper-run.mjs schedule-fixture --out output/sections.json",
+    "scraper:schedule:db": "node scripts/scraper-run.mjs db --kind sections --input output/sections.json"
   },
   "devDependencies": {
     "concurrently": "^9.1.2",
     "cross-env": "^10.1.0",
-    "supabase": "^2.107.0"
+    "supabase": "^2.109.1"
   },
   "engines": {
     "node": ">=22.12.0"

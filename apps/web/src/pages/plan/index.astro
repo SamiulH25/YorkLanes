@@ -280,6 +280,11 @@ const showSummerRow = yearColumns.some((column) => column.summer !== null);
                                             )
                                           }
                                           <span class="plan-course-warning" hidden aria-label="Unmet prerequisites">!</span>
+                                          <span
+                                            class="plan-course-schedule-warn"
+                                            hidden
+                                            aria-label="Season offering warning"
+                                          >S</span>
                                           <button
                                             type="button"
                                             class="plan-course-handle"
@@ -347,7 +352,7 @@ const showSummerRow = yearColumns.some((column) => column.summer !== null);
         </div>
 
         <p class="mt-4 text-xs text-york-muted">
-          Click a course to show prerequisite (blue) and co-requisite (amber dashed) links · click elsewhere to hide · tick courses you have already completed.
+          Click a course to show prerequisite (blue) and co-requisite (amber dashed) links · click elsewhere to hide · tick courses you have already completed · an <strong>S</strong> badge means scraped timetable history has no offerings in that Fall/Winter/Summer slot.
         </p>
       </div>
     )

@@ -185,6 +185,14 @@ def _resolve_term(scraper: ScheduleScraper, term_arg: str):
     raise ValueError(f"Unknown term '{term_arg}'. Available: {codes}")
 
 
+def _write_sections_json(sections: list[SectionRecord], out: Path) -> None:
+    out.parent.mkdir(parents=True, exist_ok=True)
+    out.write_text(
+        json.dumps({"sections": [s.to_dict() for s in sections]}, indent=2),
+        encoding="utf-8",
+    )
+
+
 def cmd_schedule(args: argparse.Namespace) -> int:
     scraper = ScheduleScraper()
     try:
@@ -195,14 +203,59 @@ def cmd_schedule(args: argparse.Namespace) -> int:
             return report_cdm_block()
         raise
     out = Path(args.out)
-    out.parent.mkdir(parents=True, exist_ok=True)
-    out.write_text(
-        json.dumps({"sections": [s.to_dict() for s in sections]}, indent=2),
-        encoding="utf-8",
-    )
+    _write_sections_json(sections, out)
     scope = "all terms" if args.all_terms else term.code
     print(f"Scraped {len(sections)} section meetings for {args.subject.upper()} ({scope})")
     print(f"Wrote {out}")
+    return 0
+
+
+def cmd_schedule_batch(args: argparse.Namespace) -> int:
+    subjects = [item.strip().lower() for item in args.subjects.split(",") if item.strip()]
+    scraper = ScheduleScraper()
+    try:
+        term = _resolve_term(scraper, args.term)
+    except requests.HTTPError as exc:
+        if exc.response is not None and exc.response.status_code == 403:
+            return report_cdm_block()
+        raise
+
+    all_sections: list[SectionRecord] = []
+    seen: set[tuple[str, str, str, str, str, str]] = set()
+
+    for subject in subjects:
+        try:
+            sections = scraper.scrape_subject_term(subject, term, all_terms=args.all_terms)
+        except requests.HTTPError as exc:
+            if exc.response is not None and exc.response.status_code == 403:
+                return report_cdm_block()
+            print(f"Skipping {subject.upper()}: {exc}", file=sys.stderr)
+            continue
+        except ValueError as exc:
+            print(f"Skipping {subject.upper()}: {exc}", file=sys.stderr)
+            continue
+
+        added = 0
+        for record in sections:
+            key = (
+                record.term,
+                record.course_code,
+                record.section_code,
+                record.day,
+                record.start_time,
+                record.end_time,
+            )
+            if key in seen:
+                continue
+            seen.add(key)
+            all_sections.append(record)
+            added += 1
+        print(f"  {subject.upper()}: {added} section meetings")
+
+    out = Path(args.out)
+    _write_sections_json(all_sections, out)
+    scope = "all terms" if args.all_terms else term.code
+    print(f"Wrote {len(all_sections)} total section meetings ({scope}) to {out}")
     return 0
 
 
@@ -267,9 +320,23 @@ def build_parser() -> argparse.ArgumentParser:
     schedule = sub.add_parser("schedule", help="Live scrape section timetables for a subject (may be blocked)")
     schedule.add_argument("--subject", default="eecs")
     schedule.add_argument("--term", default="current", help="Term code (e.g. '2026-2027 FW') or 'current'")
-    schedule.add_argument("--all-terms", action="store_true", help="Scrape every available term")
+    schedule.add_argument("--all-terms", action="store_true", help="Scrape every available term for this subject")
     schedule.add_argument("--out", default=str(OUTPUT / "sections.json"))
     schedule.set_defaults(func=cmd_schedule)
+
+    schedule_batch = sub.add_parser(
+        "schedule-batch",
+        help="Live scrape section timetables for multiple subjects (may be blocked)",
+    )
+    schedule_batch.add_argument(
+        "--subjects",
+        default=",".join(DEFAULT_YOKI_SUBJECTS),
+        help="Comma-separated subject codes (default: common faculties)",
+    )
+    schedule_batch.add_argument("--term", default="current", help="Term code (e.g. '2026-2027 FW') or 'current'")
+    schedule_batch.add_argument("--all-terms", action="store_true", help="Scrape every available term per subject")
+    schedule_batch.add_argument("--out", default=str(OUTPUT / "sections.json"))
+    schedule_batch.set_defaults(func=cmd_schedule_batch)
 
     schedule_fixture = sub.add_parser("schedule-fixture", help="Parse section timetables from saved HTML (offline)")
     schedule_fixture.add_argument("--fixture", default=str(FIXTURES / "sections"))

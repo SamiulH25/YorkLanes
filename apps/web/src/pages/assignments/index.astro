@@ -18,6 +18,8 @@ let formError: string | null = null;
 let editError: string | null = null;
 let editSuccess: string | null = null;
 
+const cookie = Astro.request.headers.get("cookie");
+
 if (Astro.request.method === "POST") {
   const formData = await Astro.request.formData();
   const action = formData.get("_action")?.toString() ?? "";
@@ -35,12 +37,16 @@ if (Astro.request.method === "POST") {
         throw new Error("Title, course code, and due date are required.");
       }
 
-      const updated = await updateAssignment(id, {
-        title,
-        courseCode,
-        description,
-        dueDate,
-      });
+      const updated = await updateAssignment(
+        id,
+        {
+          title,
+          courseCode,
+          description,
+          dueDate,
+        },
+        cookie,
+      );
       editSuccess = `Updated "${updated.title}"`;
     } catch (error) {
       editError =
@@ -51,7 +57,7 @@ if (Astro.request.method === "POST") {
   // Handle DELETE
   if (action === "delete" && id) {
     try {
-      await deleteAssignment(id);
+      await deleteAssignment(id, cookie);
       successMessage = "Assignment deleted successfully";
     } catch (error) {
       editError =
@@ -71,12 +77,15 @@ if (Astro.request.method === "POST") {
         throw new Error("Title, course code, and due date are required.");
       }
 
-      const created = await createAssignment({
-        title,
-        courseCode,
-        description,
-        dueDate,
-      });
+      const created = await createAssignment(
+        {
+          title,
+          courseCode,
+          description,
+          dueDate,
+        },
+        cookie,
+      );
       successMessage = `Added "${created.title}"`;
     } catch (error) {
       formError =
@@ -86,7 +95,7 @@ if (Astro.request.method === "POST") {
 }
 
 try {
-  const data = await fetchAssignments();
+  const data = await fetchAssignments(cookie);
   assignments = data.assignments ?? [];
 } catch (error) {
   loadError = error instanceof Error ? error.message : "API unavailable";

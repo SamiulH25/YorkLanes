@@ -1,7 +1,5 @@
 /** Task guide: docs/tasks/schedule.md */
-import { getApiUrl } from "./api-url";
-
-const API_URL = getApiUrl();
+import { apiRequestInit, apiUrl } from "./api-request";
 
 export interface ScheduleEntry {
   id: string;
@@ -19,8 +17,8 @@ export interface SchedulesResponse {
   entries: ScheduleEntry[];
 }
 
-export async function fetchSchedules(): Promise<SchedulesResponse> {
-  const response = await fetch(`${API_URL}/api/schedules`);
+export async function fetchSchedules(cookieHeader?: string | null): Promise<SchedulesResponse> {
+  const response = await fetch(apiUrl("/api/schedules"), apiRequestInit(cookieHeader));
 
   if (!response.ok) {
     throw new Error(`Schedules API error: ${response.status}`);
@@ -30,15 +28,19 @@ export async function fetchSchedules(): Promise<SchedulesResponse> {
 }
 
 export async function createScheduleEntry(
-  entry: Omit<ScheduleEntry, "id">
+  entry: Omit<ScheduleEntry, "id">,
+  cookieHeader?: string | null,
 ): Promise<ScheduleEntry> {
-  const response = await fetch(`${API_URL}/api/schedules`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify(entry),
-  });
+  const response = await fetch(
+    apiUrl("/api/schedules"),
+    apiRequestInit(cookieHeader, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(entry),
+    }),
+  );
 
   if (!response.ok) {
     throw new Error(`Create schedule error: ${response.status}`);

@@ -1,7 +1,8 @@
 ---
 import DashboardLayout from "../../layouts/DashboardLayout.astro";
 import { courseDetailPath, fetchCourse } from "../../lib/courses";
-import { fetchCourseSections } from "../../lib/course-sections";
+import { fetchCourseOfferingSummary, fetchCourseSections } from "../../lib/course-sections";
+import type { CourseOfferingSummary } from "../../types/course-sections";
 
 export const prerender = false;
 
@@ -11,12 +12,17 @@ const code = decodeURIComponent(rawCode);
 let loadError: string | null = null;
 let course: Awaited<ReturnType<typeof fetchCourse>> | null = null;
 let sectionGroups: Awaited<ReturnType<typeof fetchCourseSections>>["groups"] = [];
+let offering: CourseOfferingSummary | null = null;
 
 try {
   course = await fetchCourse(code);
   if (course) {
-    const sections = await fetchCourseSections({ courseCode: course.code });
+    const [sections, summary] = await Promise.all([
+      fetchCourseSections({ courseCode: course.code }),
+      fetchCourseOfferingSummary(course.code).catch(() => null),
+    ]);
     sectionGroups = sections.groups;
+    offering = summary;
   }
 } catch (error) {
   loadError = error instanceof Error ? error.message : "Failed to load course";
@@ -25,6 +31,12 @@ try {
 const availableTerms = [...new Set(sectionGroups.map((group) => group.term))];
 const defaultTerm = availableTerms[0] ?? "";
 const totalSections = sectionGroups.reduce((sum, group) => sum + group.sections.length, 0);
+
+const seasonChips: Array<{ key: "fall" | "winter" | "summer"; label: string }> = [
+  { key: "fall", label: "Fall" },
+  { key: "winter", label: "Winter" },
+  { key: "summer", label: "Summer" },
+];
 
 function formatCreditsValue(credits: number | null): string {
   if (credits === null) return "—";
@@ -53,9 +65,40 @@ function dayShort(day: string): string {
     Friday: "Fri",
     Saturday: "Sat",
     Sunday: "Sun",
+    MON: "Mon",
+    TUE: "Tue",
+    WED: "Wed",
+    THU: "Thu",
+    FRI: "Fri",
+    SAT: "Sat",
+    SUN: "Sun",
   };
   return map[day] ?? day.slice(0, 3);
 }
+
+function formatClock(time: string | null): string {
+  if (!time) return "";
+  const [hoursRaw, minutes = "00"] = time.split(":");
+  const hours = Number(hoursRaw);
+  if (!Number.isFinite(hours)) return time;
+  const suffix = hours >= 12 ? "PM" : "AM";
+  const hour12 = ((hours + 11) % 12) + 1;
+  return `${hour12}:${minutes} ${suffix}`;
+}
+
+function typicalMeetingLine(summary: CourseOfferingSummary): string | null {
+  const typical = summary.typical;
+  if (!typical) return null;
+  const days = typical.days.map(dayShort).join("/");
+  const start = formatClock(typical.start_time);
+  const end = formatClock(typical.end_time);
+  const time = start && end ? `${start}–${end}` : start || end;
+  const campus = typical.campuses[0];
+  const parts = [days, time, campus].filter(Boolean);
+  return parts.length > 0 ? parts.join(" · ") : null;
+}
+
+const typicalLine = offering ? typicalMeetingLine(offering) : null;
 ---
 
 <DashboardLayout title={course ? `${course.code} | Courses` : "Course | YorkLanes"} activeNav="courses">
@@ -128,6 +171,67 @@ function dayShort(day: string): string {
                 ) : (
                   <p class="course-panel__body course-panel__body--muted">
                     No description is listed in the catalogue for this course yet.
+                  </p>
+                )
+              }
+            </section>
+
+            <section class="course-panel course-offering">
+              <div class="course-panel__heading course-panel__heading--split">
+                <div>
+                  <h3 class="course-panel__label">Typical scheduling</h3>
+                  <p class="course-panel__hint">
+                    {
+                      offering?.has_history
+                        ? `From ${offering.terms_seen.length} scraped term${offering.terms_seen.length === 1 ? "" : "s"}`
+                        : "Built from York CDM section history when available"
+                    }
+                  </p>
+                </div>
+              </div>
+
+              {
+                offering && offering.has_history ? (
+                  <div class="course-offering__body">
+                    <ul class="course-season-chips" aria-label="Seasons offered historically">
+                      {seasonChips.map(({ key, label }) => {
+                        const offered = offering.seasons[key];
+                        return (
+                          <li
+                            class:list={[
+                              "course-season-chip",
+                              offered ? "course-season-chip--on" : "course-season-chip--off",
+                            ]}
+                          >
+                            <span class="course-season-chip__label">{label}</span>
+                            <span class="course-season-chip__state">{offered ? "Offered" : "Not seen"}</span>
+                          </li>
+                        );
+                      })}
+                    </ul>
+
+                    {
+                      typicalLine && (
+                        <p class="course-offering__typical">
+                          Usually meets <strong>{typicalLine}</strong>
+                          {offering.typical?.delivery_modes[0]
+                            ? ` · ${offering.typical.delivery_modes[0]}`
+                            : ""}
+                        </p>
+                      )
+                    }
+
+                    <p class="course-offering__meta">
+                      {offering.section_count} section
+                      {offering.section_count === 1 ? "" : "s"} across{" "}
+                      {offering.terms_seen.slice(0, 3).join(", ")}
+                      {offering.terms_seen.length > 3 ? "…" : ""}
+                    </p>
+                  </div>
+                ) : (
+                  <p class="course-panel__body course-panel__body--muted">
+                    No scraped timetable history for this course yet. After the schedule scraper
+                    imports CDM sections, you will see typical Fall/Winter/Summer patterns here.
                   </p>
                 )
               }

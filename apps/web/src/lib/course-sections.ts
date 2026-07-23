@@ -2,7 +2,11 @@
  * Course section timetables API client.
  */
 import { getApiUrl } from "./api-url";
-import type { CourseSectionsResponse, FetchSectionsOptions } from "../types/course-sections";
+import type {
+  CourseOfferingSummaryResponse,
+  CourseSectionsResponse,
+  FetchSectionsOptions,
+} from "../types/course-sections";
 
 const API_URL = getApiUrl();
 
@@ -35,4 +39,24 @@ export async function fetchCourseSections(options: FetchSectionsOptions = {}): P
     total_sections: data.total_sections ?? 0,
     groups: data.groups ?? [],
   };
+}
+
+export async function fetchCourseOfferingSummary(
+  courseCode: string,
+): Promise<CourseOfferingSummaryResponse["summary"]> {
+  const params = new URLSearchParams({ course_code: courseCode });
+  const response = await fetch(`${API_URL}/api/course-sections/summary?${params}`);
+  const data = (await response.json().catch(() => ({}))) as Partial<CourseOfferingSummaryResponse> & {
+    error?: string;
+  };
+
+  if (!response.ok) {
+    throw new Error(await parseError(response));
+  }
+
+  if (!data.summary) {
+    throw new Error("Course offering summary missing from API response");
+  }
+
+  return data.summary;
 }

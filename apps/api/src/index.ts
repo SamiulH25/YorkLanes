@@ -27,6 +27,7 @@ import { schedulesRouter } from "./routes/schedules.js";
 
 const app = express();
 const port = Number(process.env.PORT ?? process.env.API_PORT) || 3001;
+const host = process.env.API_BIND?.trim() || "127.0.0.1";
 
 if (process.env.NODE_ENV === "production") {
   app.set("trust proxy", 1);
@@ -53,7 +54,7 @@ app.use("/api/progress", requireAuth, progressRouter);
 app.use("/api/finance", requireAuth, financeRouter);
 app.use("/api/assignments", requireAuth, assignmentsRouter);
 
-app.listen(port, () => {
-  console.log(`YorkLanes API listening on http://localhost:${port}`);
+app.listen(port, host, () => {
+  console.log(`YorkLanes API listening on http://${host}:${port}`);
   console.log(`Database target: ${getDatabaseTarget()}`);
 });

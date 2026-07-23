@@ -3,7 +3,7 @@
 The degree plan editor lets students upload an official York **degree checklist** (PDF or DOCX), parses required courses into a term layout, and visualizes **prerequisites** and **co-requisites** from the course catalogue.
 
 **Owner:** Samiul  
-**Status:** Functional (no per-user auth yet)
+**Status:** Functional (sign-in required for dashboard pages)
 
 ## User journey
 
@@ -87,6 +87,7 @@ Tests: `python -m pytest` in `services/checklist-parser/`.
 2. Loads `course_prerequisites` for all codes in the plan
 3. Parses co-requisites from `courses.description`
 4. Marks each edge `satisfied` or not based on term order and `completed` flags
+5. Loads scraped `course_sections` history and emits `schedule_warnings` when a concrete course sits in a Fall/Winter/Summer slot it has never been offered in (`FW` counts as both Fall and Winter)
 
 ### UI behavior (`plan-editor.ts`)
 
@@ -95,7 +96,10 @@ Tests: `python -m pytest` in `services/checklist-parser/`.
 - Blue solid = prerequisite; amber dashed = co-requisite
 - Red variant = unmet requirement
 - Red `!` badge on cards with unmet prereqs
+- Amber **S** badge when scraped timetable history has no offerings for that season
 - Click outside cards clears selection and hides lines
+
+Schedule integration details: [schedule-integration.md](./schedule-integration.md).
 
 ## Client state
 
@@ -108,9 +112,10 @@ Helpers: `readActivePlanGraphSnapshot()`, `listPlannedCourseCodes()`, `findUnmet
 
 ## Known limitations
 
-- No user accounts — anyone with a plan UUID can load it
+- Dashboard requires Google sign-in; guests are redirected to `/login`
 - Parser accuracy varies by faculty PDF layout; scanned PDFs fail
 - Prerequisite lines need `courses` / `course_prerequisites` populated (scraper)
+- Season warnings need `course_sections` populated (`npm run scraper:schedule:db`)
 - Re-import after parser upgrades to refresh stub/year logic
 - Completion persistence requires `plan_courses.completed` column — ask the maintainer to push migrations if missing
 

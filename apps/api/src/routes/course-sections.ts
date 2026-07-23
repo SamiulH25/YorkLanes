@@ -2,6 +2,7 @@
  * Course section timetables — scraped schedule data per course/term.
  */
 import { Router } from "express";
+import { getCourseOfferingSummary } from "../services/courseOfferings.js";
 import { listCourseSections } from "../services/course-sections.js";
 
 export const courseSectionsRouter = Router();
@@ -20,6 +21,26 @@ function dbErrorResponse(res: import("express").Response, error: unknown) {
       : undefined,
   });
 }
+
+/** Typical seasons + meeting pattern from scraped history. */
+courseSectionsRouter.get("/summary", async (req, res) => {
+  try {
+    const courseCode = typeof req.query.course_code === "string" ? req.query.course_code : "";
+    if (!courseCode.trim()) {
+      res.status(400).json({ error: "course_code query parameter is required" });
+      return;
+    }
+
+    const summary = await getCourseOfferingSummary(courseCode);
+    res.json({
+      feature: "course-sections",
+      status: "ok",
+      summary,
+    });
+  } catch (error) {
+    dbErrorResponse(res, error);
+  }
+});
 
 courseSectionsRouter.get("/", async (req, res) => {
   try {

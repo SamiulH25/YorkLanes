@@ -34,7 +34,23 @@ erDiagram
 | `user_programmes` | Onboarding programme + start year |
 | `courses` | Course catalogue (code, title, description, credits) |
 | `course_prerequisites` | Prerequisite codes per course (`course_id`, `prerequisite_code`) |
+| `course_sections` | Scraped CDM section meetings (term, day, time, room) |
 | `todos` | Supabase quickstart / connection test |
+
+#### `course_sections` columns
+
+| Column | Type | Notes |
+|--------|------|-------|
+| `id` | uuid | Primary key |
+| `term` | text | e.g. `2026-2027 FW`, `2026 S` |
+| `course_code` | text | e.g. `EECS 3421` |
+| `section_code` | text | e.g. `LEC A` |
+| `day` | text | `MON`…`SUN` |
+| `start_time` / `end_time` | time | Meeting window |
+| `campus`, `room`, `instructor`, `delivery_mode` | text | Nullable |
+| `scraped_at` | timestamptz | Last scrape |
+
+Used by plan season warnings, course typical-scheduling UI, and the schedule builder. See [schedule-integration.md](./features/schedule-integration.md).
 
 ### Degree plan editor
 
@@ -73,6 +89,7 @@ The API detects whether `completed` exists at runtime (`planCourseSchema.ts`) fo
 | `20250619210000_plan_course_stubs.sql` | `entry_kind`, `section_label` |
 | `20250619220000_plan_course_completed.sql` | `completed` column (original) |
 | `20250619230000_add_plan_course_completed.sql` | Re-add `completed` if drift on remote |
+| `20250901000000_course_sections.sql` | Scraped CDM section meetings (`course_sections`) |
 | `20250629000000_finance_entries.sql` | `finance_entries` income and expense table |
 | `20250629010000_finance_monthly_budgets.sql` | `finance_monthly_budgets` monthly budget table |
 | `20250710000000_finance_entry_recurrence.sql` | Add recurring-entry schedule support |

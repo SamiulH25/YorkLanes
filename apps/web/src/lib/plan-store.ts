@@ -30,12 +30,33 @@ export interface CourseDependencyEdge {
   kind: "prerequisite" | "corequisite";
 }
 
+export type PlanSeason = "fall" | "winter" | "summer";
+
+export interface SeasonFlags {
+  fall: boolean;
+  winter: boolean;
+  summer: boolean;
+}
+
+export interface SchedulePlacementWarning {
+  course_id: string;
+  course_code: string;
+  term_id: string;
+  term_label: string;
+  planned_season: PlanSeason;
+  seasons_seen: SeasonFlags;
+  severity: "warning";
+  message: string;
+}
+
 export interface PlanGraphSnapshot {
   plan_id: string;
   plan?: DegreePlan;
   placements: CoursePlacement[];
   dependencies: CourseDependencyEdge[];
   course_codes: string[];
+  offering_seasons?: Record<string, SeasonFlags & { has_history: boolean }>;
+  schedule_warnings?: SchedulePlacementWarning[];
   updated_at: string;
 }
 

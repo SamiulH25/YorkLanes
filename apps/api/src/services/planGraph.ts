@@ -3,9 +3,18 @@
  *
  * Edges from course_prerequisites (catalogue) + co-reqs parsed from course descriptions.
  * Satisfaction = earlier term, or course marked completed in the plan.
+ * Schedule warnings = course placed in a season with no scraped offering history.
  */
 import type { Pool } from "pg";
-import type { DegreePlanRow, PlanCourseRow } from "./planGenerator.js";
+import { getSeasonHistoryForCourses } from "./courseOfferings.js";
+import type { DegreePlanRow } from "./planGenerator.js";
+import {
+  SEASON_LABEL,
+  seasonFromPlanSession,
+  seasonOffered,
+  type Season,
+  type SeasonFlags,
+} from "./termSeason.js";
 
 export type DependencyKind = "prerequisite" | "corequisite";
 
@@ -30,11 +39,26 @@ export interface CoursePlacement {
   completed: boolean;
 }
 
+export interface SchedulePlacementWarning {
+  course_id: string;
+  course_code: string;
+  term_id: string;
+  term_label: string;
+  planned_season: Season;
+  seasons_seen: SeasonFlags;
+  severity: "warning";
+  message: string;
+}
+
 export interface PlanGraphSnapshot {
   plan_id: string;
   placements: CoursePlacement[];
   dependencies: CourseDependencyEdge[];
   course_codes: string[];
+  /** Per concrete course: which seasons appear in scraped course_sections history. */
+  offering_seasons: Record<string, SeasonFlags & { has_history: boolean }>;
+  /** Concrete courses placed in a season they have never been offered in. */
+  schedule_warnings: SchedulePlacementWarning[];
 }
 
 const CONCRETE_COURSE_CODE = /^[A-Z]{2,6} \d{4}$/;
@@ -182,7 +206,14 @@ export async function buildPlanGraph(pool: Pool, plan: DegreePlanRow): Promise<P
   }
 
   if (courseCodes.length === 0) {
-    return { plan_id: plan.id, placements, dependencies: [], course_codes: [] };
+    return {
+      plan_id: plan.id,
+      placements,
+      dependencies: [],
+      course_codes: [],
+      offering_seasons: {},
+      schedule_warnings: [],
+    };
   }
 
   const catalogResult = await pool.query<{ code: string; description: string | null }>(
@@ -249,11 +280,64 @@ export async function buildPlanGraph(pool: Pool, plan: DegreePlanRow): Promise<P
     }
   }
 
+  const seasonHistory = await getSeasonHistoryForCourses(courseCodes);
+  const offering_seasons: PlanGraphSnapshot["offering_seasons"] = {};
+  for (const [code, history] of seasonHistory) {
+    offering_seasons[code] = {
+      ...history.seasons,
+      has_history: history.has_history,
+    };
+  }
+
+  const termById = new Map(plan.terms.map((term) => [term.id, term]));
+  const schedule_warnings: SchedulePlacementWarning[] = [];
+
+  for (const placement of placements) {
+    if (placement.entry_kind !== "course" || !isConcreteCourseCode(placement.course_code)) {
+      continue;
+    }
+
+    const term = termById.get(placement.term_id);
+    if (!term) continue;
+
+    const plannedSeason = seasonFromPlanSession(term.session);
+    if (!plannedSeason) continue;
+
+    const history = seasonHistory.get(placement.course_code.toUpperCase());
+    if (!history?.has_history) continue;
+
+    if (seasonOffered(history.seasons, plannedSeason)) continue;
+
+    const seenLabels = (["fall", "winter", "summer"] as Season[])
+      .filter((season) => history.seasons[season])
+      .map((season) => SEASON_LABEL[season]);
+
+    const seenText =
+      seenLabels.length === 0
+        ? "no recorded seasons"
+        : seenLabels.length === 1
+          ? `only ${seenLabels[0]}`
+          : `typically ${seenLabels.join(" / ")}`;
+
+    schedule_warnings.push({
+      course_id: placement.course_id,
+      course_code: placement.course_code,
+      term_id: placement.term_id,
+      term_label: placement.term_label,
+      planned_season: plannedSeason,
+      seasons_seen: history.seasons,
+      severity: "warning",
+      message: `${placement.course_code} has no recorded ${SEASON_LABEL[plannedSeason]} offerings (${seenText})`,
+    });
+  }
+
   return {
     plan_id: plan.id,
     placements,
     dependencies,
     course_codes: courseCodes,
+    offering_seasons,
+    schedule_warnings,
   };
 }
 

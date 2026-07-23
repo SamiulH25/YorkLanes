@@ -8,13 +8,14 @@ import type { DegreePlan } from "../../types/plan";
 export const prerender = false;
 
 const planId = Astro.url.searchParams.get("planId") ?? Astro.url.searchParams.get("id") ?? "";
+const cookie = Astro.request.headers.get("cookie");
 
 let plan: DegreePlan | null = null;
 let loadError: string | null = null;
 
 if (planId) {
   try {
-    plan = await fetchPlan(planId);
+    plan = await fetchPlan(planId, cookie);
   } catch (error) {
     loadError = error instanceof Error ? error.message : "Failed to load degree plan";
   }

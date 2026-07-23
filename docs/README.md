@@ -24,6 +24,7 @@ You do **not** need a Supabase login or dashboard access for normal feature work
 | [Database](./database.md) | Postgres schema reference |
 | [Deployment](./deployment.md) | Production hosting and release checklist |
 | [Degree plan feature](./features/degree-plan.md) | Checklist import, parser, editor, prereq graph |
+| [Schedule integration](./features/schedule-integration.md) | Scraped `course_sections` → plan warnings + Nabeela schedule page |
 | [Feature tasks](./tasks/README.md) | First PR scope per teammate |
 
 ## Service-specific READMEs

@@ -47,8 +47,17 @@ export function listPlanCourses(plan: DegreePlan): Array<PlanCourse & { termLabe
   );
 }
 
-export async function fetchProgress(planId: string): Promise<ProgressResponse> {
-  const response = await fetch(`${API_URL}/api/progress?planId=${encodeURIComponent(planId)}`);
+export async function fetchProgress(
+  planId: string,
+  cookieHeader?: string | null,
+): Promise<ProgressResponse> {
+  const response = await fetch(
+    `${API_URL}/api/progress?planId=${encodeURIComponent(planId)}`,
+    {
+      headers: cookieHeader ? { cookie: cookieHeader } : undefined,
+      credentials: "include",
+    },
+  );
   if (!response.ok) {
     let message = `Progress API error: ${response.status}`;
     try {

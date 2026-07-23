@@ -1,6 +1,9 @@
-# Course catalogue scraper
+# Course catalogue + schedule scrapers
 
-Populates Supabase `courses` and `course_prerequisites` for Jericho's Course Explorer.
+Populates Supabase:
+
+- `courses` / `course_prerequisites` — catalogue for the Course Explorer
+- `course_sections` — section meeting times for courses, plan warnings, and the schedule builder
 
 ## Sources
 
@@ -17,9 +20,19 @@ CDM may return **403** from cloud IPs or automated clients. Use `fixture` or `yo
 
 ## Setup
 
-```powershell
+From repo root (recommended):
+
+```bash
+npm run scraper:setup
+```
+
+Or manually:
+
+```bash
 cd services/scraper
-python -m pip install -r requirements.txt
+python3 -m venv .venv
+.venv/bin/pip install -r requirements.txt   # Linux/macOS
+# .venv\Scripts\pip install -r requirements.txt   # Windows
 ```
 
 ## Quick test (no network)
@@ -37,7 +50,7 @@ Output: `output/fixture_courses.json`
 python scrape_courses.py yoki --subject eecs --out output/eecs.json
 ```
 
-## Import into Supabase
+## Import courses into Supabase
 
 Uses `SUPABASE_DB_URL` or `DATABASE_URL` from `apps/api/.env`.
 
@@ -54,6 +67,36 @@ python scrape_courses.py cdm --subject eecs --out output/cdm_eecs.json
 
 Respectful defaults: 1.5s delay between requests, identifiable User-Agent.
 
+## Schedule / section scraper
+
+Scrapes per-course CDM detail tables into `course_sections` (one row per meeting day).
+
+| Mode | From repo root | Notes |
+|------|----------------|-------|
+| Fixture | `npm run scraper:schedule:fixture` | Offline HTML → `output/sections.json` |
+| Live one subject | `npm run scraper:schedule` | EECS, current term |
+| Live all subjects | `npm run scraper:schedule:all` | Default subject list, current term |
+| Live all terms (one subject) | `npm run scraper:schedule:all-terms` | EECS across every CDM term |
+| DB import | `npm run scraper:schedule:db` | Upserts `course_sections` |
+
+`scraper:schedule:all` uses the same default subjects as `scraper:yoki:batch` (eecs, math, phys, chem, biol, psyc, econ, adms, engl, phil). Override with:
+
+```powershell
+python scrape_courses.py schedule-batch --subjects eecs,math,psyc --out output/sections.json
+```
+
+Term codes look like `2026-2027 FW`, `2026 F`, `2026 W`, `2026 S`.  
+`FW` counts as both Fall and Winter for plan season warnings and offering summaries.
+
+Consumed by:
+
+- `GET /api/course-sections`
+- `GET /api/course-sections/summary`
+- Degree plan `schedule_warnings` on `GET /api/plans/:id/graph`
+- Course detail **Typical scheduling** panel
+
+Integration guide for the schedule page: [`docs/features/schedule-integration.md`](../../docs/features/schedule-integration.md)
+
 ## From repo root
 
 ```powershell
@@ -63,6 +106,8 @@ npm run scraper:yoki
 npm run scraper:yoki:batch
 npm run scraper:db
 npm run scraper:import
+npm run scraper:schedule:fixture
+npm run scraper:schedule:db
 ```
 
 `scraper:import` runs fixture scrape + DB import (offline dev bootstrap).

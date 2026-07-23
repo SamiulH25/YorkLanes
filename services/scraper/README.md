@@ -16,7 +16,20 @@ Populates Supabase:
 
 Primary live target: [York CDM](https://w2prod.sis.yorku.ca/Apps/WebObjects/cdm) (WebObjects, faculty/subject search).
 
-CDM may return **403** from cloud IPs or automated clients. Use `fixture` or `yoki` for testing when that happens.
+CDM may return **HTTP 403** for plain `requests` clients. York CDM is behind **Cloudflare bot protection** — this happens on campus networks too, not just cloud/VPN IPs.
+
+**Live scrape workflow:**
+
+```bash
+npm run scraper:cdm:browser-setup   # once: Playwright + Chromium
+npm run scraper:cdm:bootstrap       # once per session: opens browser, saves cookies
+npm run scraper:schedule:all
+npm run scraper:schedule:db
+```
+
+`cdm-bootstrap` opens Chromium. Complete any Cloudflare check in the window; cookies are saved to `services/scraper/cdm_session.json` for later scrapes.
+
+Use `schedule-fixture` or `yoki` when you cannot run a browser (CI, headless SSH).
 
 ## Setup
 

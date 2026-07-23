@@ -33,6 +33,8 @@
     "supabase:diff": "supabase db diff -f",
     "supabase:studio": "supabase studio",
     "scraper:setup": "node scripts/scraper-setup.mjs",
+    "scraper:cdm:bootstrap": "node scripts/scraper-run.mjs cdm-bootstrap",
+    "scraper:cdm:browser-setup": "cd services/scraper && .venv/bin/pip install -r requirements-browser.txt && .venv/bin/playwright install chromium",
     "scraper:test": "node scripts/scraper-run.mjs test_scraper.py",
     "scraper:fixture": "node scripts/scraper-run.mjs fixture",
     "scraper:yoki": "node scripts/scraper-run.mjs yoki --subject eecs --out output/eecs.json",

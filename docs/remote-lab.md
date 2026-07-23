@@ -95,6 +95,21 @@ Google sign-in will **not** work unless you add `http://YOUR_LAB_HOST:4321/api/a
 
 ---
 
+## Schedule scraping (live CDM)
+
+York CDM uses **Cloudflare**, not IP blocking. `requests` alone always gets 403 — even on campus.
+
+```bash
+npm run scraper:cdm:browser-setup   # once: install Playwright + Chromium
+npm run scraper:cdm:bootstrap       # opens browser; complete Cloudflare check
+npm run scraper:schedule:all
+npm run scraper:schedule:db
+```
+
+On SSH without a display, use `ssh -X` or run bootstrap from the lab workstation GUI. Cookies are saved to `services/scraper/cdm_session.json`.
+
+---
+
 ## Common issues
 
 | Problem | Fix |

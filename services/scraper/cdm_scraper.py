@@ -1,21 +1,23 @@
 """Scrape course catalogue data from York CDM (WebObjects).
 
-May return 403 from some networks or datacenters. Use fixture/yoki modes when blocked.
-Based on the public flow documented at https://www.sis.yorku.ca/student-modules/
+York CDM sits behind Cloudflare bot protection. Plain HTTP requests get HTTP 403
+even on campus networks. Bootstrap a browser session first:
+
+  npm run scraper:cdm:bootstrap
 """
 from __future__ import annotations
 
 import re
 import time
+from pathlib import Path
 from typing import Any
 
-import requests
 from bs4 import BeautifulSoup
 
 from catalog import CourseRecord, extract_prerequisite_codes, normalize_course_code
+from cdm_http import CdmHttp, REQUEST_DELAY_SEC
 
-USER_AGENT = "YorkLanes-Capstone/0.1 (+https://github.com/SamiulH25/YorkLanes; academic project)"
-REQUEST_DELAY_SEC = 1.5
+USER_AGENT = CdmHttp().session.headers["User-Agent"]
 
 COURSE_LIST_ROW = re.compile(
     r"<a[^>]+href=\"([^\"]+)\"[^>]*>\s*"
@@ -27,23 +29,17 @@ COURSE_LIST_ROW = re.compile(
 
 
 class CdmScraper:
-    def __init__(self, session: requests.Session | None = None) -> None:
-        self.base_url = "https://w2prod.sis.yorku.ca"
-        self.course_url = f"{self.base_url}/Apps/WebObjects/cdm"
-        self.session = session or requests.Session()
-        self.session.headers.update({"User-Agent": USER_AGENT})
+    def __init__(self, http: CdmHttp | None = None) -> None:
+        self.http = http or CdmHttp()
+        self.base_url = self.http.base_url
+        self.course_url = self.http.course_url
+        self.session = self.http.session
 
     def _get(self, url: str) -> str:
-        response = self.session.get(url, timeout=30)
-        response.raise_for_status()
-        time.sleep(REQUEST_DELAY_SEC)
-        return response.text
+        return self.http.get(url)
 
     def _post(self, url: str, data: dict[str, Any]) -> str:
-        response = self.session.post(url, data=data, timeout=30)
-        response.raise_for_status()
-        time.sleep(REQUEST_DELAY_SEC)
-        return response.text
+        return self.http.post(url, data)
 
     def get_subject_form_attributes(self) -> dict[str, Any]:
         root_html = self._get(self.course_url)
@@ -52,7 +48,9 @@ class CdmScraper:
         if not subject_link:
             raise RuntimeError("Could not find CDM subject search link on root page")
 
-        subject_page_html = self._get(self.base_url + subject_link.group(1))
+        subject_href = subject_link.group(1)
+        subject_url = subject_href if subject_href.startswith("http") else self.base_url + subject_href
+        subject_page_html = self._get(subject_url)
 
         form_action = re.search(
             r'<form[^>]+action="([^"]+)"[^>]*name="subjectSearchForm"',
@@ -75,10 +73,14 @@ class CdmScraper:
             )
         ]
 
+        action = form_action.group(1)
+        form_url = action if action.startswith("http") else self.base_url + action
+
         return {
-            "form_url": self.base_url + form_action.group(1),
-            "wosid": wosid.group(1)[:22],
+            "form_url": form_url,
+            "wosid": wosid.group(1),
             "subjects": subjects,
+            "subject_page_html": subject_page_html,
         }
 
     def fetch_subject_list_html(self, attrs: dict[str, Any], subject_id: int) -> str:
@@ -179,4 +181,5 @@ class CdmScraper:
                 )
             )
 
+        self.http.persist_cookies()
         return courses

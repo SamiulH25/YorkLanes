@@ -11,6 +11,7 @@ import requests
 from dotenv import load_dotenv
 
 from catalog import CourseRecord, SectionRecord, from_yoki_entry
+from cdm_http import CdmChallengeError
 from cdm_scraper import CdmScraper
 from db_importer import upsert_courses, upsert_sections
 from schedule_scraper import ScheduleScraper
@@ -21,17 +22,34 @@ OUTPUT = ROOT / "output"
 YOKI_BASE = "https://raw.githubusercontent.com/SSADC-at-york/Yoki/main/docs/data/courses"
 
 
-def report_cdm_block() -> int:
+def report_cdm_challenge(url: str | None = None) -> int:
+    where = f"\nBlocked URL: {url}\n" if url else "\n"
     print(
-        "CDM blocked this request (HTTP 403). York's course site refuses automated "
-        "clients from some networks (cloud/datacenter IPs, VPNs).\n"
-        "What to do:\n"
-        "  - Run the scraper from a residential or York campus network.\n"
-        "  - Or use the offline fixture path once real HTML is captured:\n"
-        "      python scrape_courses.py schedule-fixture --fixture fixtures/sections --subject eecs",
+        "York CDM is protected by Cloudflare and rejected this HTTP client (HTTP 403)."
+        f"{where}"
+        "This is not a York network problem — curl/requests cannot pass the bot check,"
+        " even on campus.\n\n"
+        "One-time fix (opens a real browser, saves cookies for later scrapes):\n"
+        "  npm run scraper:cdm:bootstrap\n\n"
+        "Then retry your scrape command.\n\n"
+        "Offline alternative:\n"
+        "  npm run scraper:schedule:fixture\n"
+        "  npm run scraper:schedule:db",
         file=sys.stderr,
     )
     return 1
+
+
+def report_cdm_block() -> int:
+    return report_cdm_challenge()
+
+
+def handle_cdm_failure(exc: Exception) -> int | None:
+    if isinstance(exc, CdmChallengeError):
+        return report_cdm_challenge(exc.url)
+    if isinstance(exc, requests.HTTPError) and exc.response is not None and exc.response.status_code == 403:
+        return report_cdm_challenge(str(exc.response.url))
+    return None
 DEFAULT_YOKI_SUBJECTS = (
     "eecs",
     "math",
@@ -161,9 +179,10 @@ def cmd_cdm(args: argparse.Namespace) -> int:
     scraper = CdmScraper()
     try:
         courses = scraper.scrape_subject(args.subject)
-    except requests.HTTPError as exc:
-        if exc.response is not None and exc.response.status_code == 403:
-            return report_cdm_block()
+    except Exception as exc:
+        code = handle_cdm_failure(exc)
+        if code is not None:
+            return code
         raise
     out = Path(args.out)
     save_json(courses, out)
@@ -198,9 +217,10 @@ def cmd_schedule(args: argparse.Namespace) -> int:
     try:
         term = _resolve_term(scraper, args.term)
         sections = scraper.scrape_subject_term(args.subject, term, all_terms=args.all_terms)
-    except requests.HTTPError as exc:
-        if exc.response is not None and exc.response.status_code == 403:
-            return report_cdm_block()
+    except Exception as exc:
+        code = handle_cdm_failure(exc)
+        if code is not None:
+            return code
         raise
     out = Path(args.out)
     _write_sections_json(sections, out)
@@ -215,9 +235,10 @@ def cmd_schedule_batch(args: argparse.Namespace) -> int:
     scraper = ScheduleScraper()
     try:
         term = _resolve_term(scraper, args.term)
-    except requests.HTTPError as exc:
-        if exc.response is not None and exc.response.status_code == 403:
-            return report_cdm_block()
+    except Exception as exc:
+        code = handle_cdm_failure(exc)
+        if code is not None:
+            return code
         raise
 
     all_sections: list[SectionRecord] = []
@@ -226,12 +247,10 @@ def cmd_schedule_batch(args: argparse.Namespace) -> int:
     for subject in subjects:
         try:
             sections = scraper.scrape_subject_term(subject, term, all_terms=args.all_terms)
-        except requests.HTTPError as exc:
-            if exc.response is not None and exc.response.status_code == 403:
-                return report_cdm_block()
-            print(f"Skipping {subject.upper()}: {exc}", file=sys.stderr)
-            continue
-        except ValueError as exc:
+        except Exception as exc:
+            code = handle_cdm_failure(exc)
+            if code is not None:
+                return code
             print(f"Skipping {subject.upper()}: {exc}", file=sys.stderr)
             continue
 
@@ -270,6 +289,20 @@ def cmd_schedule_fixture(args: argparse.Namespace) -> int:
     )
     print(f"Parsed {len(sections)} section meetings from fixtures in {args.fixture}")
     print(f"Wrote {out}")
+    return 0
+
+
+def cmd_cdm_bootstrap(args: argparse.Namespace) -> int:
+    from cdm_browser import bootstrap_cdm_session
+
+    try:
+        path = bootstrap_cdm_session(headless=args.headless)
+    except RuntimeError as exc:
+        print(f"Error: {exc}", file=sys.stderr)
+        return 1
+
+    print(f"Saved CDM browser session to {path}")
+    print("Retry your scrape command (for example: npm run scraper:schedule:all)")
     return 0
 
 
@@ -345,6 +378,17 @@ def build_parser() -> argparse.ArgumentParser:
     schedule_fixture.add_argument("--out", default=str(OUTPUT / "sections.json"))
     schedule_fixture.set_defaults(func=cmd_schedule_fixture)
 
+    bootstrap = sub.add_parser(
+        "cdm-bootstrap",
+        help="Open a browser to pass Cloudflare and save CDM cookies for live scrapes",
+    )
+    bootstrap.add_argument(
+        "--headless",
+        action="store_true",
+        help="Run Chromium headless (may fail the challenge; omit on SSH without a display)",
+    )
+    bootstrap.set_defaults(func=cmd_cdm_bootstrap)
+
     db = sub.add_parser("db", help="Upsert scraped JSON into Postgres")
     db.add_argument("--input", default=str(OUTPUT / "fixture_courses.json"))
     db.add_argument("--kind", choices=("courses", "sections"), default="courses")
@@ -360,6 +404,9 @@ def main() -> int:
     try:
         return args.func(args)
     except Exception as exc:  # noqa: BLE001
+        code = handle_cdm_failure(exc)
+        if code is not None:
+            return code
         print(f"Error: {exc}", file=sys.stderr)
         return 1
 

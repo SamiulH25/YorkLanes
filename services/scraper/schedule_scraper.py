@@ -1,11 +1,7 @@
 """Scrape course section / timetable data from York CDM (WebObjects).
 
-Extends CdmScraper: reuses its session, User-Agent and request pacing. The CDM
-per-course detail pages hold meeting tables (Day / Time / Campus / Room /
-Instructor / Mode) — this module parses them into per-meeting SectionRecords.
-
-May return 403 from some networks or datacenters. Use schedule-fixture mode with
-saved HTML when blocked.
+Requires a browser-bootstrapped CDM session (Cloudflare). Run:
+  npm run scraper:cdm:bootstrap
 """
 from __future__ import annotations
 
@@ -32,7 +28,7 @@ class ScheduleScraper(CdmScraper):
     def list_terms(self) -> list[Any]:
         """Return available session terms parsed from the subject search form."""
         attrs = self.get_subject_form_attributes()
-        form_html = self._get(attrs["form_url"].replace(self.base_url, self.base_url))
+        form_html = attrs.get("subject_page_html") or self._get(attrs["form_url"])
 
         terms: list[Any] = []
         for select in re.findall(
@@ -186,6 +182,7 @@ class ScheduleScraper(CdmScraper):
                     seen.add(key)
                     sections.append(record)
 
+        self.http.persist_cookies()
         return sections
 
     def scrape_from_html(self, html_dir: Path, subject_code: str, term: str) -> list[SectionRecord]:

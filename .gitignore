@@ -30,6 +30,7 @@ __pycache__/
 *.pyc
 .venv/
 venv/
+services/scraper/cdm_session.json
 
 # Docker
 postgres_data/

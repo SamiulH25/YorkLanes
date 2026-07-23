@@ -18,10 +18,31 @@ Primary live target: [York CDM](https://w2prod.sis.yorku.ca/Apps/WebObjects/cdm)
 
 CDM may return **HTTP 403** for plain `requests` clients. York CDM is behind **Cloudflare bot protection** — this happens on campus networks too, not just cloud/VPN IPs.
 
-**Live scrape workflow:**
+**Live scrape workflow (pick one):**
+
+### A) Cookie import — best for lab machines with disk quotas
+
+No Playwright download (~200 MB). Use the lab desktop browser:
+
+1. Open https://w2prod.sis.yorku.ca/Apps/WebObjects/cdm in Firefox/Chrome
+2. Complete the Cloudflare check if shown
+3. Export cookies for `w2prod.sis.yorku.ca` using a **cookies.txt** browser extension
+   (search: "cookies.txt" for Firefox or Chrome)
+4. Copy the file to the lab (e.g. `~/cdm-cookies.txt`)
+5. Import and scrape:
 
 ```bash
-npm run scraper:cdm:browser-setup   # once: Playwright + Chromium
+npm run scraper:cdm:import-cookies -- ~/cdm-cookies.txt
+npm run scraper:schedule:all
+npm run scraper:schedule:db
+```
+
+### B) Playwright bootstrap — if you have disk space
+
+Installs Chromium to `/tmp` (avoids home directory quota error `-122`):
+
+```bash
+npm run scraper:cdm:browser-setup   # once: Playwright + Chromium in /tmp
 npm run scraper:cdm:bootstrap       # once per session: opens browser, saves cookies
 npm run scraper:schedule:all
 npm run scraper:schedule:db

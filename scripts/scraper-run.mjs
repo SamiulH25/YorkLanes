@@ -4,7 +4,7 @@
  *
  *   node scripts/scraper-run.mjs schedule --subject eecs
  */
-import { existsSync } from "node:fs";
+import { existsSync, mkdirSync } from "node:fs";
 import { join, dirname } from "node:path";
 import { spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
@@ -13,6 +13,12 @@ const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 const scraperDir = join(root, "services/scraper");
 const venvWin = join(scraperDir, ".venv/Scripts/python.exe");
 const venvUnix = join(scraperDir, ".venv/bin/python");
+
+if (!process.env.PLAYWRIGHT_BROWSERS_PATH && process.platform !== "win32") {
+  const browserPath = `/tmp/${process.env.USER ?? "yorklanes"}-playwright-browsers`;
+  process.env.PLAYWRIGHT_BROWSERS_PATH = browserPath;
+  mkdirSync(browserPath, { recursive: true });
+}
 
 function resolvePython() {
   if (existsSync(venvUnix)) return venvUnix;
@@ -31,6 +37,7 @@ const python = resolvePython();
 const result = spawnSync(python, [script, ...args], {
   cwd: scraperDir,
   stdio: "inherit",
+  env: process.env,
 });
 
 if (result.error?.code === "ENOENT") {

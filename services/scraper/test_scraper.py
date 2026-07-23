@@ -14,6 +14,7 @@ from catalog import (
     normalize_term,
     parse_meeting_cell,
 )
+from cdm_cookies import cookies_from_netscape
 from cdm_http import is_cloudflare_challenge, looks_like_cdm_page
 from schedule_scraper import ScheduleScraper
 from scrape_courses import load_json_courses, save_json, load_json_sections
@@ -85,6 +86,14 @@ def test_parse_meeting_cell() -> None:
     assert pm == [("FRI", "10:00", "11:30")]
 
 
+def test_import_netscape_cookies() -> None:
+    fixture = Path(__file__).parent / "fixtures" / "cdm_cookies.txt"
+    cookies = cookies_from_netscape(fixture)
+    names = {cookie["name"] for cookie in cookies}
+    assert "cf_clearance" in names
+    assert "JSESSIONID" in names
+
+
 def test_cloudflare_detection() -> None:
     assert is_cloudflare_challenge("<html><title>Just a moment...</title></html>", 403)
     assert is_cloudflare_challenge("<html>cf_chl_opt</html>", 200)
@@ -138,6 +147,7 @@ def main() -> None:
     test_normalize_stored_code()
     test_normalize_term()
     test_parse_meeting_cell()
+    test_import_netscape_cookies()
     test_cloudflare_detection()
     test_parse_detail_sections_from_fixture()
     test_section_fixture_roundtrip()

@@ -97,16 +97,29 @@ Google sign-in will **not** work unless you add `http://YOUR_LAB_HOST:4321/api/a
 
 ## Schedule scraping (live CDM)
 
-York CDM uses **Cloudflare**, not IP blocking. `requests` alone always gets 403 — even on campus.
+York CDM uses **Cloudflare**. Error `-122` during Playwright install usually means **home disk quota is full** — use cookie import instead.
+
+### Recommended on lab machines (no Playwright download)
+
+1. On the lab **desktop**, open https://w2prod.sis.yorku.ca/Apps/WebObjects/cdm in Firefox/Chrome
+2. Complete Cloudflare if prompted
+3. Export cookies with a **cookies.txt** browser extension (for `w2prod.sis.yorku.ca`)
+4. In terminal:
 
 ```bash
-npm run scraper:cdm:browser-setup   # once: install Playwright + Chromium
-npm run scraper:cdm:bootstrap       # opens browser; complete Cloudflare check
+npm run scraper:cdm:import-cookies -- ~/cdm-cookies.txt
 npm run scraper:schedule:all
 npm run scraper:schedule:db
 ```
 
-On SSH without a display, use `ssh -X` or run bootstrap from the lab workstation GUI. Cookies are saved to `services/scraper/cdm_session.json`.
+### Alternative: Playwright (installs Chromium to `/tmp`)
+
+```bash
+npm run scraper:cdm:browser-setup
+npm run scraper:cdm:bootstrap
+npm run scraper:schedule:all
+npm run scraper:schedule:db
+```
 
 ---
 

@@ -29,8 +29,14 @@ def report_cdm_challenge(url: str | None = None) -> int:
         f"{where}"
         "This is not a York network problem — curl/requests cannot pass the bot check,"
         " even on campus.\n\n"
-        "One-time fix (opens a real browser, saves cookies for later scrapes):\n"
-        "  npm run scraper:cdm:bootstrap\n\n"
+        "One-time fixes:\n"
+        "  A) Import cookies from a browser (no Playwright download):\n"
+        "     1. Open CDM in Firefox/Chrome on the lab desktop\n"
+        "     2. Export cookies for w2prod.sis.yorku.ca (cookies.txt extension)\n"
+        "     3. npm run scraper:cdm:import-cookies -- path/to/cookies.txt\n"
+        "  B) Playwright bootstrap (needs ~200MB disk; use /tmp if home quota is full):\n"
+        "     npm run scraper:cdm:browser-setup\n"
+        "     npm run scraper:cdm:bootstrap\n\n"
         "Then retry your scrape command.\n\n"
         "Offline alternative:\n"
         "  npm run scraper:schedule:fixture\n"
@@ -299,9 +305,39 @@ def cmd_cdm_bootstrap(args: argparse.Namespace) -> int:
         path = bootstrap_cdm_session(headless=args.headless)
     except RuntimeError as exc:
         print(f"Error: {exc}", file=sys.stderr)
+        print(
+            "\nIf Playwright failed to download Chromium (disk quota error -122), "
+            "use cookie import instead:\n"
+            "  npm run scraper:cdm:import-cookies -- path/to/cookies.txt",
+            file=sys.stderr,
+        )
         return 1
 
     print(f"Saved CDM browser session to {path}")
+    print("Retry your scrape command (for example: npm run scraper:schedule:all)")
+    return 0
+
+
+def cmd_cdm_import_cookies(args: argparse.Namespace) -> int:
+    from cdm_cookies import import_cookie_file
+
+    source = Path(args.cookies_file)
+    if not source.is_file():
+        print(f"Cookie file not found: {source}", file=sys.stderr)
+        return 1
+
+    out = Path(args.out) if args.out else None
+    try:
+        target = import_cookie_file(source, out)
+    except Exception as exc:
+        print(f"Error: {exc}", file=sys.stderr)
+        print(
+            "\nMake sure you exported cookies while logged into York CDM in a real browser.",
+            file=sys.stderr,
+        )
+        return 1
+
+    print(f"Imported CDM cookies to {target}")
     print("Retry your scrape command (for example: npm run scraper:schedule:all)")
     return 0
 
@@ -388,6 +424,14 @@ def build_parser() -> argparse.ArgumentParser:
         help="Run Chromium headless (may fail the challenge; omit on SSH without a display)",
     )
     bootstrap.set_defaults(func=cmd_cdm_bootstrap)
+
+    import_cookies = sub.add_parser(
+        "cdm-import-cookies",
+        help="Import cookies.txt or Playwright JSON from a browser session on York CDM",
+    )
+    import_cookies.add_argument("cookies_file", help="Path to cookies.txt or cdm_session.json export")
+    import_cookies.add_argument("--out", default=str(ROOT / "cdm_session.json"))
+    import_cookies.set_defaults(func=cmd_cdm_import_cookies)
 
     db = sub.add_parser("db", help="Upsert scraped JSON into Postgres")
     db.add_argument("--input", default=str(OUTPUT / "fixture_courses.json"))

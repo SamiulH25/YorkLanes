@@ -204,18 +204,20 @@ dashboardRouter.get("/summary", async (req, res) => {
   let progress: DashboardSummary["progress"] = {
     percentComplete: 0,
     label: "Import your degree checklist to track progress.",
+    segments: [],
   };
   if (req.session.userId && usePostgres) {
     try {
       const plan = await getLatestPlanForUser(getPool(), req.session.userId);
       if (plan) {
-        const planProgress = buildPlanProgressResult(plan);
+        const planProgress = await buildPlanProgressResult(getPool(), plan);
         progress = {
           percentComplete: planProgress.percentComplete,
           label: planProgress.message,
           completed: planProgress.completed,
           total: planProgress.total,
           planId: planProgress.planId,
+          segments: planProgress.segments,
         };
         if (!programme && planProgress.programmeName) {
           programme = planProgress.programmeName;

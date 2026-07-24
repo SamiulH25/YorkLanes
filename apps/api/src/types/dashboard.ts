@@ -16,6 +16,12 @@ export interface DashboardSummary {
     completed?: number;
     total?: number;
     planId?: string;
+    segments?: Array<{
+      id: "major" | "generalEducation" | "electives";
+      label: string;
+      completed: number;
+      percentOfTotal: number;
+    }>;
   };
   assignments: {
     upcoming: AssignmentPreview[];
@@ -71,4 +77,3 @@ export interface TodayClassPreview {
   room?: string | null;
   campus?: string | null;
 }
-

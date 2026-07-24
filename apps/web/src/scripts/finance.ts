@@ -388,7 +388,19 @@ function render(
   if (expenses) expenses.textContent = formatCents(expenseCents);
 
   renderList(root, visibleEntries, editingId);
-  renderChart(root, visibleEntries);
+  renderCategoryChart(root, visibleEntries, {
+    kind: "expense",
+    chartSelector: "[data-finance-chart]",
+    emptySelector: "[data-finance-chart-empty]",
+    barClass: "h-full rounded-full bg-york-red",
+  });
+  renderCategoryChart(root, visibleEntries, {
+    kind: "income",
+    chartSelector: "[data-finance-income-chart]",
+    emptySelector: "[data-finance-income-chart-empty]",
+    barClass: "h-full rounded-full bg-emerald-600",
+  });
+  renderDue(root, entries, selectedMonth);
   renderBudget(root, entries, budgetCents, selectedMonth);
   renderTrend(root, entries);
 }
@@ -517,14 +529,118 @@ function renderList(root: HTMLElement, entries: FinanceEntry[], editingId: strin
   }
 }
 
-function renderChart(root: HTMLElement, entries: FinanceEntry[]): void {
-  const chart = root.querySelector<HTMLElement>("[data-finance-chart]");
-  const empty = root.querySelector<HTMLElement>("[data-finance-chart-empty]");
+function seriesKey(entry: FinanceEntry): string {
+  return [entry.kind, entry.label, entry.category, entry.recurrence, String(entry.amountCents)].join("\0");
+}
+
+/** Recurring rows whose next date falls in selectedMonth and is not already logged. */
+function getDueRecurring(
+  entries: FinanceEntry[],
+  selectedMonth: string,
+): Array<{ entry: FinanceEntry; nextDate: string }> {
+  const candidates: Array<{ entry: FinanceEntry; nextDate: string }> = [];
+
+  for (const entry of entries) {
+    if (entry.recurrence === "none") continue;
+    const nextDate = nextOccurredOn(entry.occurredOn, entry.recurrence);
+    if (!nextDate || !nextDate.startsWith(selectedMonth)) continue;
+
+    const alreadyLogged = entries.some(
+      (other) =>
+        other.occurredOn === nextDate &&
+        other.label === entry.label &&
+        other.category === entry.category &&
+        other.kind === entry.kind &&
+        other.recurrence === entry.recurrence &&
+        other.amountCents === entry.amountCents,
+    );
+    if (alreadyLogged) continue;
+    candidates.push({ entry, nextDate });
+  }
+
+  const bestBySeries = new Map<string, { entry: FinanceEntry; nextDate: string }>();
+  for (const item of candidates) {
+    const key = `${seriesKey(item.entry)}\0${item.nextDate}`;
+    const existing = bestBySeries.get(key);
+    if (!existing || item.entry.occurredOn > existing.entry.occurredOn) {
+      bestBySeries.set(key, item);
+    }
+  }
+
+  return [...bestBySeries.values()].sort((a, b) => a.nextDate.localeCompare(b.nextDate));
+}
+
+function renderDue(root: HTMLElement, entries: FinanceEntry[], selectedMonth: string): void {
+  const list = root.querySelector<HTMLElement>("[data-finance-due]");
+  const empty = root.querySelector<HTMLElement>("[data-finance-due-empty]");
+  const monthLabel = root.querySelector<HTMLElement>("[data-finance-due-month]");
+  if (!list || !empty) return;
+
+  if (monthLabel) monthLabel.textContent = formatMonth(selectedMonth);
+
+  const due = getDueRecurring(entries, selectedMonth);
+  list.replaceChildren();
+  list.hidden = due.length === 0;
+  empty.hidden = due.length > 0;
+
+  for (const { entry, nextDate } of due) {
+    const row = document.createElement("div");
+    row.className =
+      "flex flex-wrap items-center justify-between gap-3 rounded-xl border border-york-stone/50 bg-york-cream/40 px-3 py-3 dark:border-white/10 dark:bg-york-graphite/60";
+
+    const meta = document.createElement("div");
+    meta.className = "min-w-0";
+
+    const label = document.createElement("p");
+    label.className = "truncate text-sm font-semibold text-york-black dark:text-white";
+    label.textContent = entry.label;
+
+    const detail = document.createElement("p");
+    detail.className = "mt-0.5 text-xs text-york-muted";
+    detail.textContent = `${entry.category} · ${recurrenceLabel(entry.recurrence)} · Due ${nextDate}`;
+
+    meta.append(label, detail);
+
+    const amount = document.createElement("p");
+    amount.className =
+      entry.kind === "income"
+        ? "shrink-0 text-sm font-semibold text-emerald-700 dark:text-emerald-300"
+        : "shrink-0 text-sm font-semibold text-york-red";
+    amount.textContent = `${entry.kind === "income" ? "+" : "-"}${formatCents(entry.amountCents)}`;
+
+    const next = document.createElement("button");
+    next.type = "button";
+    next.dataset.financeNext = entry.id;
+    next.className =
+      "rounded-lg border border-york-stone/60 px-3 py-1.5 text-xs font-semibold text-york-muted transition hover:border-york-red/30 hover:text-york-red dark:border-white/10";
+    next.textContent = "Log next";
+
+    const actions = document.createElement("div");
+    actions.className = "flex shrink-0 items-center gap-3";
+    actions.append(amount, next);
+
+    row.append(meta, actions);
+    list.append(row);
+  }
+}
+
+function renderCategoryChart(
+  root: HTMLElement,
+  entries: FinanceEntry[],
+  options: {
+    kind: FinanceKind;
+    chartSelector: string;
+    emptySelector: string;
+    barClass: string;
+  },
+): void {
+  const chart = root.querySelector<HTMLElement>(options.chartSelector);
+  const empty = root.querySelector<HTMLElement>(options.emptySelector);
   if (!chart || !empty) return;
 
   const totals = new Map<string, number>();
   for (const entry of entries) {
-    if (entry.kind !== "expense") continue;
+    if (entry.kind !== options.kind) continue;
     totals.set(entry.category, (totals.get(entry.category) ?? 0) + entry.amountCents);
   }
 
@@ -554,8 +670,8 @@ function renderChart(root: HTMLElement, entries: FinanceEntry[]): void {
     track.className = "h-2 overflow-hidden rounded-full bg-york-cream dark:bg-york-graphite";
 
     const bar = document.createElement("div");
-    bar.className = "h-full rounded-full bg-york-red";
-    bar.style.width = `${Math.max(8, Math.round((total / max) * 100))}%`;
+    bar.className = options.barClass;
+    bar.style.width = max > 0 ? `${Math.max(8, Math.round((total / max) * 100))}%` : "0%";
 
     top.append(name, amount);
     track.append(bar);

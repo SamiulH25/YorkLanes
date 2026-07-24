@@ -6,6 +6,8 @@ import {
   createAssignment,
   updateAssignment,
   deleteAssignment,
+  setAssignmentDone,
+  setAssignmentStarred,
   type Assignment,
 } from "../../lib/assignments";
 
@@ -25,7 +27,25 @@ if (Astro.request.method === "POST") {
   const action = formData.get("_action")?.toString() ?? "";
   const id = formData.get("id")?.toString() ?? "";
 
-  // Handle UPDATE
+  // Toggle done / undone
+  if (action === "toggle-done" && id) {
+    try {
+      await setAssignmentDone(id, formData.get("done")?.toString() === "true", cookie);
+    } catch (error) {
+      editError = error instanceof Error ? error.message : "Failed to update assignment.";
+    }
+  }
+
+  // Star / unstar
+  if (action === "toggle-star" && id) {
+    try {
+      await setAssignmentStarred(id, formData.get("starred")?.toString() === "true", cookie);
+    } catch (error) {
+      editError = error instanceof Error ? error.message : "Failed to update assignment.";
+    }
+  }
+
+  // Update
   if (action === "update" && id) {
     try {
       const title = formData.get("title")?.toString().trim() ?? "";
@@ -39,12 +59,7 @@ if (Astro.request.method === "POST") {
 
       const updated = await updateAssignment(
         id,
-        {
-          title,
-          courseCode,
-          description,
-          dueDate,
-        },
+        { title, courseCode, description, dueDate },
         cookie,
       );
       editSuccess = `Updated "${updated.title}"`;
@@ -54,7 +69,7 @@ if (Astro.request.method === "POST") {
     }
   }
 
-  // Handle DELETE
+  // Delete
   if (action === "delete" && id) {
     try {
       await deleteAssignment(id, cookie);
@@ -65,7 +80,7 @@ if (Astro.request.method === "POST") {
     }
   }
 
-  // Handle CREATE
+  // Create
   if (!action || action === "create") {
     try {
       const title = formData.get("title")?.toString().trim() ?? "";
@@ -78,12 +93,7 @@ if (Astro.request.method === "POST") {
       }
 
       const created = await createAssignment(
-        {
-          title,
-          courseCode,
-          description,
-          dueDate,
-        },
+        { title, courseCode, description, dueDate },
         cookie,
       );
       successMessage = `Added "${created.title}"`;
@@ -94,6 +104,11 @@ if (Astro.request.method === "POST") {
   }
 }
 
+// --- View / sort / month from query string ---------------------------------
+const view = Astro.url.searchParams.get("view") === "calendar" ? "calendar" : "list";
+const sort = Astro.url.searchParams.get("sort") === "course" ? "course" : "due";
+const monthParam = Astro.url.searchParams.get("month");
+
 try {
   const data = await fetchAssignments(cookie);
   assignments = data.assignments ?? [];
@@ -101,7 +116,57 @@ try {
   loadError = error instanceof Error ? error.message : "API unavailable";
 }
 
+// Starred always float to the top; then the chosen sort key.
+const sorted = [...assignments].sort((a, b) => {
+  if (a.starred !== b.starred) return a.starred ? -1 : 1;
+  if (sort === "course") {
+    const byCourse = a.courseCode.localeCompare(b.courseCode);
+    if (byCourse !== 0) return byCourse;
+  }
+  return a.dueAt.localeCompare(b.dueAt);
+});
+
 const pendingCount = assignments.filter((item) => !item.done).length;
+
+// --- Calendar grid ----------------------------------------------------------
+const pad = (n: number) => String(n).padStart(2, "0");
+const today = new Date();
+const todayKey = `${today.getFullYear()}-${pad(today.getMonth() + 1)}-${pad(today.getDate())}`;
+
+const monthMatch = /^(\d{4})-(\d{2})$/.exec(monthParam ?? "");
+const calYear = monthMatch ? Number(monthMatch[1]) : today.getFullYear();
+const calMonth0 = monthMatch ? Number(monthMatch[2]) - 1 : today.getMonth();
+
+const monthStart = new Date(Date.UTC(calYear, calMonth0, 1));
+const daysInMonth = new Date(Date.UTC(calYear, calMonth0 + 1, 0)).getUTCDate();
+const firstWeekday = monthStart.getUTCDay(); // 0 = Sunday
+const monthKey = `${calYear}-${pad(calMonth0 + 1)}`;
+const monthLabel = monthStart.toLocaleDateString("en-CA", {
+  month: "long",
+  year: "numeric",
+  timeZone: "UTC",
+});
+const prevDate = new Date(Date.UTC(calYear, calMonth0 - 1, 1));
+const nextDate = new Date(Date.UTC(calYear, calMonth0 + 1, 1));
+const prevMonth = `${prevDate.getUTCFullYear()}-${pad(prevDate.getUTCMonth() + 1)}`;
+const nextMonth = `${nextDate.getUTCFullYear()}-${pad(nextDate.getUTCMonth() + 1)}`;
+
+type Cell = { day: number; key: string } | null;
+const cells: Cell[] = [];
+for (let i = 0; i < firstWeekday; i += 1) cells.push(null);
+for (let d = 1; d <= daysInMonth; d += 1) cells.push({ day: d, key: `${monthKey}-${pad(d)}` });
+while (cells.length % 7 !== 0) cells.push(null);
+
+const byDate = new Map<string, Assignment[]>();
+for (const a of sorted) {
+  const key = a.dueAt.slice(0, 10);
+  const bucket = byDate.get(key) ?? [];
+  bucket.push(a);
+  byDate.set(key, bucket);
+}
+
+const weekdayNames = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+
 const inputClass =
   "mt-2 w-full rounded-xl border border-york-stone/60 bg-white/80 px-3 py-2.5 text-sm text-york-black outline-none transition focus:border-york-red focus:ring-2 focus:ring-york-red/20 dark:border-white/10 dark:bg-york-graphite dark:text-white";
 
@@ -111,6 +176,7 @@ function formatDueDate(iso: string): string {
     month: "short",
     day: "numeric",
     year: "numeric",
+    timeZone: "UTC",
   });
 }
 
@@ -118,9 +184,7 @@ function dueTone(iso: string, done: boolean): "muted" | "soon" | "overdue" {
   if (done) return "muted";
   const due = new Date(iso);
   const now = new Date();
-  const days = Math.ceil(
-    (due.getTime() - now.getTime()) / (1000 * 60 * 60 * 24),
-  );
+  const days = Math.ceil((due.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
   if (days < 0) return "overdue";
   if (days <= 7) return "soon";
   return "muted";
@@ -141,11 +205,7 @@ function dueTone(iso: string, done: boolean): "muted" | "soon" | "overdue" {
           }
         </p>
       </div>
-      <button
-        type="button"
-        id="show-add-assignment-form-btn"
-        class="btn-york shrink-0"
-      >
+      <button type="button" id="show-add-assignment-form-btn" class="btn-york shrink-0">
         Add assignment
       </button>
     </div>
@@ -171,118 +231,254 @@ function dueTone(iso: string, done: boolean): "muted" | "soon" | "overdue" {
   }
 
   <div class="grid gap-5 xl:grid-cols-[minmax(0,1fr)_22rem]">
-    <!-- Left Column: Assignment List -->
+    <!-- Left Column: List / Calendar -->
     <section class="surface p-5 sm:p-6">
-      <div class="widget-header">
-        <div>
-          <p class="label">Upcoming</p>
-          <h2 class="heading-widget mt-1">Your deadlines</h2>
-        </div>
-        <div class="icon-badge bg-york-red/10 text-york-red">
-          <svg
-            class="h-5 w-5"
-            fill="none"
-            viewBox="0 0 24 24"
-            stroke="currentColor"
-            stroke-width="1.75"
-            aria-hidden="true"
+      <!-- Toolbar: view toggle + sort / month nav -->
+      <div class="flex flex-wrap items-center justify-between gap-3">
+        <div class="inline-flex rounded-xl surface-muted p-1">
+          <a
+            href="/assignments?view=list"
+            class:list={[
+              "rounded-lg px-3 py-1.5 text-xs font-semibold transition-colors",
+              view === "list" ? "bg-york-red text-white" : "text-york-muted hover:text-york-black dark:hover:text-white",
+            ]}
           >
-            <path
-              stroke-linecap="round"
-              stroke-linejoin="round"
-              d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"
-            ></path>
-          </svg>
+            List
+          </a>
+          <a
+            href={`/assignments?view=calendar&month=${monthKey}`}
+            class:list={[
+              "rounded-lg px-3 py-1.5 text-xs font-semibold transition-colors",
+              view === "calendar" ? "bg-york-red text-white" : "text-york-muted hover:text-york-black dark:hover:text-white",
+            ]}
+          >
+            Calendar
+          </a>
         </div>
+
+        {
+          view === "list" ? (
+            <div class="flex items-center gap-2 text-xs">
+              <span class="text-york-muted">Sort:</span>
+              <a
+                href="/assignments?view=list&sort=due"
+                class:list={[
+                  "rounded-lg px-2.5 py-1.5 font-semibold transition-colors",
+                  sort === "due" ? "bg-york-red/10 text-york-red" : "text-york-muted hover:text-york-black dark:hover:text-white",
+                ]}
+              >
+                Due date
+              </a>
+              <a
+                href="/assignments?view=list&sort=course"
+                class:list={[
+                  "rounded-lg px-2.5 py-1.5 font-semibold transition-colors",
+                  sort === "course" ? "bg-york-red/10 text-york-red" : "text-york-muted hover:text-york-black dark:hover:text-white",
+                ]}
+              >
+                Course
+              </a>
+            </div>
+          ) : (
+            <div class="flex items-center gap-1">
+              <a
+                href={`/assignments?view=calendar&month=${prevMonth}`}
+                class="btn-ghost px-2.5 py-1.5 text-xs"
+                aria-label="Previous month"
+              >
+                ‹
+              </a>
+              <span class="min-w-[9rem] text-center text-sm font-semibold text-york-black dark:text-white">
+                {monthLabel}
+              </span>
+              <a
+                href={`/assignments?view=calendar&month=${nextMonth}`}
+                class="btn-ghost px-2.5 py-1.5 text-xs"
+                aria-label="Next month"
+              >
+                ›
+              </a>
+            </div>
+          )
+        }
       </div>
 
+      {/* ---------------- LIST VIEW ---------------- */}
       {
-        assignments.length > 0 ? (
-          <ul class="mt-5 space-y-2">
-            {assignments.map((assignment) => {
-              const tone = dueTone(assignment.dueAt, assignment.done);
-              return (
-                <li
-                  class="assignment-item rounded-xl surface-muted px-4 py-3 transition-colors hover:bg-york-red/[0.04] cursor-pointer"
-                  data-id={assignment.id}
-                  data-title={assignment.title}
-                  data-course={assignment.courseCode}
-                  data-description={assignment.description || ""}
-                  data-due={assignment.dueAt}
-                >
-                  <div class="flex flex-wrap items-start justify-between gap-3">
-                    <div class="flex min-w-0 flex-1 gap-3">
-                      <div
-                        class:list={[
-                          "mt-1 h-full w-1 shrink-0 rounded-full",
-                          assignment.done
-                            ? "bg-stone-400"
-                            : tone === "overdue"
-                              ? "bg-york-red"
-                              : "bg-york-gold",
-                        ]}
-                        aria-hidden="true"
-                      />
-                      <div class="min-w-0">
-                        <p
+        view === "list" &&
+          (sorted.length > 0 ? (
+            <ul class="mt-5 space-y-2">
+              {sorted.map((assignment) => {
+                const tone = dueTone(assignment.dueAt, assignment.done);
+                return (
+                  <li
+                    class="assignment-item js-edit-trigger rounded-xl surface-muted px-4 py-3 transition-colors hover:bg-york-red/[0.04] cursor-pointer"
+                    data-id={assignment.id}
+                    data-title={assignment.title}
+                    data-course={assignment.courseCode}
+                    data-description={assignment.description || ""}
+                    data-due={assignment.dueAt}
+                  >
+                    <div class="flex flex-wrap items-start justify-between gap-3">
+                      <div class="flex min-w-0 flex-1 gap-3">
+                        <div
                           class:list={[
-                            "text-sm font-semibold text-york-black dark:text-white",
-                            assignment.done && "text-york-muted line-through",
+                            "mt-1 h-full w-1 shrink-0 rounded-full",
+                            assignment.done
+                              ? "bg-stone-400"
+                              : tone === "overdue"
+                                ? "bg-york-red"
+                                : "bg-york-gold",
                           ]}
-                        >
-                          {assignment.title}
-                        </p>
-                        {assignment.description && (
-                          <p class="mt-0.5 text-xs text-york-muted">
-                            {assignment.description}
+                          aria-hidden="true"
+                        />
+                        <div class="min-w-0">
+                          <p
+                            class:list={[
+                              "text-sm font-semibold text-york-black dark:text-white",
+                              assignment.done && "text-york-muted line-through",
+                            ]}
+                          >
+                            {assignment.title}
                           </p>
-                        )}
-                        <p class="mt-1 text-xs font-medium text-york-muted">
-                          {assignment.courseCode}
-                        </p>
+                          {assignment.description && (
+                            <p class="mt-0.5 text-xs text-york-muted">{assignment.description}</p>
+                          )}
+                          <p class="mt-1 text-xs font-medium text-york-muted">{assignment.courseCode}</p>
+                        </div>
+                      </div>
+                      <div class="flex shrink-0 flex-col items-end gap-2">
+                        <time
+                          class:list={[
+                            "text-xs font-semibold",
+                            assignment.done && "text-york-muted",
+                            !assignment.done && tone === "overdue" && "text-york-red",
+                            !assignment.done && tone === "soon" && "text-york-gold",
+                            !assignment.done && tone === "muted" && "text-york-muted",
+                          ]}
+                          datetime={assignment.dueAt}
+                        >
+                          Due on {formatDueDate(assignment.dueAt)}
+                        </time>
+                        <div class="flex items-center gap-1.5">
+                          {/* Star toggle */}
+                          <form method="POST" class="js-inline-action">
+                            <input type="hidden" name="_action" value="toggle-star" />
+                            <input type="hidden" name="id" value={assignment.id} />
+                            <input type="hidden" name="starred" value={(!assignment.starred).toString()} />
+                            <button
+                              type="submit"
+                              class:list={[
+                                "rounded-lg px-2 py-1 text-sm leading-none transition-colors",
+                                assignment.starred
+                                  ? "text-york-gold"
+                                  : "text-york-muted hover:text-york-gold",
+                              ]}
+                              aria-label={assignment.starred ? "Unstar assignment" : "Star assignment"}
+                              title={assignment.starred ? "Unstar" : "Star"}
+                            >
+                              {assignment.starred ? "★" : "☆"}
+                            </button>
+                          </form>
+                          {/* Done toggle */}
+                          <form method="POST" class="js-inline-action">
+                            <input type="hidden" name="_action" value="toggle-done" />
+                            <input type="hidden" name="id" value={assignment.id} />
+                            <input type="hidden" name="done" value={(!assignment.done).toString()} />
+                            <button
+                              type="submit"
+                              class:list={[
+                                "badge transition-colors",
+                                assignment.done
+                                  ? "bg-emerald-500/15 text-emerald-700 hover:bg-emerald-500/25 dark:text-emerald-300"
+                                  : "bg-york-gold/15 text-york-gold hover:bg-york-gold/25",
+                              ]}
+                              title={assignment.done ? "Mark as not done" : "Mark as done"}
+                            >
+                              {assignment.done ? "Done" : "Pending"}
+                            </button>
+                          </form>
+                        </div>
                       </div>
                     </div>
-                    <div class="flex shrink-0 flex-col items-end gap-2">
-                      <time
-                        class:list={[
-                          "text-xs font-semibold",
-                          assignment.done && "text-york-muted",
-                          !assignment.done &&
-                            tone === "overdue" &&
-                            "text-york-red",
-                          !assignment.done &&
-                            tone === "soon" &&
-                            "text-york-gold",
-                          !assignment.done &&
-                            tone === "muted" &&
-                            "text-york-muted",
-                        ]}
-                        datetime={assignment.dueAt}
-                      >
-                        Due on {formatDueDate(assignment.dueAt)}
-                      </time>
-                      {assignment.done ? (
-                        <span class="badge bg-emerald-500/15 text-emerald-700 dark:text-emerald-300">
-                          Done
-                        </span>
-                      ) : (
-                        <span class="badge bg-york-gold/15 text-york-gold">
-                          Pending
-                        </span>
+                  </li>
+                );
+              })}
+            </ul>
+          ) : (
+            <div class="empty-state mt-6">
+              <p class="text-sm font-medium text-york-black dark:text-white">No assignments yet</p>
+              <p class="mt-1 text-sm text-stone-600 dark:text-stone-400">
+                Add your first deadline with the button in the header.
+              </p>
+            </div>
+          ))
+      }
+
+      {/* ---------------- CALENDAR VIEW ---------------- */}
+      {
+        view === "calendar" && (
+          <div class="mt-5">
+            <div class="grid grid-cols-7 gap-1 text-center text-[11px] font-semibold uppercase tracking-wide text-york-muted">
+              {weekdayNames.map((name) => (
+                <div class="py-1">{name}</div>
+              ))}
+            </div>
+            <div class="mt-1 grid grid-cols-7 gap-1">
+              {cells.map((cell) =>
+                cell === null ? (
+                  <div class="min-h-[5.5rem] rounded-lg bg-transparent" />
+                ) : (
+                  <div
+                    class:list={[
+                      "js-day min-h-[5.5rem] cursor-pointer rounded-lg border p-1.5 text-left transition-colors hover:border-york-red/50",
+                      cell.key === todayKey
+                        ? "border-york-red/60 bg-york-red/5"
+                        : "border-york-stone/40 dark:border-white/10",
+                    ]}
+                    data-date={cell.key}
+                  >
+                    <div
+                      class:list={[
+                        "mb-1 text-xs font-semibold",
+                        cell.key === todayKey ? "text-york-red" : "text-york-muted",
+                      ]}
+                    >
+                      {cell.day}
+                    </div>
+                    <div class="space-y-1">
+                      {(byDate.get(cell.key) ?? []).slice(0, 3).map((assignment) => (
+                        <button
+                          type="button"
+                          class:list={[
+                            "js-edit-trigger block w-full truncate rounded px-1.5 py-1 text-left text-[11px] font-medium transition-colors",
+                            assignment.done
+                              ? "bg-stone-400/15 text-york-muted line-through"
+                              : "bg-york-red/10 text-york-red hover:bg-york-red/20",
+                          ]}
+                          data-id={assignment.id}
+                          data-title={assignment.title}
+                          data-course={assignment.courseCode}
+                          data-description={assignment.description || ""}
+                          data-due={assignment.dueAt}
+                          title={`${assignment.title} · ${assignment.courseCode}`}
+                        >
+                          {assignment.starred ? "★ " : ""}
+                          {assignment.title}
+                        </button>
+                      ))}
+                      {(byDate.get(cell.key) ?? []).length > 3 && (
+                        <p class="px-1.5 text-[10px] text-york-muted">
+                          +{(byDate.get(cell.key) ?? []).length - 3} more
+                        </p>
                       )}
                     </div>
                   </div>
-                </li>
-              );
-            })}
-          </ul>
-        ) : (
-          <div class="empty-state mt-6">
-            <p class="text-sm font-medium text-york-black dark:text-white">
-              No assignments yet
-            </p>
-            <p class="mt-1 text-sm text-stone-600 dark:text-stone-400">
-              Add your first deadline using the form on the right.
+                ),
+              )}
+            </div>
+            <p class="mt-3 text-xs text-york-muted">
+              Click a day to add an assignment · click an assignment to edit it.
             </p>
           </div>
         )
@@ -316,46 +512,23 @@ function dueTone(iso: string, done: boolean): "muted" | "soon" | "overdue" {
           <input type="hidden" name="_action" value="create" />
           <label class="block">
             <span class="label">Title</span>
-            <input
-              type="text"
-              name="title"
-              required
-              class={inputClass}
-              placeholder="Essay draft"
-            />
+            <input type="text" name="title" required class={inputClass} placeholder="Essay draft" />
           </label>
           <label class="block">
             <span class="label">Course code</span>
-            <input
-              type="text"
-              name="courseCode"
-              required
-              class={inputClass}
-              placeholder="CWR 2600"
-            />
+            <input type="text" name="courseCode" required class={inputClass} placeholder="CWR 2600" />
           </label>
           <label class="block">
             <span class="label">Description</span>
-            <input
-              type="text"
-              name="description"
-              class={inputClass}
-              placeholder="Optional notes"
-            />
+            <input type="text" name="description" class={inputClass} placeholder="Optional notes" />
           </label>
           <label class="block">
             <span class="label">Due date</span>
-            <input type="date" name="dueDate" required class={inputClass} />
+            <input type="date" name="dueDate" id="add-due" required class={inputClass} />
           </label>
           <div class="flex flex-wrap gap-2 pt-1">
-            <button type="submit" class="btn-york flex-1 sm:flex-none"
-              >Save assignment</button
-            >
-            <button
-              type="button"
-              id="hide-add-assignment-form-btn"
-              class="btn-ghost">Cancel</button
-            >
+            <button type="submit" class="btn-york flex-1 sm:flex-none">Save assignment</button>
+            <button type="button" id="hide-add-assignment-form-btn" class="btn-ghost">Cancel</button>
           </div>
         </form>
 
@@ -363,9 +536,8 @@ function dueTone(iso: string, done: boolean): "muted" | "soon" | "overdue" {
           id="add-assignment-form-hint"
           class:list={["mt-5 text-sm text-york-muted", formError && "hidden"]}
         >
-          Use <span class="font-medium text-york-black dark:text-white"
-            >Add assignment</span
-          > in the header to open the form.
+          Use <span class="font-medium text-york-black dark:text-white">Add assignment</span> in the
+          header to open the form.
         </p>
       </section>
 
@@ -401,75 +573,34 @@ function dueTone(iso: string, done: boolean): "muted" | "soon" | "overdue" {
           )
         }
 
-        <form
-          id="edit-assignment-form"
-          class="mt-5 space-y-4 hidden"
-          method="POST"
-        >
+        <form id="edit-assignment-form" class="mt-5 space-y-4 hidden" method="POST">
           <input type="hidden" name="_action" value="update" />
           <input type="hidden" name="id" id="edit-id" />
 
           <label class="block">
             <span class="label">Title</span>
-            <input
-              type="text"
-              name="title"
-              id="edit-title"
-              required
-              class={inputClass}
-              placeholder="Essay draft"
-            />
+            <input type="text" name="title" id="edit-title" required class={inputClass} placeholder="Essay draft" />
           </label>
           <label class="block">
             <span class="label">Course code</span>
-            <input
-              type="text"
-              name="courseCode"
-              id="edit-course"
-              required
-              class={inputClass}
-              placeholder="CWR 2600"
-            />
+            <input type="text" name="courseCode" id="edit-course" required class={inputClass} placeholder="CWR 2600" />
           </label>
           <label class="block">
             <span class="label">Description</span>
-            <input
-              type="text"
-              name="description"
-              id="edit-description"
-              class={inputClass}
-              placeholder="Optional notes"
-            />
+            <input type="text" name="description" id="edit-description" class={inputClass} placeholder="Optional notes" />
           </label>
           <label class="block">
             <span class="label">Due date</span>
-            <input
-              type="date"
-              name="dueDate"
-              id="edit-due"
-              required
-              class={inputClass}
-            />
+            <input type="date" name="dueDate" id="edit-due" required class={inputClass} />
           </label>
           <div class="flex flex-wrap gap-2 pt-1">
-            <button type="submit" class="btn-york flex-1 sm:flex-none">
-              Update assignment
-            </button>
-            <button
-              type="button"
-              id="hide-edit-assignment-form-btn"
-              class="btn-ghost"
-            >
-              Cancel
-            </button>
+            <button type="submit" class="btn-york flex-1 sm:flex-none">Update assignment</button>
+            <button type="button" id="hide-edit-assignment-form-btn" class="btn-ghost">Cancel</button>
           </div>
         </form>
 
         <p id="edit-assignment-form-hint" class="mt-5 text-sm text-york-muted">
-          Click on an assignment under <span
-            class="font-medium text-york-black dark:text-white"
-            >Upcoming Deadlines</span
-          > to open the form.
+          Click an assignment (in the list or calendar) to open the form.
         </p>
       </section>
     </div>
@@ -480,19 +611,10 @@ function dueTone(iso: string, done: boolean): "muted" | "soon" | "overdue" {
     id="delete-modal"
     class="fixed inset-0 bg-black/50 flex items-center justify-center hidden z-50"
   >
-    <div
-      class="bg-white dark:bg-york-graphite rounded-2xl p-6 max-w-md w-full mx-4"
-    >
-      <h3 class="text-lg font-semibold text-york-black dark:text-white">
-        Delete Assignment
-      </h3>
-      <p class="mt-2 text-sm text-york-muted">
-        Are you sure you want to delete this assignment?
-      </p>
-      <div
-        id="delete-assignment-info"
-        class="mt-3 p-3 rounded-lg bg-york-red/5 border border-york-red/20"
-      >
+    <div class="bg-white dark:bg-york-graphite rounded-2xl p-6 max-w-md w-full mx-4">
+      <h3 class="text-lg font-semibold text-york-black dark:text-white">Delete Assignment</h3>
+      <p class="mt-2 text-sm text-york-muted">Are you sure you want to delete this assignment?</p>
+      <div id="delete-assignment-info" class="mt-3 p-3 rounded-lg bg-york-red/5 border border-york-red/20">
         <p class="text-sm font-medium" id="delete-title"></p>
         <p class="text-xs text-york-muted mt-1" id="delete-course"></p>
         <p class="text-xs text-york-muted" id="delete-due"></p>
@@ -501,27 +623,20 @@ function dueTone(iso: string, done: boolean): "muted" | "soon" | "overdue" {
         <form method="POST" class="flex-1">
           <input type="hidden" name="_action" value="delete" />
           <input type="hidden" name="id" id="delete-id" />
-          <button
-            type="submit"
-            class="w-full btn-york bg-york-red hover:bg-york-red/90"
-          >
-            Yes, delete
-          </button>
+          <button type="submit" class="w-full btn-york bg-york-red hover:bg-york-red/90">Yes, delete</button>
         </form>
-        <button type="button" id="cancel-delete-btn" class="flex-1 btn-ghost">
-          Cancel
-        </button>
+        <button type="button" id="cancel-delete-btn" class="flex-1 btn-ghost">Cancel</button>
       </div>
     </div>
   </div>
 </DashboardLayout>
 
 <script>
-  // Add/Edit form toggle functions
   const showBtn = document.getElementById("show-add-assignment-form-btn");
   const hideBtn = document.getElementById("hide-add-assignment-form-btn");
   const form = document.getElementById("add-assignment-form");
   const hint = document.getElementById("add-assignment-form-hint");
+  const addDueInput = document.getElementById("add-due") as HTMLInputElement | null;
 
   const editForm = document.getElementById("edit-assignment-form");
   const editHint = document.getElementById("edit-assignment-form-hint");
@@ -530,150 +645,129 @@ function dueTone(iso: string, done: boolean): "muted" | "soon" | "overdue" {
 
   const deleteModal = document.getElementById("delete-modal");
   const cancelDeleteBtn = document.getElementById("cancel-delete-btn");
-  const deleteIdInput = document.getElementById("delete-id");
+  const deleteIdInput = document.getElementById("delete-id") as HTMLInputElement | null;
   const deleteTitleEl = document.getElementById("delete-title");
   const deleteCourseEl = document.getElementById("delete-course");
   const deleteDueEl = document.getElementById("delete-due");
 
-  const editIdInput = document.getElementById("edit-id");
-  const editTitleInput = document.getElementById("edit-title");
-  const editCourseInput = document.getElementById("edit-course");
-  const editDescriptionInput = document.getElementById("edit-description");
-  const editDueInput = document.getElementById("edit-due");
+  const editIdInput = document.getElementById("edit-id") as HTMLInputElement | null;
+  const editTitleInput = document.getElementById("edit-title") as HTMLInputElement | null;
+  const editCourseInput = document.getElementById("edit-course") as HTMLInputElement | null;
+  const editDescriptionInput = document.getElementById("edit-description") as HTMLInputElement | null;
+  const editDueInput = document.getElementById("edit-due") as HTMLInputElement | null;
 
-  function formatDateForInput(dateString) {
+  type EditData = {
+    id?: string;
+    title?: string;
+    course?: string;
+    description?: string;
+    due?: string;
+  };
+
+  function formatDateForInput(dateString?: string) {
     if (!dateString) return "";
-    try {
-      const date = new Date(dateString);
-      if (isNaN(date.getTime())) return "";
-      const year = date.getFullYear();
-      const month = String(date.getMonth() + 1).padStart(2, "0");
-      const day = String(date.getDate()).padStart(2, "0");
-      return `${year}-${month}-${day}`;
-    } catch (e) {
-      console.error("Error formatting date:", e);
-      return "";
-    }
+    // dueAt is stored as UTC midnight for date-only entries — take the date part directly.
+    if (/^\d{4}-\d{2}-\d{2}/.test(dateString)) return dateString.slice(0, 10);
+    const date = new Date(dateString);
+    if (isNaN(date.getTime())) return "";
+    const year = date.getUTCFullYear();
+    const month = String(date.getUTCMonth() + 1).padStart(2, "0");
+    const day = String(date.getUTCDate()).padStart(2, "0");
+    return `${year}-${month}-${day}`;
   }
 
-  function setFormOpen(open) {
+  function setFormOpen(open: boolean) {
     form?.classList.toggle("hidden", !open);
     hint?.classList.toggle("hidden", open);
   }
 
-  function setEditFormOpen(open, assignmentData = null) {
-    if (open && assignmentData) {
-      // Fill the form with assignment data
-      editIdInput.value = assignmentData.id;
-      editTitleInput.value = assignmentData.title;
-      editCourseInput.value = assignmentData.course;
-      editDescriptionInput.value = assignmentData.description || "";
+  function setEditFormOpen(open: boolean, assignmentData: EditData | null = null) {
+    if (open && assignmentData && editIdInput) {
+      editIdInput.value = assignmentData.id ?? "";
+      editTitleInput!.value = assignmentData.title ?? "";
+      editCourseInput!.value = assignmentData.course ?? "";
+      editDescriptionInput!.value = assignmentData.description || "";
+      editDueInput!.value = formatDateForInput(assignmentData.due);
 
-      const formattedDate = formatDateForInput(assignmentData.due);
-      editDueInput.value = formattedDate;
-
-      // Show delete button and set its data
-      deleteBtn.classList.remove("hidden");
-      deleteBtn.dataset.id = assignmentData.id;
-      deleteBtn.dataset.title = assignmentData.title;
-      deleteBtn.dataset.course = assignmentData.course;
-      deleteBtn.dataset.due = assignmentData.due;
+      deleteBtn?.classList.remove("hidden");
+      if (deleteBtn) {
+        deleteBtn.dataset.id = assignmentData.id ?? "";
+        deleteBtn.dataset.title = assignmentData.title ?? "";
+        deleteBtn.dataset.course = assignmentData.course ?? "";
+        deleteBtn.dataset.due = assignmentData.due ?? "";
+      }
     }
 
     editForm?.classList.toggle("hidden", !open);
     editHint?.classList.toggle("hidden", open);
+    if (open) editForm?.scrollIntoView({ behavior: "smooth", block: "nearest" });
   }
 
-  // Add assignment form handlers
   showBtn?.addEventListener("click", () => {
     setFormOpen(true);
-    setEditFormOpen(false); // Close edit form if open
+    setEditFormOpen(false);
   });
-
   hideBtn?.addEventListener("click", () => setFormOpen(false));
-
-  // Edit assignment form handlers
   editHideBtn?.addEventListener("click", () => setEditFormOpen(false));
 
-  // Click on assignment to edit
-  document.querySelectorAll(".assignment-item").forEach((item) => {
-    item.addEventListener("click", () => {
-      const id = item.dataset.id;
-      const title = item.dataset.title;
-      const course = item.dataset.course;
-      const description = item.dataset.description;
-      const due = item.dataset.due;
-
-      setEditFormOpen(true, { id, title, course, description, due });
-      setFormOpen(false); // Close add form if open
+  // Open edit form from a list item or a calendar chip.
+  document.querySelectorAll(".js-edit-trigger").forEach((item) => {
+    item.addEventListener("click", (event) => {
+      // Ignore clicks on the inline star/done action forms.
+      if ((event.target as HTMLElement).closest(".js-inline-action")) return;
+      const el = item as HTMLElement;
+      setEditFormOpen(true, {
+        id: el.dataset.id,
+        title: el.dataset.title,
+        course: el.dataset.course,
+        description: el.dataset.description,
+        due: el.dataset.due,
+      });
+      setFormOpen(false);
     });
   });
 
-  // Delete button handler - show modal
+  // Click a calendar day → open the add form with that due date prefilled.
+  document.querySelectorAll(".js-day").forEach((cell) => {
+    cell.addEventListener("click", (event) => {
+      if ((event.target as HTMLElement).closest(".js-edit-trigger")) return;
+      const date = (cell as HTMLElement).dataset.date;
+      if (addDueInput && date) addDueInput.value = date;
+      setFormOpen(true);
+      setEditFormOpen(false);
+      form?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+    });
+  });
+
+  // Delete button → confirmation modal.
   deleteBtn?.addEventListener("click", () => {
     const id = deleteBtn.dataset.id;
-    const title = deleteBtn.dataset.title;
-    const course = deleteBtn.dataset.course;
-    const due = deleteBtn.dataset.due;
-
-    if (id) {
-      deleteIdInput.value = id;
-      deleteTitleEl.textContent = title || "Untitled";
-      deleteCourseEl.textContent = course || "No course code";
-      deleteDueEl.textContent = `Due: ${new Date(due).toLocaleDateString(
-        "en-CA",
-        {
-          weekday: "short",
-          month: "short",
-          day: "numeric",
-          year: "numeric",
-        },
-      )}`;
-      deleteModal.classList.remove("hidden");
+    if (!id || !deleteIdInput) return;
+    deleteIdInput.value = id;
+    if (deleteTitleEl) deleteTitleEl.textContent = deleteBtn.dataset.title || "Untitled";
+    if (deleteCourseEl) deleteCourseEl.textContent = deleteBtn.dataset.course || "No course code";
+    if (deleteDueEl) {
+      const due = deleteBtn.dataset.due;
+      deleteDueEl.textContent = due
+        ? `Due: ${new Date(due).toLocaleDateString("en-CA", {
+            weekday: "short",
+            month: "short",
+            day: "numeric",
+            year: "numeric",
+            timeZone: "UTC",
+          })}`
+        : "";
     }
+    deleteModal?.classList.remove("hidden");
   });
 
-  // Cancel delete
-  cancelDeleteBtn?.addEventListener("click", () => {
-    deleteModal.classList.add("hidden");
-  });
-
-  // Close modal on outside click
+  cancelDeleteBtn?.addEventListener("click", () => deleteModal?.classList.add("hidden"));
   deleteModal?.addEventListener("click", (e) => {
-    if (e.target === deleteModal) {
-      deleteModal.classList.add("hidden");
-    }
+    if (e.target === deleteModal) deleteModal.classList.add("hidden");
   });
 
-  // If there's a success message after update, keep form closed
-  const hasEditSuccess = document.querySelector(
-    '[class*="border-emerald-500"]',
-  );
-  if (hasEditSuccess) {
-    setEditFormOpen(false);
-  }
-
-  // If there was a form error, keep the form open
-  const hasFormError = document.querySelector('[class*="border-york-red"]');
-  if (hasFormError) {
-    const isEditError = hasFormError.closest("section")?.querySelector("form");
-    if (isEditError) {
-      setEditFormOpen(true);
-    } else {
-      setFormOpen(true);
-    }
-  }
-
-
-  // Add this to get the current user
-  let currentUserId = null;
-  
-  // Fetch the current user
-  fetch('/api/auth/me')
-    .then(res => res.json())
-    .then(data => {
-      currentUserId = data.id;
-      console.log('Current user ID:', currentUserId);
-    });
-
+  // Reopen the relevant form after a server round-trip that reported an error.
+  if (document.querySelector(".border-emerald-500")) setEditFormOpen(false);
+  const editErrorEl = editForm?.closest("section")?.querySelector(".border-york-red\\/30");
+  if (editErrorEl) setEditFormOpen(true);
 </script>

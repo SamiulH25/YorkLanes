@@ -8,7 +8,9 @@ export interface Assignment {
   description: string | null;
   dueAt: string;
   done: boolean;
+  starred: boolean;
   createdAt?: string;
+  updatedAt?: string;
 }
 
 export interface AssignmentsResponse {
@@ -56,9 +58,9 @@ export async function createAssignment(
   return data.assignment as Assignment;
 }
 
-export async function setAssignmentDone(
+async function patchAssignment(
   assignmentId: string,
-  done: boolean,
+  body: { done?: boolean; starred?: boolean },
   cookieHeader?: string | null,
 ): Promise<Assignment> {
   const response = await fetch(
@@ -66,7 +68,7 @@ export async function setAssignmentDone(
     apiRequestInit(cookieHeader, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ done }),
+      body: JSON.stringify(body),
     }),
   );
 
@@ -80,6 +82,22 @@ export async function setAssignmentDone(
   }
 
   return data.assignment as Assignment;
+}
+
+export function setAssignmentDone(
+  assignmentId: string,
+  done: boolean,
+  cookieHeader?: string | null,
+): Promise<Assignment> {
+  return patchAssignment(assignmentId, { done }, cookieHeader);
+}
+
+export function setAssignmentStarred(
+  assignmentId: string,
+  starred: boolean,
+  cookieHeader?: string | null,
+): Promise<Assignment> {
+  return patchAssignment(assignmentId, { starred }, cookieHeader);
 }
 
 export async function deleteAssignment(
@@ -109,7 +127,6 @@ export async function updateAssignment(
     courseCode: string;
     description: string;
     dueDate: string;
-    userId?: string;
   },
   cookieHeader?: string | null,
 ): Promise<Assignment> {
@@ -127,7 +144,6 @@ export async function updateAssignment(
         courseCode: data.courseCode,
         description: data.description,
         dueDate: data.dueDate,
-        userId: data.userId,
       }),
     }),
   );

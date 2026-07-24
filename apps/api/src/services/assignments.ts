@@ -7,7 +7,9 @@ export interface Assignment {
   description: string | null;
   dueAt: string;
   done: boolean;
+  starred: boolean;
   createdAt: string;
+  updatedAt: string;
 }
 
 interface AssignmentRow {
@@ -17,7 +19,9 @@ interface AssignmentRow {
   description: string | null;
   due_at: string;
   done: boolean;
+  starred: boolean;
   created_at: string;
+  updated_at: string;
 }
 
 export interface CreateAssignmentInput {
@@ -26,6 +30,14 @@ export interface CreateAssignmentInput {
   description?: string | null;
   dueAt: string;
   userId?: string | null;
+}
+
+export interface UpdateAssignmentInput {
+  title: string;
+  courseCode: string;
+  description: string | null;
+  dueAt: string;
+  done?: boolean;
 }
 
 function getSupabaseRestConfig(): { url: string; key: string } | null {
@@ -62,7 +74,9 @@ function mapAssignment(row: AssignmentRow): Assignment {
     description: row.description,
     dueAt: row.due_at,
     done: row.done,
+    starred: row.starred,
     createdAt: row.created_at,
+    updatedAt: row.updated_at,
   };
 }
 
@@ -80,7 +94,12 @@ const ASSIGNMENT_COLUMNS = `
   description,
   due_at::text as due_at,
   done,
-  created_at::text as created_at`;
+  starred,
+  created_at::text as created_at,
+  updated_at::text as updated_at`;
+
+// Starred first, then soonest due date.
+const ASSIGNMENT_ORDER = "order by starred desc, due_at asc";
 
 export async function listAssignments(
   pool: pg.Pool,
@@ -91,7 +110,7 @@ export async function listAssignments(
     `select ${ASSIGNMENT_COLUMNS}
        from public.assignments
        ${scope.sql}
-       order by due_at asc`,
+       ${ASSIGNMENT_ORDER}`,
     scope.values,
   );
   return result.rows.map(mapAssignment);
@@ -117,6 +136,36 @@ export async function createAssignment(
   return mapAssignment(result.rows[0]);
 }
 
+export async function updateAssignment(
+  pool: pg.Pool,
+  assignmentId: string,
+  data: UpdateAssignmentInput,
+  userId?: string | null,
+): Promise<Assignment | null> {
+  const scope = userId ? "user_id = $6" : "user_id is null";
+  const values: unknown[] = [
+    data.title,
+    data.courseCode,
+    data.description ?? null,
+    data.dueAt,
+    data.done ?? null,
+    ...(userId ? [userId] : []),
+  ];
+  const result = await pool.query<AssignmentRow>(
+    `update public.assignments
+       set title = $1,
+           course_code = $2,
+           description = $3,
+           due_at = $4,
+           done = coalesce($5, done),
+           updated_at = now()
+     where id = ${userId ? "$7" : "$6"} and ${scope}
+     returning ${ASSIGNMENT_COLUMNS}`,
+    [...values, assignmentId],
+  );
+  return result.rows[0] ? mapAssignment(result.rows[0]) : null;
+}
+
 export async function setAssignmentDone(
   pool: pg.Pool,
   assignmentId: string,
@@ -127,7 +176,25 @@ export async function setAssignmentDone(
   const values = userId ? [done, assignmentId, userId] : [done, assignmentId];
   const result = await pool.query<AssignmentRow>(
     `update public.assignments
-       set done = $1
+       set done = $1, updated_at = now()
+       where id = $2 and ${scope}
+       returning ${ASSIGNMENT_COLUMNS}`,
+    values,
+  );
+  return result.rows[0] ? mapAssignment(result.rows[0]) : null;
+}
+
+export async function setAssignmentStarred(
+  pool: pg.Pool,
+  assignmentId: string,
+  starred: boolean,
+  userId?: string | null,
+): Promise<Assignment | null> {
+  const scope = userId ? "user_id = $3" : "user_id is null";
+  const values = userId ? [starred, assignmentId, userId] : [starred, assignmentId];
+  const result = await pool.query<AssignmentRow>(
+    `update public.assignments
+       set starred = $1, updated_at = now()
        where id = $2 and ${scope}
        returning ${ASSIGNMENT_COLUMNS}`,
     values,
@@ -150,19 +217,25 @@ export async function deleteAssignment(
   return (result.rowCount ?? 0) > 0;
 }
 
+// --- Supabase REST fallback (used when only SUPABASE_URL + key are set) -------
+
 export function canUseAssignmentsRest(): boolean {
   return Boolean(getSupabaseRestConfig());
 }
 
-const REST_SELECT = "id,title,course_code,description,due_at,done,created_at";
+const REST_SELECT = "id,title,course_code,description,due_at,done,starred,created_at,updated_at";
+
+function restUserFilter(userId?: string | null): string {
+  return userId ? `eq.${encodeURIComponent(userId)}` : "is.null";
+}
 
 export async function listAssignmentsViaRest(userId?: string | null): Promise<Assignment[]> {
   const config = requireSupabaseRestConfig();
-  const userFilter = userId ? `eq.${encodeURIComponent(userId)}` : "is.null";
   const url = new URL(`${config.url}/rest/v1/assignments`);
   url.searchParams.set("select", REST_SELECT);
-  url.searchParams.set("user_id", userFilter);
-  url.searchParams.set("order", "due_at.asc");
+  url.searchParams.set("user_id", restUserFilter(userId));
+  // Starred first, then soonest due.
+  url.searchParams.set("order", "starred.desc,due_at.asc");
 
   const response = await fetch(url, { headers: assignmentsRestHeaders() });
   if (!response.ok) {
@@ -198,15 +271,15 @@ export async function createAssignmentViaRest(input: CreateAssignmentInput): Pro
   return mapAssignment(rows[0]);
 }
 
-export async function setAssignmentDoneViaRest(
+async function patchAssignmentViaRest(
   assignmentId: string,
-  done: boolean,
+  body: Record<string, unknown>,
   userId?: string | null,
 ): Promise<Assignment | null> {
   const config = requireSupabaseRestConfig();
   const url = new URL(`${config.url}/rest/v1/assignments`);
   url.searchParams.set("id", `eq.${assignmentId}`);
-  url.searchParams.set("user_id", userId ? `eq.${encodeURIComponent(userId)}` : "is.null");
+  url.searchParams.set("user_id", restUserFilter(userId));
 
   const response = await fetch(url, {
     method: "PATCH",
@@ -214,7 +287,7 @@ export async function setAssignmentDoneViaRest(
       "Content-Type": "application/json",
       Prefer: "return=representation",
     }),
-    body: JSON.stringify({ done }),
+    body: JSON.stringify({ ...body, updated_at: new Date().toISOString() }),
   });
   if (!response.ok) {
     throw new Error(`Assignments REST update failed: ${response.status} ${await response.text()}`);
@@ -224,6 +297,37 @@ export async function setAssignmentDoneViaRest(
   return rows[0] ? mapAssignment(rows[0]) : null;
 }
 
+export async function updateAssignmentViaRest(
+  assignmentId: string,
+  data: UpdateAssignmentInput,
+  userId?: string | null,
+): Promise<Assignment | null> {
+  const body: Record<string, unknown> = {
+    title: data.title,
+    course_code: data.courseCode,
+    description: data.description ?? null,
+    due_at: data.dueAt,
+  };
+  if (typeof data.done === "boolean") body.done = data.done;
+  return patchAssignmentViaRest(assignmentId, body, userId);
+}
+
+export async function setAssignmentDoneViaRest(
+  assignmentId: string,
+  done: boolean,
+  userId?: string | null,
+): Promise<Assignment | null> {
+  return patchAssignmentViaRest(assignmentId, { done }, userId);
+}
+
+export async function setAssignmentStarredViaRest(
+  assignmentId: string,
+  starred: boolean,
+  userId?: string | null,
+): Promise<Assignment | null> {
+  return patchAssignmentViaRest(assignmentId, { starred }, userId);
+}
+
 export async function deleteAssignmentViaRest(
   assignmentId: string,
   userId?: string | null,
@@ -231,7 +335,7 @@ export async function deleteAssignmentViaRest(
   const config = requireSupabaseRestConfig();
   const url = new URL(`${config.url}/rest/v1/assignments`);
   url.searchParams.set("id", `eq.${assignmentId}`);
-  url.searchParams.set("user_id", userId ? `eq.${encodeURIComponent(userId)}` : "is.null");
+  url.searchParams.set("user_id", restUserFilter(userId));
 
   const response = await fetch(url, {
     method: "DELETE",
@@ -243,193 +347,4 @@ export async function deleteAssignmentViaRest(
 
   const rows = (await response.json()) as AssignmentRow[];
   return rows.length > 0;
-}
-
-// For PostgreSQL
-export async function updateAssignment(
-  pool: any,
-  assignmentId: string,
-  data: {
-    title: string;
-    courseCode: string;
-    description: string | null;
-    dueAt: string;
-    done?: boolean;
-  },
-  userId?: string | null  // Make userId optional
-) {
-  console.log("=== updateAssignment DEBUG ===");
-  console.log("assignmentId:", assignmentId);
-  console.log("userId:", userId);
-  
-  // If userId is not provided, don't check it
-  let query: string;
-  let values: any[];
-  
-  if (userId) {
-    // Check if the assignment exists and belongs to the user
-    const checkQuery = `SELECT id FROM assignments WHERE id = $1 AND user_id = $2`;
-    const checkResult = await pool.query(checkQuery, [assignmentId, userId]);
-    
-    if (checkResult.rows.length === 0) {
-      console.log("❌ Assignment not found for user:", userId);
-      return null;
-    }
-    
-    // Update with user check
-    query = `
-      UPDATE assignments
-      SET 
-        title = $1,
-        course_code = $2,
-        description = $3,
-        due_at = $4,
-        done = COALESCE($5, done),
-        updated_at = NOW()
-      WHERE id = $6 AND user_id = $7
-      RETURNING id, title, course_code, description, due_at, done, created_at, updated_at
-    `;
-    
-    values = [
-      data.title,
-      data.courseCode,
-      data.description,
-      data.dueAt,
-      data.done ?? false,
-      assignmentId,
-      userId
-    ];
-  } else {
-    // Update without user check (for testing or if no auth)
-    console.log("⚠️ No userId provided - updating without user check");
-    query = `
-      UPDATE assignments
-      SET 
-        title = $1,
-        course_code = $2,
-        description = $3,
-        due_at = $4,
-        done = COALESCE($5, done),
-        updated_at = NOW()
-      WHERE id = $6
-      RETURNING id, title, course_code, description, due_at, done, created_at, updated_at
-    `;
-    
-    values = [
-      data.title,
-      data.courseCode,
-      data.description,
-      data.dueAt,
-      data.done ?? false,
-      assignmentId
-    ];
-  }
-  
-  console.log("📝 Executing query with values:", values);
-  const result = await pool.query(query, values);
-  console.log("📊 Query result rows:", result.rows.length);
-  
-  if (result.rows.length === 0) {
-    return null;
-  }
-  
-  const row = result.rows[0];
-  return {
-    id: row.id,
-    title: row.title,
-    courseCode: row.course_code,
-    description: row.description,
-    dueAt: row.due_at,
-    done: row.done,
-    createdAt: row.created_at,
-    updatedAt: row.updated_at,
-  };
-}
-
-// For REST API (Supabase)
-export async function updateAssignmentViaRest(
-  assignmentId: string,
-  data: {
-    title: string;
-    courseCode: string;
-    description: string | null;
-    dueAt: string;
-    done?: boolean;
-  },
-  userId?: string | null  // Make userId optional
-) {
-  const config = requireSupabaseRestConfig();
-  
-  console.log("=== updateAssignmentViaRest DEBUG ===");
-  console.log("assignmentId:", assignmentId);
-  console.log("userId:", userId);
-  
-  let url: string;
-  
-  if (userId) {
-    // Check if the assignment exists and belongs to the user
-    const checkUrl = `${config.url}/rest/v1/assignments?id=eq.${assignmentId}&user_id=eq.${userId}&select=id`;
-    const checkResponse = await fetch(checkUrl, {
-      headers: assignmentsRestHeaders(),
-    });
-
-    if (!checkResponse.ok) {
-      throw new Error(`Failed to check assignment: ${checkResponse.statusText}`);
-    }
-
-    const checkData = await checkResponse.json();
-    if (checkData.length === 0) {
-      console.log("❌ Assignment not found for user:", userId);
-      return null;
-    }
-    
-    url = `${config.url}/rest/v1/assignments?id=eq.${assignmentId}&user_id=eq.${userId}`;
-  } else {
-    // Update without user check
-    console.log("⚠️ No userId provided - updating without user check");
-    url = `${config.url}/rest/v1/assignments?id=eq.${assignmentId}`;
-  }
-  
-  const payload = {
-    title: data.title,
-    course_code: data.courseCode,
-    description: data.description,
-    due_at: data.dueAt,
-    done: data.done ?? false,
-  };
-  
-  console.log("📤 Sending payload:", payload);
-  console.log("📤 To URL:", url);
-  
-  const response = await fetch(url, {
-    method: 'PATCH',
-    headers: assignmentsRestHeaders({
-      'Content-Type': 'application/json',
-      'Prefer': 'return=representation',
-    }),
-    body: JSON.stringify(payload),
-  });
-  
-  if (!response.ok) {
-    throw new Error(`Failed to update assignment: ${response.statusText}`);
-  }
-  
-  const data_result = await response.json();
-  console.log("📊 Response data:", data_result);
-  
-  if (data_result.length === 0) {
-    return null;
-  }
-  
-  const row = data_result[0];
-  return {
-    id: row.id,
-    title: row.title,
-    courseCode: row.course_code,
-    description: row.description,
-    dueAt: row.due_at,
-    done: row.done,
-    createdAt: row.created_at,
-    updatedAt: row.updated_at,
-  };
 }

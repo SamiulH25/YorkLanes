@@ -535,6 +535,41 @@
     font-weight: 700;
   }
 
+  .courses-pages {
+    display: flex;
+    gap: 0.75rem;
+    align-items: center;
+    margin-bottom: 0.85rem;
+  }
+
+  .courses-pages__page,
+  .courses-pages__page-active {
+    display: inline-block;
+    padding: 0.2rem 0.45rem;
+    font-size: 0.875rem;
+    font-weight: 700;
+    text-decoration: none;
+    border-radius: 0.35rem;
+    transition:
+      color var(--theme-duration-fast),
+      background-color var(--theme-duration-fast);
+  }
+
+  .courses-pages__page {
+    color: var(--theme-primary);
+  }
+
+  .courses-pages__page:hover {
+    color: var(--theme-primary-hover);
+    background: color-mix(in srgb, var(--theme-primary) 10%, transparent);
+  }
+
+  .courses-pages__page-active {
+    color: var(--theme-background);
+    background: var(--theme-primary);
+    cursor: default;
+  }
+
   .course-ledger {
     display: flex;
     flex-direction: column;

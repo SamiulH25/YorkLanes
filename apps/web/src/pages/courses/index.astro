@@ -4,17 +4,24 @@ import { courseDetailPath, fetchCourses, fetchDepartments } from "../../lib/cour
 
 export const prerender = false;
 
-const search = Astro.url.searchParams.get("search")?.trim() ?? "";
 const department = Astro.url.searchParams.get("department")?.trim() ?? "";
+const search = Astro.url.searchParams.get("search")?.trim() ?? "";
+const pageSize = 100;
 
 let loadError: string | null = null;
 let courses: Awaited<ReturnType<typeof fetchCourses>>["courses"] = [];
 let total = 0;
 let departments: string[] = [];
+const currentPage = Number(Astro.url.searchParams.get("page") ?? "1");
 
 try {
   const [listResult, departmentList] = await Promise.all([
-    fetchCourses({ search: search || undefined, department: department || undefined }),
+    fetchCourses({
+      department: department || undefined,
+      search: search || undefined,
+      limit: pageSize,
+      offset: (currentPage - 1) * pageSize,
+    }),
     fetchDepartments(),
   ]);
   courses = listResult.courses;
@@ -23,6 +30,11 @@ try {
 } catch (error) {
   loadError = error instanceof Error ? error.message : "Courses API unavailable";
 }
+const totalPages = Math.ceil(total / pageSize);
+const pages = Array.from(
+  { length: totalPages },
+  (_, i) => i + 1,
+);
 
 function formatCredits(credits: number | null): string {
   if (credits === null) return "—";
@@ -37,11 +49,21 @@ function deptHref(dept: string): string {
   return query ? `/courses?${query}` : "/courses";
 }
 
+function pageHref(page: number): string {
+  const params = new URLSearchParams();
+  if (search) params.set("search", search);
+  if (department) params.set("department", department);
+  params.set("page", String(page));
+  return `/courses?${params.toString()}`;
+}
+
 const hasFilters = Boolean(search || department);
 const resultLabel =
   total === 0
     ? "no courses"
     : `${total} course${total === 1 ? "" : "s"}`;
+
+const returnTo = Astro.url.search;
 ---
 
 <DashboardLayout title="Courses | YorkLanes" activeNav="courses">
@@ -163,6 +185,30 @@ const resultLabel =
         }
       </div>
     ) : (
+      <>
+      {
+        pages.length > 1 && (
+          <div class="courses-pages">
+            {
+              pages.map(page =>
+                page === currentPage ? (
+                  <span class="courses-pages__page-active">
+                    {page}
+                  </span>
+                ) : (
+                  <a
+                    href={pageHref(page)}
+                    class="courses-pages__page"
+                  >
+                    {page}
+                  </a>
+                )
+              )
+            }
+          </div>
+        )
+      }
+      </>
       <div class="course-ledger" role="list">
         <div class="course-ledger__head" aria-hidden="true">
           <span>Code</span>
@@ -173,7 +219,7 @@ const resultLabel =
         {
           courses.map((course, index) => (
             <a
-              href={courseDetailPath(course.code)}
+              href={`${courseDetailPath(course.code)}?return=${encodeURIComponent(returnTo)}`}
               class="course-ledger__row"
               role="listitem"
               style={`--row-index: ${Math.min(index, 20)}`}

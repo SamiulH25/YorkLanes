@@ -1,6 +1,7 @@
 ---
 import "../styles/global.css";
 import { ClientRouter } from "astro:transitions";
+import CookieConsent from "../components/CookieConsent.astro";
 import { DEFAULT_THEME_ID, themeIds } from "../lib/themes";
 
 interface Props {
@@ -51,9 +52,11 @@ const { title = "YorkLanes", fillViewport = false } = Astro.props;
   </head>
   <body class:list={["page-bg w-full", fillViewport ? "h-dvh overflow-hidden" : "min-h-dvh overflow-x-hidden"]}>
     <slot />
+    <CookieConsent />
     <script>
       import "../scripts/theme.ts";
       import "../scripts/motion.ts";
+      import "../scripts/cookie-consent.ts";
     </script>
   </body>
 </html>

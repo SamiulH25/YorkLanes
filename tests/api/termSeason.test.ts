@@ -1,12 +1,12 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import {
-  seasonFromPlanSession,
-  seasonsFromScrapedTerm,
-  seasonOffered,
   emptySeasonFlags,
   mergeSeasonFlags,
-} from "./termSeason.js";
+  seasonFromPlanSession,
+  seasonOffered,
+  seasonsFromScrapedTerm,
+} from "../../apps/api/src/services/termSeason.js";
 
 describe("seasonFromPlanSession", () => {
   it("maps plan term sessions to seasons", () => {

@@ -38,6 +38,8 @@ export interface DegreePlanRow {
   programme_name: string | null;
   starting_year: number;
   source_filename: string | null;
+  complementary_filename: string | null;
+  complementary_catalog: unknown | null;
   parse_warnings: string[];
   terms: PlanTermRow[];
 }
@@ -263,6 +265,8 @@ export async function createPlanFromChecklist(
       programme_name: programmeName,
       starting_year: input.startingYear,
       source_filename: input.sourceFilename ?? null,
+      complementary_filename: null,
+      complementary_catalog: null,
       parse_warnings: warnings,
       terms,
     };
@@ -272,6 +276,84 @@ export async function createPlanFromChecklist(
   } finally {
     client.release();
   }
+}
+
+function termSessionIsSummer(session: string): boolean {
+  return session.toLowerCase().includes("summer");
+}
+
+function termSessionIsWinter(session: string): boolean {
+  const value = session.toLowerCase();
+  return value.includes("winter") || value === "w";
+}
+
+function termSessionIsFall(session: string): boolean {
+  const value = session.toLowerCase();
+  return value.includes("fall") || value.includes("autumn");
+}
+
+/** Insert an empty summer term for a checklist year (shifts later terms' sort_order). */
+export async function createSummerTermForChecklistYear(
+  pool: Pool,
+  planId: string,
+  checklistYear: number,
+): Promise<DegreePlanRow | null> {
+  const plan = await getPlanById(pool, planId);
+  if (!plan) {
+    return null;
+  }
+
+  if (!Number.isInteger(checklistYear) || checklistYear < 1) {
+    throw new Error("Invalid checklist year");
+  }
+
+  if (plan.terms.some((term) => term.checklist_year === checklistYear && termSessionIsSummer(term.session))) {
+    throw new Error("Summer term already exists for this year");
+  }
+
+  const winterTerm = plan.terms.find(
+    (term) => term.checklist_year === checklistYear && termSessionIsWinter(term.session),
+  );
+  const fallTerm = plan.terms.find(
+    (term) => term.checklist_year === checklistYear && termSessionIsFall(term.session),
+  );
+  const anchorTerm = winterTerm ?? fallTerm;
+  if (!anchorTerm) {
+    throw new Error("No fall or winter term found for this checklist year");
+  }
+
+  const summerAcademicYear = winterTerm ? winterTerm.academic_year : fallTerm!.academic_year + 1;
+  const insertSortOrder = anchorTerm.sort_order + 1;
+
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+    await client.query(
+      `UPDATE plan_terms SET sort_order = sort_order + 1
+       WHERE plan_id = $1 AND sort_order >= $2`,
+      [planId, insertSortOrder],
+    );
+    await client.query(
+      `INSERT INTO plan_terms (plan_id, label, session, academic_year, checklist_year, sort_order)
+       VALUES ($1, $2, $3, $4, $5, $6)`,
+      [
+        planId,
+        `Summer ${summerAcademicYear}`,
+        "Summer",
+        summerAcademicYear,
+        checklistYear,
+        insertSortOrder,
+      ],
+    );
+    await client.query("COMMIT");
+  } catch (error) {
+    await client.query("ROLLBACK");
+    throw error;
+  } finally {
+    client.release();
+  }
+
+  return getPlanById(pool, planId);
 }
 
 export async function getLatestPlanForUser(
@@ -294,16 +376,28 @@ export async function getLatestPlanForUser(
 }
 
 export async function getPlanById(pool: Pool, planId: string): Promise<DegreePlanRow | null> {
+  const { degreePlansHaveComplementaryColumns } = await import("../db/planComplementarySchema.js");
+  const includeComplementary = await degreePlansHaveComplementaryColumns(pool);
+
   const planResult = await pool.query<{
     id: string;
     faculty_key: string;
     programme_name: string | null;
     starting_year: number;
     source_filename: string | null;
+    complementary_filename: string | null;
+    complementary_catalog: unknown;
     parse_warnings: unknown;
   }>(
-    `SELECT id, faculty_key, programme_name, starting_year, source_filename, parse_warnings
-     FROM degree_plans WHERE id = $1`,
+    includeComplementary
+      ? `SELECT id, faculty_key, programme_name, starting_year, source_filename,
+                complementary_filename, complementary_catalog, parse_warnings
+         FROM degree_plans WHERE id = $1`
+      : `SELECT id, faculty_key, programme_name, starting_year, source_filename,
+                NULL::text AS complementary_filename,
+                NULL::jsonb AS complementary_catalog,
+                parse_warnings
+         FROM degree_plans WHERE id = $1`,
     [planId],
   );
 
@@ -370,6 +464,8 @@ export async function getPlanById(pool: Pool, planId: string): Promise<DegreePla
     programme_name: plan.programme_name,
     starting_year: plan.starting_year,
     source_filename: plan.source_filename,
+    complementary_filename: plan.complementary_filename,
+    complementary_catalog: plan.complementary_catalog,
     parse_warnings: warnings,
     terms,
   };

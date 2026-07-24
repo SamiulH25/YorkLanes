@@ -97,6 +97,7 @@ Never commit real env files.
 **Before a PR**
 
 - `npm run check` — TypeScript + Astro diagnostics
+- `npm run test` — unit tests in `tests/` (Node test runner via `tsx`)
 
 **When debugging the API**
 

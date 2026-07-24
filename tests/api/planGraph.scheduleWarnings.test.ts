@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import type { CourseSeasonHistory } from "./courseOfferings.js";
-import { computeScheduleWarnings, type CoursePlacement } from "./planGraph.js";
+import type { CourseSeasonHistory } from "../../apps/api/src/services/courseOfferings.js";
+import { computeScheduleWarnings, type CoursePlacement } from "../../apps/api/src/services/planGraph.js";
 
 function history(seasons: Partial<CourseSeasonHistory["seasons"]>): CourseSeasonHistory {
   return {

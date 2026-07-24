@@ -1,5 +1,6 @@
 import type { ScheduleDay } from "./schedule-days";
 import { SCHEDULE_DAYS } from "./schedule-days";
+import type { SectionComponentType } from "./schedule-sections";
 
 export const SCHEDULE_START_HOUR = 8;
 export const SCHEDULE_END_HOUR = 19;
@@ -10,14 +11,80 @@ export interface ScheduleGridEntry {
   id: string;
   course_code: string;
   section_code: string;
+  component_type: SectionComponentType;
   day: ScheduleDay;
   start_time: string;
   end_time: string;
   room?: string | null;
   campus?: string | null;
+  bundle_id?: string;
+  plan_year?: number;
+  plan_season?: string;
+  cdm_term?: string;
 }
 
-export const SCHEDULE_STORAGE_KEY = "yorklanes-schedule-entries";
+export interface ScheduleWeekState {
+  planYear: number;
+  planSeason: string;
+  cdmTerm: string;
+  entries: ScheduleGridEntry[];
+}
+
+interface ScheduleStore {
+  weeks: Record<string, ScheduleWeekState>;
+}
+
+export const SCHEDULE_STORAGE_KEY = "yorklanes-schedule-week-v2";
+
+export function weekStorageKey(planYear: number, planSeason: string, cdmTerm: string): string {
+  return `${planYear}|${planSeason}|${cdmTerm}`;
+}
+
+function readScheduleStore(): ScheduleStore {
+  const raw = localStorage.getItem(SCHEDULE_STORAGE_KEY);
+  if (!raw) return { weeks: {} };
+  try {
+    const parsed = JSON.parse(raw) as ScheduleStore | ScheduleWeekState;
+    if ("weeks" in parsed) return parsed;
+    const legacy = parsed as ScheduleWeekState;
+    const key = weekStorageKey(legacy.planYear, legacy.planSeason, legacy.cdmTerm);
+    return { weeks: { [key]: legacy } };
+  } catch {
+    return { weeks: {} };
+  }
+}
+
+export function readScheduleWeekState(
+  planYear: number,
+  planSeason: string,
+  cdmTerm: string,
+): ScheduleWeekState {
+  const store = readScheduleStore();
+  const key = weekStorageKey(planYear, planSeason, cdmTerm);
+  return store.weeks[key] ?? { planYear, planSeason, cdmTerm, entries: [] };
+}
+
+export function writeScheduleWeekState(state: ScheduleWeekState): void {
+  const store = readScheduleStore();
+  const key = weekStorageKey(state.planYear, state.planSeason, state.cdmTerm);
+  store.weeks[key] = state;
+  localStorage.setItem(SCHEDULE_STORAGE_KEY, JSON.stringify(store));
+}
+
+export function listLocalSavedSchedules(): Array<ScheduleWeekState & { courseCount: number }> {
+  const store = readScheduleStore();
+  return Object.values(store.weeks)
+    .filter((week) => week.entries.length > 0)
+    .map((week) => ({
+      ...week,
+      courseCount: new Set(week.entries.map((entry) => entry.course_code)).size,
+    }))
+    .sort((a, b) => {
+      if (a.planYear !== b.planYear) return a.planYear - b.planYear;
+      if (a.planSeason !== b.planSeason) return a.planSeason.localeCompare(b.planSeason);
+      return b.cdmTerm.localeCompare(a.cdmTerm);
+    });
+}
 
 export function convertTimeToMinutes(time: string): number {
   const [hourText, minuteText] = time.split(":");
@@ -71,6 +138,14 @@ export function gridHours(): string[] {
 
 export function defaultGridDays(): ScheduleDay[] {
   return [...SCHEDULE_DAYS];
+}
+
+export function weeklyGridDays(): ScheduleDay[] {
+  return defaultGridDays();
+}
+
+export function courseBundleKey(courseCode: string): string {
+  return courseCode.trim().toUpperCase();
 }
 
 export function entryKey(entry: Pick<ScheduleGridEntry, "course_code" | "section_code" | "day" | "start_time">): string {

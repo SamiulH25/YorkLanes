@@ -36,7 +36,9 @@ export async function fetchCourses(options: FetchCoursesOptions = {}): Promise<{
   if (options.offset !== undefined) params.set("offset", String(options.offset));
 
   const query = params.toString();
-  const response = await fetch(`${API_URL}/api/courses${query ? `?${query}` : ""}`);
+  const response = await fetch(`${API_URL}/api/courses${query ? `?${query}` : ""}`, {
+    credentials: "include",
+  });
   const data = (await response.json().catch(() => ({}))) as Partial<CoursesListResponse> & { error?: string };
 
   if (!response.ok) {

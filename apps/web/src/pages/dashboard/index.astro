@@ -2,8 +2,8 @@
 import DashboardLayout from "../../layouts/DashboardLayout.astro";
 import ProgressWidget from "../../components/dashboard/ProgressWidget.astro";
 import AssignmentsWidget from "../../components/dashboard/AssignmentsWidget.astro";
+import TodayClassesWidget from "../../components/dashboard/TodayClassesWidget.astro";
 import FinanceWidget from "../../components/dashboard/FinanceWidget.astro";
-import QuickLinksWidget from "../../components/dashboard/QuickLinksWidget.astro";
 import { fetchDashboardSummary } from "../../lib/api";
 import { fetchSessionUser } from "../../lib/auth";
 import { fetchOnboardingStatus } from "../../lib/onboarding";
@@ -32,16 +32,17 @@ function guestDashboardSummary(financeMessage: string): DashboardSummary {
   return {
     user: { displayName: "Guest", programme: null, startingYear: null },
     progress: { percentComplete: 0, label: "Sign in to sync degree progress", segments: [] },
-    assignments: { upcoming: [], message: "Sign in to sync assignments, or open Assignments to continue." },
+    assignments: {
+      upcoming: [],
+      message: "Sign in to sync assignments, or open Assignments to continue.",
+    },
+    schedule: {
+      today: [],
+      hasPrimary: false,
+      savedCount: 0,
+      message: "Sign in and build your schedule to see today's classes.",
+    },
     finance: guestFinanceSummary(financeMessage),
-    quickLinks: [
-      { label: "Degree Plan", href: "/plan", featureOwner: "Samiul", status: "ready" },
-      { label: "Progress Tracker", href: "/progress", featureOwner: "Thor", status: "ready" },
-      { label: "Course Explorer", href: "/courses", featureOwner: "Jericho", status: "ready" },
-      { label: "Schedule Builder", href: "/schedule", featureOwner: "Nabeela", status: "in-progress" },
-      { label: "Assignments", href: "/assignments", featureOwner: "Sarah", status: "in-progress" },
-      { label: "Finance", href: "/finance", featureOwner: "Taziz", status: "ready" },
-    ],
   };
 }
 
@@ -74,6 +75,14 @@ try {
         programme: null,
         startingYear: null,
       },
+      assignments: {
+        upcoming: [],
+        message: "Assignment data is unavailable right now.",
+      },
+      schedule: {
+        ...summary.schedule,
+        message: "Schedule data is unavailable right now.",
+      },
     };
   }
 }
@@ -82,6 +91,16 @@ const today = new Date().toLocaleDateString("en-CA", {
   weekday: "long",
   month: "long",
   day: "numeric",
+});
+
+const classCount = summary.schedule.today.length;
+const deadlineCount = summary.assignments.upcoming.length;
+const progressPct = summary.progress.percentComplete;
+
+const money = new Intl.NumberFormat("en-CA", {
+  style: "currency",
+  currency: summary.finance.currency || "CAD",
+  maximumFractionDigits: 0,
 });
 ---
 
@@ -94,7 +113,7 @@ const today = new Date().toLocaleDateString("en-CA", {
         {
           summary.user.programme
             ? `${summary.user.programme} · Class of ${(summary.user.startingYear ?? 0) + 4}`
-            : "Set up your programme to get started"
+            : "Your academic hub at York University"
         }
       </p>
     </div>
@@ -122,14 +141,23 @@ const today = new Date().toLocaleDateString("en-CA", {
     )
   }
 
-  <div class="mb-6 surface-elevated flex flex-wrap items-center justify-between gap-4 p-5">
-    <div>
-      <p class="text-sm font-medium text-muted">Status</p>
-      <p class="mt-0.5 text-sm text-secondary">
-        The degree plan is ready. Courses, schedule, and the other tabs are still being built.
-      </p>
+  <div class="dashboard-stats mb-6">
+    <div class="dashboard-stat">
+      <p class="dashboard-stat__value">{classCount}</p>
+      <p class="dashboard-stat__label">Classes today</p>
     </div>
-    <a href="/plan" class="btn-york shrink-0">Open degree plan</a>
+    <div class="dashboard-stat">
+      <p class="dashboard-stat__value">{deadlineCount}</p>
+      <p class="dashboard-stat__label">Due this week</p>
+    </div>
+    <div class="dashboard-stat">
+      <p class="dashboard-stat__value">{progressPct}%</p>
+      <p class="dashboard-stat__label">Degree progress</p>
+    </div>
+    <div class="dashboard-stat">
+      <p class="dashboard-stat__value">{money.format(summary.finance.balance)}</p>
+      <p class="dashboard-stat__label">Balance</p>
+    </div>
   </div>
 
   <div class="grid gap-5 lg:grid-cols-12">
@@ -137,12 +165,11 @@ const today = new Date().toLocaleDateString("en-CA", {
       <ProgressWidget progress={summary.progress} />
     </div>
     <div class="flex flex-col gap-5 lg:col-span-7">
+      <TodayClassesWidget schedule={summary.schedule} />
       <AssignmentsWidget assignments={summary.assignments} />
-      <FinanceWidget finance={summary.finance} />
     </div>
     <div class="lg:col-span-12">
-      <QuickLinksWidget links={summary.quickLinks} />
+      <FinanceWidget finance={summary.finance} />
     </div>
   </div>
 </DashboardLayout>
-

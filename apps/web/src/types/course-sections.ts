@@ -11,6 +11,8 @@ export interface SectionMeeting {
 
 export interface CourseSection {
   section_code: string;
+  /** York CDM tie group (e.g. section letter A, M) when scraped. */
+  section_group?: string | null;
   meetings: SectionMeeting[];
 }
 

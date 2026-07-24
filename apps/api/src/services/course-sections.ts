@@ -13,6 +13,7 @@ export interface SectionMeeting {
 
 export interface CourseSection {
   section_code: string;
+  section_group?: string | null;
   meetings: SectionMeeting[];
 }
 
@@ -45,6 +46,11 @@ export interface SectionRow {
 }
 
 const DAY_ORDER = ["MON", "TUE", "WED", "THU", "FRI", "SAT", "SUN"];
+
+function sectionGroupFromCode(sectionCode: string): string | null {
+  const match = sectionCode.match(/\(([A-Z0-9]+)\)\s*$/i);
+  return match?.[1]?.toUpperCase() ?? null;
+}
 
 function toTime(value: unknown): string {
   if (typeof value === "string") return value.slice(0, 5);
@@ -111,7 +117,11 @@ export async function listCourseSections(filters: ListSectionFilters = {}): Prom
     const sectionKey = `${groupKey}|${row.section_code}`;
     let section = sectionMap.get(sectionKey);
     if (!section) {
-      section = { section_code: row.section_code, meetings: [] };
+      section = {
+        section_code: row.section_code,
+        section_group: sectionGroupFromCode(row.section_code),
+        meetings: [],
+      };
       sectionMap.set(sectionKey, section);
       group.sections.push(section);
     }
@@ -132,6 +142,21 @@ export async function listCourseSections(filters: ListSectionFilters = {}): Prom
     if (a.course_code !== b.course_code) return a.course_code.localeCompare(b.course_code);
     return b.term.localeCompare(a.term);
   });
+}
+
+export async function listCdmTerms(courseCode?: string): Promise<string[]> {
+  const params: unknown[] = [];
+  let where = "";
+  if (courseCode?.trim()) {
+    params.push(courseCode.trim().toUpperCase());
+    where = `WHERE upper(course_code) = $1`;
+  }
+
+  const result = await getPool().query<{ term: string }>(
+    `SELECT DISTINCT term FROM course_sections ${where} ORDER BY term DESC`,
+    params,
+  );
+  return result.rows.map((row) => row.term).filter(Boolean);
 }
 
 export const SECTION_DAY_ORDER = DAY_ORDER;

@@ -6,6 +6,12 @@
  * Schedule warnings = course placed in a season with no scraped offering history.
  */
 import type { Pool } from "pg";
+import { parseCatalogFromDb } from "./complementaryCatalog.js";
+import {
+  computeComplementaryWarnings,
+  type ComplementaryWarning,
+} from "./complementaryStudies.js";
+import { planExpectsComplementaryStudies } from "./planComplementaryEligibility.js";
 import { getSeasonHistoryForCourses, type CourseSeasonHistory } from "./courseOfferings.js";
 import type { DegreePlanRow } from "./planGenerator.js";
 import {
@@ -59,7 +65,11 @@ export interface PlanGraphSnapshot {
   offering_seasons: Record<string, SeasonFlags & { has_history: boolean }>;
   /** Concrete courses placed in a season they have never been offered in. */
   schedule_warnings: SchedulePlacementWarning[];
+  /** Complementary studies requirement gaps from uploaded faculty PDF. */
+  complementary_warnings: ComplementaryWarning[];
 }
+
+export type { ComplementaryWarning };
 
 const CONCRETE_COURSE_CODE = /^[A-Z]{2,6} \d{4}[A-Z]?$/;
 const COURSE_CODE_IN_TEXT =
@@ -253,6 +263,11 @@ export async function buildPlanGraph(pool: Pool, plan: DegreePlanRow): Promise<P
     courseIdToTermOrder.set(placement.course_id, placement.term_sort_order);
   }
 
+  const complementaryCatalog = parseCatalogFromDb(plan.complementary_catalog);
+  const complementary_warnings = planExpectsComplementaryStudies(plan)
+    ? computeComplementaryWarnings(plan.terms, complementaryCatalog)
+    : [];
+
   if (courseCodes.length === 0) {
     return {
       plan_id: plan.id,
@@ -261,6 +276,7 @@ export async function buildPlanGraph(pool: Pool, plan: DegreePlanRow): Promise<P
       course_codes: [],
       offering_seasons: {},
       schedule_warnings: [],
+      complementary_warnings,
     };
   }
 
@@ -346,6 +362,7 @@ export async function buildPlanGraph(pool: Pool, plan: DegreePlanRow): Promise<P
     course_codes: courseCodes,
     offering_seasons,
     schedule_warnings,
+    complementary_warnings,
   };
 }
 

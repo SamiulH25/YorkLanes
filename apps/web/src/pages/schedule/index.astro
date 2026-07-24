@@ -1,26 +1,12 @@
 ---
 import DashboardLayout from "../../layouts/DashboardLayout.astro";
-import { fetchCourseSections } from "../../lib/course-sections";
 
 export const prerender = false;
 
 const focusCourse = Astro.url.searchParams.get("course")?.trim().toUpperCase() ?? "";
 const focusTerm = Astro.url.searchParams.get("term")?.trim() ?? "";
-
-let initialTerms: string[] = [];
-if (focusCourse) {
-  try {
-    const sections = await fetchCourseSections({
-      courseCode: focusCourse,
-      term: focusTerm || undefined,
-    });
-    initialTerms = [...new Set(sections.groups.map((group) => group.term))].sort((a, b) =>
-      b.localeCompare(a),
-    );
-  } catch {
-    initialTerms = focusTerm ? [focusTerm] : [];
-  }
-}
+const initialView = Astro.url.searchParams.get("view") === "timetable" ? "timetable" : "build";
+const startNew = Astro.url.searchParams.get("new") === "1";
 ---
 
 <DashboardLayout title="Schedule | YorkLanes" activeNav="schedule">
@@ -28,9 +14,9 @@ if (focusCourse) {
     <div class="flex flex-wrap items-start justify-between gap-4">
       <div>
         <p class="label">This term</p>
-        <h1 class="heading-page">Weekly schedule</h1>
-        <p class="mt-1 text-sm text-muted">
-          Build your week from scraped York section times, starting with courses from your degree plan.
+        <h1 class="heading-page" data-schedule-page-title>Weekly timetable</h1>
+        <p class="mt-1 text-sm text-muted" data-schedule-page-subtitle>
+          Open a saved timetable or create one for a plan year and semester.
         </p>
       </div>
       <a href="/plan" class="btn-ghost shrink-0 px-4 py-2 text-sm">Open degree plan</a>
@@ -42,102 +28,187 @@ if (focusCourse) {
     data-schedule-root
     data-focus-course={focusCourse}
     data-focus-term={focusTerm}
+    data-initial-view={initialView}
+    data-start-new={startNew ? "true" : "false"}
+    data-schedule-mode="home"
     style={`--schedule-day-count: 5; --schedule-row-height: 5rem;`}
   >
-    <aside class="grid gap-4">
-      <section class="surface p-5">
-        <p class="label">Term</p>
-        <select
-          data-schedule-term
-          class="field-select mt-2"
-          aria-label="Select academic term"
-        >
-          {
-            initialTerms.length > 0 ? (
-              initialTerms.map((term, index) => (
-                <option value={term} selected={index === 0}>
-                  {term}
-                </option>
-              ))
-            ) : (
-              <option value="">Loading terms…</option>
-            )
-          }
-        </select>
-      </section>
-
-      <section class="surface p-5">
-        <div class="flex items-center justify-between gap-3">
-          <div>
-            <p class="label">Planned courses</p>
-            <h2 class="heading-widget mt-1">From your plan</h2>
-          </div>
-        </div>
-        <div class="schedule-course-list mt-4" data-schedule-courses></div>
-
-        <form data-schedule-search class="mt-5 grid gap-3">
-          <label class="block">
-            <span class="label">Search course</span>
-            <input
-              name="courseCode"
-              type="text"
-              placeholder="EECS 1028"
-              class="field-input"
-            />
-          </label>
-          <button type="submit" class="btn-york w-full justify-center text-sm">Load sections</button>
-        </form>
-      </section>
-
-      <section class="surface p-5">
+    <section class="surface p-5 schedule-home" data-schedule-home>
+      <div class="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <p class="label">Sections</p>
-          <h2 class="heading-widget mt-1" data-schedule-section-heading>Sections</h2>
+          <p class="label">Your timetables</p>
+          <h2 class="heading-widget mt-1">Saved schedules</h2>
+          <p class="mt-1 text-sm text-muted">Pick a schedule to view or edit, or start a new one.</p>
+          <p class="mt-2 text-xs text-muted">
+            Your <strong>dashboard</strong> shows today&apos;s classes from whichever schedule you mark as your dashboard schedule.
+          </p>
         </div>
-        <div class="schedule-section-browser mt-4" data-schedule-sections>
-          <p class="schedule-status">Select a course to browse scraped section times.</p>
+        <button type="button" class="btn-york px-4 py-2 text-sm" data-schedule-new>
+          New schedule
+        </button>
+      </div>
+      <div class="schedule-saved-list mt-5" data-schedule-saved>
+        <p class="schedule-status">Loading saved schedules…</p>
+      </div>
+      <p class="schedule-dashboard-hint mt-3 text-xs text-muted hidden" data-schedule-dashboard-hint hidden>
+        Choose a dashboard schedule so the home page can show today&apos;s classes.
+      </p>
+    </section>
+
+    <section class="surface p-5 schedule-create" data-schedule-create hidden>
+      <button type="button" class="schedule-back-link" data-schedule-back-home>
+        ← All schedules
+      </button>
+      <p class="label mt-4">New schedule</p>
+      <h2 class="heading-widget mt-1">Choose year &amp; semester</h2>
+      <p class="mt-1 text-sm text-muted">
+        Select your plan year, semester, and scraped CDM term. Courses load from your degree plan.
+      </p>
+
+      <div class="mt-5 grid gap-4 sm:grid-cols-2">
+        <label class="block">
+          <span class="label">Plan year</span>
+          <select data-schedule-year class="field-select mt-2" aria-label="Select plan year">
+            <option value="1">Year 1</option>
+          </select>
+        </label>
+
+        <label class="block">
+          <span class="label">Semester</span>
+          <select data-schedule-season class="field-select mt-2" aria-label="Select semester">
+            <option value="all">Full year</option>
+            <option value="fall">Fall</option>
+            <option value="winter">Winter</option>
+            <option value="summer">Summer</option>
+          </select>
+        </label>
+
+        <label class="block sm:col-span-2">
+          <span class="label">CDM term</span>
+          <p class="mt-0.5 text-xs text-muted">Scraped timetable term (e.g. 2026-2027 FW)</p>
+          <select data-schedule-term class="field-select mt-2" aria-label="Select academic term">
+            <option value="">Loading terms…</option>
+          </select>
+        </label>
+      </div>
+
+      <div class="mt-5 flex flex-wrap items-center gap-3">
+        <button type="button" class="btn-york px-4 py-2 text-sm" data-schedule-confirm disabled>
+          Start building
+        </button>
+        <p class="schedule-status" data-schedule-setup-hint>Select a CDM term to continue.</p>
+      </div>
+    </section>
+
+    <div class="schedule-editor" data-schedule-editor hidden>
+      <div class="surface flex flex-wrap items-center justify-between gap-3 p-4" data-schedule-context-bar>
+        <div class="min-w-0">
+          <p class="label">Current schedule</p>
+          <p class="text-sm font-semibold text-foreground" data-schedule-context-label>Year 1 · Full year</p>
         </div>
-      </section>
-    </aside>
+        <div class="flex flex-wrap items-center gap-2">
+          <button type="button" class="btn-ghost px-3 py-2 text-xs" data-schedule-panel-toggle aria-expanded="true">
+            Hide section choices
+          </button>
+          <button
+            type="button"
+            class="schedule-dashboard-btn btn-york px-3 py-2 text-xs"
+            data-schedule-set-active
+            title="Use this timetable for today's classes on your dashboard"
+          >
+            Use on dashboard
+          </button>
+          <button type="button" class="btn-ghost px-3 py-2 text-xs" data-schedule-back-home>
+            All schedules
+          </button>
+          <button type="button" class="btn-ghost px-3 py-2 text-xs" data-schedule-new>
+            New schedule
+          </button>
+        </div>
+      </div>
 
-    <div class="grid gap-4">
-      <p data-schedule-status class="schedule-status" hidden></p>
-
-      <section class="schedule-grid-shell">
-        <div class="schedule-grid" data-schedule-grid>
-          <div class="schedule-grid__header" data-schedule-grid-header>
-            <div class="schedule-grid__corner"></div>
-            <div class="schedule-grid__day">Monday</div>
-            <div class="schedule-grid__day">Tuesday</div>
-            <div class="schedule-grid__day">Wednesday</div>
-            <div class="schedule-grid__day">Thursday</div>
-            <div class="schedule-grid__day">Friday</div>
-          </div>
-
-          <div class="relative" style={`--schedule-row-height: 5rem;`}>
-            <div data-schedule-grid-body>
-              {
-                Array.from({ length: 12 }).map((_, index) => {
-                  const hour = 8 + index;
-                  const period = hour >= 12 ? "PM" : "AM";
-                  const displayHour = hour % 12 || 12;
-                  return (
-                    <div class="schedule-grid__row">
-                      <div class="schedule-grid__hour">{displayHour}:00 {period}</div>
-                      <div class="schedule-grid__cell"></div>
-                      <div class="schedule-grid__cell"></div>
-                      <div class="schedule-grid__cell"></div>
-                      <div class="schedule-grid__cell"></div>
-                      <div class="schedule-grid__cell"></div>
-                    </div>
-                  );
-                })
-              }
+      <div class="schedule-editor-workspace" data-schedule-workspace-layout data-panel-collapsed="false">
+        <aside class="schedule-side-panel" data-schedule-side-panel aria-hidden="false">
+          <section class="surface p-5">
+            <div>
+              <p class="label">Year courses</p>
+              <h2 class="heading-widget mt-1">From your degree plan</h2>
             </div>
-            <div class="schedule-grid__events" data-schedule-events></div>
-          </div>
+            <div class="schedule-course-list mt-4" data-schedule-courses></div>
+
+            <form data-schedule-search class="mt-5 grid gap-3">
+              <label class="block">
+                <span class="label">Search course</span>
+                <input
+                  name="courseCode"
+                  type="text"
+                  placeholder="EECS 1028"
+                  class="field-input"
+                />
+              </label>
+              <button type="submit" class="btn-york w-full justify-center text-sm">Load sections</button>
+            </form>
+          </section>
+
+          <section class="surface p-5">
+            <div>
+              <p class="label">Weekly section set</p>
+              <h2 class="heading-widget mt-1" data-schedule-section-heading>Section choices</h2>
+            </div>
+            <div class="schedule-section-browser mt-4" data-schedule-sections>
+              <p class="schedule-status">Select a course to browse scraped section times.</p>
+            </div>
+          </section>
+        </aside>
+
+        <div class="schedule-main-panel">
+          <p data-schedule-status class="schedule-status" hidden></p>
+
+          <section class="schedule-grid-shell">
+            <div class="schedule-grid-toolbar">
+              <div>
+                <p class="label">Weekly timetable</p>
+                <p class="text-sm text-muted" data-schedule-timetable-subtitle>
+                  Every block repeats each week for the selected year and semester.
+                </p>
+              </div>
+            </div>
+            <div class="schedule-grid" data-schedule-grid>
+              <div class="schedule-grid__header" data-schedule-grid-header>
+                <div class="schedule-grid__corner"></div>
+                <div class="schedule-grid__day">Monday</div>
+                <div class="schedule-grid__day">Tuesday</div>
+                <div class="schedule-grid__day">Wednesday</div>
+                <div class="schedule-grid__day">Thursday</div>
+                <div class="schedule-grid__day">Friday</div>
+              </div>
+
+              <div class="relative" style={`--schedule-row-height: 5rem;`}>
+                <div data-schedule-grid-body>
+                  {
+                    Array.from({ length: 12 }).map((_, index) => {
+                      const hour = 8 + index;
+                      const period = hour >= 12 ? "PM" : "AM";
+                      const displayHour = hour % 12 || 12;
+                      return (
+                        <div class="schedule-grid__row">
+                          <div class="schedule-grid__hour">{displayHour}:00 {period}</div>
+                          <div class="schedule-grid__cell"></div>
+                          <div class="schedule-grid__cell"></div>
+                          <div class="schedule-grid__cell"></div>
+                          <div class="schedule-grid__cell"></div>
+                          <div class="schedule-grid__cell"></div>
+                        </div>
+                      );
+                    })
+                  }
+                </div>
+                <div class="schedule-grid__events" data-schedule-events></div>
+              </div>
+            </div>
+          </section>
         </div>
-      </section>
+      </div>
     </div>
   </div>
 

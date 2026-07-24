@@ -60,3 +60,15 @@ export async function fetchCourseOfferingSummary(
 
   return data.summary;
 }
+
+export async function fetchCdmTerms(courseCode?: string): Promise<string[]> {
+  const params = new URLSearchParams();
+  if (courseCode) params.set("course_code", courseCode);
+  const query = params.toString();
+  const response = await fetch(`${API_URL}/api/course-sections/terms${query ? `?${query}` : ""}`);
+  const data = (await response.json().catch(() => ({}))) as { terms?: string[]; error?: string };
+  if (!response.ok) {
+    throw new Error(data.error ?? `CDM terms API error: ${response.status}`);
+  }
+  return data.terms ?? [];
+}

@@ -1,4 +1,12 @@
 import { getPool } from "../db/index.js";
+import {
+  appendCatalogCourseSearchCondition,
+  normalizeCourseCode,
+  normalizeCourseCodeSearchQuery,
+  stripFacultyCourseCodePrefix,
+} from "./courseSearch.js";
+
+export { normalizeCourseCodeSearchQuery } from "./courseSearch.js";
 
 export interface CourseRow {
   id: string;
@@ -58,9 +66,7 @@ export async function listCourses(options: ListCoursesOptions = {}): Promise<{
   }
 
   if (options.search?.trim()) {
-    params.push(`%${options.search.trim()}%`);
-    const index = params.length;
-    conditions.push(`(code ILIKE $${index} OR title ILIKE $${index} OR coalesce(description, '') ILIKE $${index})`);
+    appendCatalogCourseSearchCondition(options.search, conditions, params);
   }
 
   const where = conditions.length > 0 ? `WHERE ${conditions.join(" AND ")}` : "";
@@ -98,12 +104,16 @@ export async function listDepartments(): Promise<string[]> {
 }
 
 export async function getCourseByCode(code: string): Promise<CourseDetail | null> {
-  const normalized = code.trim().toUpperCase();
+  const normalized = normalizeCourseCode(code);
+  const catalogueTail = stripFacultyCourseCodePrefix(normalized);
   const result = await getPool().query<CourseRow>(
     `SELECT id, code, title, description, credits, department
      FROM courses
-     WHERE upper(code) = $1`,
-    [normalized],
+     WHERE upper(code) = $1
+        OR upper(regexp_replace(code, '^.*\\/', '')) = $2
+     ORDER BY CASE WHEN upper(code) = $1 THEN 0 ELSE 1 END
+     LIMIT 1`,
+    [normalized, catalogueTail],
   );
 
   const row = result.rows[0];

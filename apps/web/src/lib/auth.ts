@@ -53,12 +53,17 @@ export async function fetchAuthStatus(): Promise<{
   }
 }
 
-export function googleSignInUrl(returnTo?: string): string {
-  const base = `${getApiUrl()}/api/auth/google`;
+export function googleSignInUrl(returnTo?: string, rememberMe = true): string {
+  const params = new URLSearchParams();
   if (returnTo?.startsWith("/")) {
-    return `${base}?returnTo=${encodeURIComponent(returnTo)}`;
+    params.set("returnTo", returnTo);
   }
-  return base;
+  if (!rememberMe) {
+    params.set("remember", "0");
+  }
+  const query = params.toString();
+  const base = `${getApiUrl()}/api/auth/google`;
+  return query ? `${base}?${query}` : base;
 }
 
 export function signOutUrl(): string {

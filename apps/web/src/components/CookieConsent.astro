@@ -1,0 +1,140 @@
+---
+/** Bottom cookie consent banner — shown on first visit until dismissed. */
+---
+
+<div
+  id="cookie-consent"
+  class="cookie-consent hidden"
+  role="dialog"
+  aria-label="Cookie notice"
+  aria-live="polite"
+  aria-hidden="true"
+>
+  <div class="cookie-consent-inner">
+    <div class="cookie-consent-copy">
+      <p class="cookie-consent-title">Cookies on YorkLanes</p>
+      <p class="cookie-consent-text">
+        We use essential cookies to keep you signed in and remember your preferences (such as theme).
+        Optional cookies are not used today.
+        <details class="cookie-consent-details">
+          <summary class="cookie-consent-link">Cookie notice</summary>
+          <span class="cookie-consent-detail-text">
+            Session cookies (<code>yorklanes.sid</code>) are httpOnly and required for sign-in.
+            Theme preferences are stored in your browser. No advertising or analytics cookies are set.
+          </span>
+        </details>
+      </p>
+    </div>
+    <div class="cookie-consent-actions">
+      <button type="button" class="btn-ghost cookie-consent-btn" data-cookie-consent="essential">
+        Essential only
+      </button>
+      <button type="button" class="btn-york cookie-consent-btn" data-cookie-consent="all">
+        Accept
+      </button>
+    </div>
+  </div>
+</div>
+
+<style>
+  .cookie-consent {
+    position: fixed;
+    inset-inline: 0;
+    bottom: 0;
+    z-index: 60;
+    padding: 0.75rem;
+    padding-bottom: max(0.75rem, env(safe-area-inset-bottom));
+    pointer-events: none;
+  }
+
+  .cookie-consent:not(.hidden) {
+    pointer-events: auto;
+    animation: fade-in var(--theme-duration-normal) var(--theme-ease) both;
+  }
+
+  .cookie-consent-inner {
+    margin-inline: auto;
+    display: flex;
+    max-width: 56rem;
+    flex-direction: column;
+    gap: 0.875rem;
+    border-radius: 1rem;
+    border: 1px solid color-mix(in srgb, var(--theme-border) 80%, transparent);
+    background: color-mix(in srgb, var(--theme-shell-solid) 92%, transparent);
+    padding: 1rem 1.125rem;
+    box-shadow: var(--theme-shadow-card);
+    backdrop-filter: blur(12px);
+  }
+
+  @media (min-width: 640px) {
+    .cookie-consent-inner {
+      flex-direction: row;
+      align-items: center;
+      justify-content: space-between;
+      gap: 1.25rem;
+      padding: 1rem 1.25rem;
+    }
+  }
+
+  .cookie-consent-title {
+    font-family: var(--theme-font-display);
+    font-size: 0.9375rem;
+    font-weight: 600;
+    color: var(--theme-foreground);
+  }
+
+  .cookie-consent-text {
+    margin-top: 0.25rem;
+    font-size: 0.8125rem;
+    line-height: 1.45;
+    color: var(--theme-muted);
+  }
+
+  .cookie-consent-link {
+    display: inline;
+    cursor: pointer;
+    color: var(--theme-primary);
+    text-decoration: underline;
+    text-underline-offset: 2px;
+  }
+
+  .cookie-consent-link:hover {
+    color: var(--theme-primary-hover);
+  }
+
+  .cookie-consent-details summary {
+    list-style: none;
+  }
+
+  .cookie-consent-details summary::-webkit-details-marker {
+    display: none;
+  }
+
+  .cookie-consent-detail-text {
+    display: block;
+    margin-top: 0.5rem;
+    font-size: 0.75rem;
+    line-height: 1.5;
+    color: var(--theme-muted);
+  }
+
+  .cookie-consent-detail-text code {
+    font-family: var(--font-mono, ui-monospace, monospace);
+    font-size: 0.6875rem;
+    color: var(--theme-foreground);
+  }
+
+  .cookie-consent-actions {
+    display: flex;
+    flex-shrink: 0;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+  }
+
+  .cookie-consent-btn {
+    min-width: 7.5rem;
+    justify-content: center;
+    font-size: 0.8125rem;
+    padding: 0.5rem 0.875rem;
+  }
+</style>

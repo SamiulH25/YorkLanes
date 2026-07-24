@@ -1320,13 +1320,246 @@
   .schedule-layout {
     display: grid;
     gap: 1rem;
+    grid-template-columns: minmax(0, 1fr);
+    width: 100%;
   }
 
-  @media (min-width: 1280px) {
-    .schedule-layout {
-      grid-template-columns: minmax(0, 22rem) minmax(0, 1fr);
-      align-items: start;
+  .schedule-layout > * {
+    grid-column: 1 / -1;
+    min-width: 0;
+  }
+
+  .schedule-editor-workspace {
+    display: grid;
+    grid-template-columns: minmax(0, 22rem) minmax(0, 1fr);
+    gap: 1rem;
+    align-items: start;
+    width: 100%;
+  }
+
+  .schedule-editor-workspace[data-panel-collapsed="true"] {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .schedule-editor-workspace[data-panel-collapsed="true"] .schedule-side-panel {
+    display: none;
+  }
+
+  .schedule-side-panel {
+    display: grid;
+    gap: 1rem;
+    max-height: calc(100vh - 12rem);
+    overflow-y: auto;
+    padding-right: 0.15rem;
+  }
+
+  .schedule-main-panel {
+    min-width: 0;
+    width: 100%;
+  }
+
+  @media (max-width: 1023px) {
+    .schedule-editor-workspace {
+      grid-template-columns: minmax(0, 1fr);
     }
+
+    .schedule-side-panel[aria-hidden="true"] {
+      display: none;
+    }
+  }
+
+  .schedule-back-link {
+    border: 0;
+    background: transparent;
+    color: var(--theme-primary);
+    font-size: 0.82rem;
+    font-weight: 600;
+    cursor: pointer;
+    padding: 0;
+  }
+
+  .schedule-back-link:hover {
+    text-decoration: underline;
+  }
+
+  .schedule-home-empty {
+    padding: 0.5rem 0;
+  }
+
+  .schedule-saved-card__cta {
+    margin-top: 0.45rem;
+    font-size: 0.72rem;
+    font-weight: 700;
+    color: var(--theme-primary);
+  }
+
+  .schedule-editor {
+    display: grid;
+    gap: 1rem;
+    width: 100%;
+  }
+
+  .schedule-toolbar {
+    display: grid;
+    gap: 0.75rem;
+  }
+
+  .schedule-view-tabs {
+    display: inline-flex;
+    flex-wrap: wrap;
+    gap: 0.35rem;
+    padding: 0.25rem;
+    border-radius: 9999px;
+    background: var(--theme-surface-muted);
+    border: 1px solid var(--theme-border);
+    width: fit-content;
+  }
+
+  .schedule-view-tab {
+    border: 0;
+    border-radius: 9999px;
+    background: transparent;
+    color: var(--theme-muted);
+    font-size: 0.8rem;
+    font-weight: 600;
+    padding: 0.45rem 0.9rem;
+    cursor: pointer;
+    transition:
+      background-color var(--theme-duration-fast) var(--theme-ease),
+      color var(--theme-duration-fast) var(--theme-ease);
+  }
+
+  .schedule-view-tab.is-active,
+  .schedule-view-tab[aria-pressed="true"] {
+    background: var(--theme-surface);
+    color: var(--theme-primary);
+    box-shadow: 0 1px 2px color-mix(in srgb, var(--theme-foreground) 8%, transparent);
+  }
+
+  .schedule-saved-list {
+    display: grid;
+    gap: 0.75rem;
+  }
+
+  @media (min-width: 768px) {
+    .schedule-saved-list {
+      grid-template-columns: repeat(auto-fill, minmax(16rem, 1fr));
+    }
+  }
+
+  .schedule-saved-card {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    border: 1px solid var(--theme-border);
+    border-radius: 0.9rem;
+    background: var(--theme-surface-muted);
+    padding: 0.75rem;
+    transition:
+      border-color var(--theme-duration-fast) var(--theme-ease),
+      box-shadow var(--theme-duration-fast) var(--theme-ease);
+  }
+
+  .schedule-saved-card.is-active {
+    border-color: color-mix(in srgb, var(--theme-primary) 40%, var(--theme-border));
+    box-shadow: 0 0 0 1px color-mix(in srgb, var(--theme-primary) 18%, transparent);
+  }
+
+  .schedule-saved-card.is-dashboard {
+    background: color-mix(in srgb, var(--theme-primary) 6%, var(--theme-surface-muted));
+  }
+
+  .schedule-saved-card__open {
+    display: block;
+    width: 100%;
+    border: 0;
+    background: transparent;
+    text-align: left;
+    cursor: pointer;
+    padding: 0;
+  }
+
+  .schedule-saved-card__header {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.35rem;
+  }
+
+  .schedule-saved-card__action--primary {
+    color: var(--theme-primary);
+    border-color: color-mix(in srgb, var(--theme-primary) 35%, var(--theme-border));
+    background: color-mix(in srgb, var(--theme-primary) 8%, var(--theme-surface));
+    font-weight: 700;
+  }
+
+  .schedule-saved-card__action--primary:hover {
+    border-color: color-mix(in srgb, var(--theme-primary) 55%, var(--theme-border));
+    background: color-mix(in srgb, var(--theme-primary) 14%, var(--theme-surface));
+  }
+
+  .schedule-dashboard-btn--active {
+    cursor: default;
+    opacity: 0.92;
+    box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--theme-primary) 35%, transparent);
+  }
+
+  .schedule-dashboard-hint {
+    padding: 0.65rem 0.85rem;
+    border-radius: 0.75rem;
+    border: 1px dashed color-mix(in srgb, var(--theme-primary) 35%, var(--theme-border));
+    background: color-mix(in srgb, var(--theme-primary) 6%, var(--theme-surface));
+  }
+
+  .schedule-saved-card__title {
+    font-size: 0.9rem;
+    font-weight: 700;
+    color: var(--theme-foreground);
+  }
+
+  .schedule-saved-card__term {
+    margin-top: 0.15rem;
+    font-size: 0.78rem;
+    color: var(--theme-muted);
+  }
+
+  .schedule-saved-card__meta {
+    margin-top: 0.35rem;
+    font-size: 0.72rem;
+    color: var(--theme-muted);
+  }
+
+  .schedule-saved-card__actions {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.35rem;
+  }
+
+  .schedule-saved-card__badge {
+    font-size: 0.65rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--theme-primary);
+    background: color-mix(in srgb, var(--theme-primary) 12%, var(--theme-surface));
+    border-radius: 9999px;
+    padding: 0.2rem 0.55rem;
+  }
+
+  .schedule-saved-card__action {
+    border: 0;
+    background: transparent;
+    color: var(--theme-primary);
+    font-size: 0.72rem;
+    font-weight: 600;
+    cursor: pointer;
+    padding: 0.15rem 0.35rem;
+  }
+
+  .schedule-saved-card__action--danger {
+    color: var(--theme-danger, #b42318);
   }
 
   .schedule-course-list {
@@ -1403,6 +1636,98 @@
     margin-top: 0.75rem;
   }
 
+  .schedule-course-chip.is-on-schedule {
+    border-color: color-mix(in srgb, var(--theme-primary) 30%, var(--theme-border));
+  }
+
+  .schedule-course-builder {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+  }
+
+  .schedule-component-group {
+    border: 1px solid var(--theme-border);
+    border-radius: max(0.75rem, calc(var(--theme-radius) * 0.75));
+    background: color-mix(in srgb, var(--theme-surface-muted) 45%, var(--theme-surface));
+    padding: 0.85rem;
+  }
+
+  .schedule-component-group__title {
+    font-size: 0.85rem;
+    font-weight: 700;
+    color: var(--theme-foreground);
+  }
+
+  .schedule-component-group__hint {
+    margin-top: 0.15rem;
+    font-size: 0.72rem;
+    color: var(--theme-muted);
+  }
+
+  .schedule-component-group__empty {
+    margin-top: 0.7rem;
+    font-size: 0.78rem;
+    color: var(--theme-muted);
+    font-style: italic;
+  }
+
+  .schedule-component-options {
+    display: flex;
+    flex-direction: column;
+    gap: 0.45rem;
+    margin-top: 0.7rem;
+  }
+
+  .schedule-component-option__label {
+    display: flex;
+    gap: 0.65rem;
+    align-items: flex-start;
+    border: 1px solid var(--theme-border);
+    border-radius: 0.65rem;
+    background: var(--theme-surface);
+    padding: 0.55rem 0.65rem;
+    cursor: pointer;
+    transition:
+      border-color var(--theme-duration-fast) var(--theme-ease),
+      background-color var(--theme-duration-fast) var(--theme-ease);
+  }
+
+  .schedule-component-option__label:has(input:checked) {
+    border-color: color-mix(in srgb, var(--theme-primary) 40%, var(--theme-border));
+    background: color-mix(in srgb, var(--theme-primary) 8%, var(--theme-surface));
+  }
+
+  .schedule-component-option__body {
+    display: flex;
+    flex-direction: column;
+    gap: 0.15rem;
+    min-width: 0;
+  }
+
+  .schedule-component-option__code {
+    font-size: 0.8rem;
+    font-weight: 800;
+    color: var(--theme-primary);
+  }
+
+  .schedule-component-option__pattern,
+  .schedule-component-option__meta {
+    font-size: 0.72rem;
+    color: var(--theme-muted);
+    line-height: 1.35;
+  }
+
+  .schedule-grid-toolbar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 0.75rem;
+    padding: 1rem 1rem 0.5rem;
+    border-bottom: 1px solid var(--theme-border);
+  }
+
   .schedule-status {
     border-radius: max(0.75rem, calc(var(--theme-radius) * 0.75));
     border: 1px solid var(--theme-border);
@@ -1426,6 +1751,7 @@
 
   .schedule-grid-shell {
     overflow-x: auto;
+    width: 100%;
     border-radius: var(--theme-radius);
     border: 1px solid var(--theme-border);
     background: var(--theme-surface);
@@ -1434,7 +1760,8 @@
 
   .schedule-grid {
     position: relative;
-    min-width: 56rem;
+    width: 100%;
+    min-width: 0;
   }
 
   .schedule-grid__header,
@@ -1847,6 +2174,95 @@
     @apply px-4 py-10 text-center;
   }
 
+  .dashboard-stats {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.75rem;
+  }
+
+  @media (min-width: 640px) {
+    .dashboard-stats {
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 1rem;
+    }
+  }
+
+  .dashboard-stat {
+    border-radius: max(0.5rem, calc(var(--theme-radius) * 0.75));
+    border: 1px solid var(--theme-border);
+    background: color-mix(in srgb, var(--theme-surface) 85%, transparent);
+    padding: 1rem 1.125rem;
+  }
+
+  .dashboard-stat__value {
+    font-family: var(--theme-font-display);
+    font-size: clamp(1.25rem, 3vw, 1.5rem);
+    font-weight: 600;
+    line-height: 1.2;
+    color: var(--theme-foreground);
+    letter-spacing: -0.02em;
+  }
+
+  .dashboard-stat__label {
+    margin-top: 0.25rem;
+    font-size: 0.6875rem;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--theme-muted);
+  }
+
+  .dashboard-widget {
+    height: 100%;
+  }
+
+  .dashboard-empty {
+    border-radius: max(0.5rem, calc(var(--theme-radius) * 0.75));
+    border: 1px dashed var(--theme-border);
+    background: color-mix(in srgb, var(--theme-surface) 60%, transparent);
+    padding: 2rem 1.5rem;
+    text-align: center;
+  }
+
+  .dashboard-empty__icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 2.75rem;
+    height: 2.75rem;
+    border-radius: 0.75rem;
+    margin-bottom: 0.75rem;
+    background: color-mix(in srgb, var(--theme-primary) 10%, transparent);
+    color: var(--theme-primary);
+  }
+
+  .dashboard-empty__text {
+    font-size: 0.875rem;
+    line-height: 1.5;
+    color: var(--theme-muted);
+    max-width: 22rem;
+    margin-inline: auto;
+  }
+
+  .dashboard-primary-badge {
+    display: inline-flex;
+    margin-left: 0.5rem;
+    border-radius: 9999px;
+    padding: 0.1rem 0.45rem;
+    font-size: 0.625rem;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    background: color-mix(in srgb, var(--theme-primary) 14%, transparent);
+    color: var(--theme-primary);
+    vertical-align: middle;
+  }
+
+  .dashboard-list-item {
+    text-decoration: none;
+    color: inherit;
+  }
+
   .app-shell {
     @apply flex h-dvh max-h-dvh w-full max-w-[100vw] flex-col overflow-hidden;
   }
@@ -1860,6 +2276,10 @@
   .login-main,
   .onboarding-main {
     @apply grid min-h-0 flex-1 place-items-center overflow-y-auto px-4 py-2 sm:px-6 sm:py-4;
+  }
+
+  html.cookie-consent-visible body {
+    padding-bottom: max(6.5rem, calc(env(safe-area-inset-bottom) + 5rem));
   }
 
   .onboarding-main {
@@ -1947,7 +2367,287 @@
 
   /* Plan editor */
   .plan-editor-toolbar {
-    @apply mb-3 flex flex-wrap items-center justify-between gap-3 text-sm;
+    @apply mb-3 flex flex-wrap items-start justify-between gap-3 text-sm;
+  }
+
+  .plan-editor-toolbar__left {
+    @apply flex min-w-0 flex-1 flex-col gap-2;
+  }
+
+  .plan-missing-required__list {
+    @apply mt-3 flex flex-wrap gap-2;
+  }
+
+  .plan-missing-required__item {
+    @apply inline-flex max-w-full flex-col rounded-lg border px-3 py-2 text-left transition-colors;
+    border-color: color-mix(in srgb, var(--theme-primary) 35%, var(--theme-border));
+    background: color-mix(in srgb, var(--theme-surface) 92%, var(--theme-primary));
+  }
+
+  .plan-missing-required__item:hover {
+    border-color: color-mix(in srgb, var(--theme-primary) 55%, var(--theme-border));
+    background: color-mix(in srgb, var(--theme-surface) 88%, var(--theme-primary));
+  }
+
+  .plan-missing-required__code {
+    @apply font-semibold text-york-black dark:text-white;
+  }
+
+  .plan-missing-required__title-text {
+    @apply mt-0.5 text-xs text-stone-600 dark:text-stone-300;
+  }
+
+  .plan-alerts {
+    @apply mb-4 flex flex-col gap-3;
+  }
+
+  .plan-alert-panel {
+    @apply rounded-xl border px-4 py-3 text-sm;
+    border-color: color-mix(in srgb, var(--theme-border) 85%, var(--theme-surface));
+    background: color-mix(in srgb, var(--theme-surface-muted) 55%, var(--theme-surface));
+    box-shadow: var(--theme-shadow-card);
+  }
+
+  .plan-alert-panel--notes {
+    border-color: color-mix(in srgb, var(--theme-accent) 40%, var(--theme-border));
+    background: color-mix(in srgb, var(--theme-accent) 8%, var(--theme-surface));
+  }
+
+  .plan-alert-panel--missing {
+    border-color: color-mix(in srgb, var(--theme-primary) 40%, var(--theme-border));
+    background: color-mix(in srgb, var(--theme-primary) 7%, var(--theme-surface));
+  }
+
+  .plan-alert-panel--complementary {
+    border-color: color-mix(in srgb, var(--theme-warning) 38%, var(--theme-border));
+    background: color-mix(in srgb, var(--theme-warning) 6%, var(--theme-surface));
+  }
+
+  .plan-alert-panel--schedule {
+    border-color: color-mix(in srgb, var(--theme-accent) 38%, var(--theme-border));
+    background: color-mix(in srgb, var(--theme-accent) 6%, var(--theme-surface));
+  }
+
+  .plan-alert-panel__title {
+    @apply font-semibold text-york-black dark:text-white;
+  }
+
+  .plan-alert-panel__hint {
+    @apply mt-1 text-xs leading-relaxed text-york-muted;
+  }
+
+  .plan-alert-panel__notes-list {
+    @apply mt-2 list-inside list-disc space-y-1 text-xs text-stone-600 dark:text-stone-300;
+  }
+
+  .plan-alert-panel__content {
+    @apply mt-3 space-y-2.5;
+  }
+
+  .plan-alert-info {
+    @apply rounded-lg border px-3 py-2 text-xs leading-relaxed;
+    border-color: color-mix(in srgb, var(--theme-border) 80%, var(--theme-surface));
+    background: color-mix(in srgb, var(--theme-surface) 96%, var(--theme-border));
+    color: var(--theme-muted);
+  }
+
+  .plan-alert-note {
+    @apply rounded-lg px-3 py-2 text-xs leading-relaxed;
+    background: color-mix(in srgb, var(--theme-warning) 10%, transparent);
+    color: var(--theme-muted);
+  }
+
+  .plan-alert-progress__header {
+    @apply mb-1.5 flex flex-wrap items-baseline justify-between gap-2 text-xs;
+  }
+
+  .plan-alert-progress__label {
+    @apply font-semibold text-york-black dark:text-white;
+  }
+
+  .plan-alert-progress__value {
+    @apply text-york-muted;
+  }
+
+  .plan-alert-progress__track {
+    @apply h-2 overflow-hidden rounded-full;
+    background: color-mix(in srgb, var(--theme-border) 55%, transparent);
+  }
+
+  .plan-alert-progress__fill {
+    @apply block h-full rounded-full transition-[width] duration-300 ease-out;
+  }
+
+  .plan-alert-progress__track--warning .plan-alert-progress__fill {
+    background: color-mix(in srgb, var(--theme-warning) 85%, #000);
+  }
+
+  .plan-alert-progress__track--accent .plan-alert-progress__fill {
+    background: color-mix(in srgb, var(--theme-accent) 85%, #000);
+  }
+
+  .plan-alert-stub-group__title {
+    @apply mb-2 text-xs font-semibold uppercase tracking-wide text-york-muted;
+  }
+
+  .plan-alert-stub-group__chips {
+    @apply flex flex-wrap gap-2;
+  }
+
+  .plan-alert-chip {
+    @apply inline-flex min-w-[5.5rem] flex-col rounded-lg border px-3 py-2 text-left transition-colors;
+    border-color: color-mix(in srgb, var(--theme-warning) 35%, var(--theme-border));
+    background: color-mix(in srgb, var(--theme-surface) 94%, var(--theme-warning));
+  }
+
+  .plan-alert-chip:hover {
+    border-color: color-mix(in srgb, var(--theme-warning) 55%, var(--theme-border));
+    background: color-mix(in srgb, var(--theme-surface) 90%, var(--theme-warning));
+  }
+
+  .plan-alert-chip__credits {
+    @apply text-sm font-semibold text-york-black dark:text-white;
+  }
+
+  .plan-alert-chip__term {
+    @apply mt-0.5 text-[11px] text-york-muted;
+  }
+
+  .plan-alert-row {
+    @apply flex w-full items-start gap-3 rounded-lg border px-3 py-2.5 text-left transition-colors;
+    border-color: color-mix(in srgb, var(--theme-border) 75%, var(--theme-surface));
+    background: color-mix(in srgb, var(--theme-surface) 96%, var(--theme-border));
+  }
+
+  .plan-alert-row:hover {
+    border-color: color-mix(in srgb, var(--theme-primary) 35%, var(--theme-border));
+    background: color-mix(in srgb, var(--theme-surface) 92%, var(--theme-primary));
+  }
+
+  .plan-alert-row--schedule {
+    border-color: color-mix(in srgb, var(--theme-accent) 30%, var(--theme-border));
+    background: color-mix(in srgb, var(--theme-surface) 94%, var(--theme-accent));
+  }
+
+  .plan-alert-row--schedule:hover {
+    border-color: color-mix(in srgb, var(--theme-accent) 50%, var(--theme-border));
+  }
+
+  .plan-alert-row--complementary {
+    border-color: color-mix(in srgb, var(--theme-warning) 30%, var(--theme-border));
+    background: color-mix(in srgb, var(--theme-surface) 94%, var(--theme-warning));
+  }
+
+  .plan-alert-row__badge {
+    @apply mt-0.5 inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-[11px] font-bold;
+  }
+
+  .plan-alert-row--schedule .plan-alert-row__badge {
+    background: color-mix(in srgb, var(--theme-accent) 90%, #000);
+    color: #1a1208;
+  }
+
+  .plan-alert-row--complementary .plan-alert-row__badge {
+    background: color-mix(in srgb, var(--theme-warning) 90%, #000);
+    color: #1a1208;
+  }
+
+  .plan-alert-row__content {
+    @apply min-w-0 flex-1;
+  }
+
+  .plan-alert-row__title {
+    @apply flex flex-wrap items-baseline gap-x-2 gap-y-0.5;
+  }
+
+  .plan-alert-row__code {
+    @apply text-sm font-semibold text-york-black dark:text-white;
+  }
+
+  .plan-alert-row__meta {
+    @apply text-[11px] font-medium uppercase tracking-wide text-york-muted;
+  }
+
+  .plan-alert-row__detail {
+    @apply mt-1 block text-xs leading-relaxed text-stone-600 dark:text-stone-300;
+  }
+
+  .plan-trash-zone {
+    @apply pointer-events-none fixed bottom-6 right-6 z-[70] flex flex-col items-center justify-center gap-1 rounded-2xl border px-5 py-4 text-center opacity-0 shadow-lg transition-all;
+    border-color: color-mix(in srgb, var(--theme-border) 80%, transparent);
+    background: color-mix(in srgb, var(--theme-surface) 94%, var(--theme-primary));
+    transform: translateY(12px) scale(0.92);
+  }
+
+  .plan-trash-zone--visible {
+    @apply pointer-events-auto opacity-100;
+    transform: translateY(0) scale(1);
+  }
+
+  .plan-trash-zone--active {
+    border-color: var(--theme-primary);
+    background: color-mix(in srgb, var(--theme-primary) 14%, var(--theme-surface));
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--theme-primary) 22%, transparent);
+    animation: plan-trash-bounce 0.55s ease-in-out infinite alternate;
+  }
+
+  .plan-trash-zone__icon {
+    @apply text-york-muted transition-colors;
+    color: var(--theme-muted);
+  }
+
+  .plan-trash-zone--active .plan-trash-zone__icon,
+  .plan-trash-zone--visible:hover .plan-trash-zone__icon {
+    color: var(--theme-primary);
+  }
+
+  .plan-trash-zone__label {
+    @apply text-xs font-semibold uppercase tracking-wide;
+    color: var(--theme-muted);
+  }
+
+  .plan-trash-zone--active .plan-trash-zone__label {
+    color: var(--theme-primary);
+  }
+
+  @keyframes plan-trash-bounce {
+    from {
+      transform: translateY(0) scale(1);
+    }
+    to {
+      transform: translateY(-4px) scale(1.04);
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .plan-trash-zone--active {
+      animation: none;
+    }
+  }
+
+  .plan-complementary-toolbar {
+    @apply flex flex-wrap items-center gap-3;
+  }
+
+  .plan-complementary-dropzone {
+    @apply inline-flex cursor-pointer items-center rounded-lg border border-dashed border-york-stone/70 px-3 py-2 text-xs font-medium text-york-black transition-colors dark:border-white/20 dark:text-white;
+  }
+
+  .plan-complementary-dropzone:hover,
+  .plan-complementary-dropzone:focus-within {
+    @apply border-york-red bg-york-red/5 dark:bg-york-red/10;
+  }
+
+  .plan-complementary-dropzone--active {
+    @apply border-york-red bg-york-red/5 dark:bg-york-red/10;
+  }
+
+  .plan-complementary-status {
+    @apply max-w-xs;
+  }
+
+  .plan-find-complementary {
+    @apply rounded-lg border border-york-stone/70 px-3 py-2 text-xs font-medium text-york-black transition-colors hover:border-york-red hover:text-york-red disabled:cursor-not-allowed disabled:opacity-50 dark:border-white/20 dark:text-white;
   }
 
   .plan-editor-canvas {
@@ -2111,6 +2811,148 @@
     color: var(--theme-foreground);
   }
 
+  .plan-year-credits {
+    margin: 0.15rem 0 0;
+    font-size: clamp(0.62rem, 0.95vw, 0.72rem);
+    font-weight: 600;
+    color: var(--theme-muted);
+    font-family: var(--theme-font-mono, ui-monospace, monospace);
+  }
+
+  .plan-term-add-course {
+    @apply mt-2 w-full rounded-lg border border-dashed px-2 py-1.5 text-[11px] font-semibold transition-colors sm:text-xs;
+    border-color: color-mix(in srgb, var(--theme-primary) 35%, var(--theme-border));
+    color: var(--theme-primary);
+    background: color-mix(in srgb, var(--theme-primary) 4%, transparent);
+  }
+
+  .plan-term-add-course:hover {
+    border-color: color-mix(in srgb, var(--theme-primary) 55%, var(--theme-border));
+    background: color-mix(in srgb, var(--theme-primary) 10%, transparent);
+  }
+
+  .plan-term-add-summer {
+    @apply mt-2 w-full rounded-lg border border-dashed px-2 py-1.5 text-[11px] font-semibold transition-colors sm:text-xs;
+    border-color: color-mix(in srgb, #34d399 45%, var(--theme-border));
+    color: #059669;
+    background: color-mix(in srgb, #34d399 8%, transparent);
+  }
+
+  .plan-term-add-summer:hover {
+    border-color: color-mix(in srgb, #34d399 65%, var(--theme-border));
+    background: color-mix(in srgb, #34d399 14%, transparent);
+  }
+
+  .dark .plan-term-add-summer {
+    color: #6ee7b7;
+  }
+
+  .plan-summer-hint strong {
+    font-weight: 600;
+    color: var(--theme-foreground);
+  }
+
+  .plan-add-course-dialog {
+    @apply w-[min(32rem,calc(100vw-2rem))] max-h-[min(34rem,calc(100vh-2rem))] rounded-2xl border-0 p-0 shadow-2xl;
+    background: var(--theme-surface);
+    color: var(--theme-foreground);
+  }
+
+  .plan-add-course-dialog::backdrop {
+    background: color-mix(in srgb, #000 45%, transparent);
+  }
+
+  .plan-add-course-form {
+    @apply flex max-h-[min(34rem,calc(100vh-2rem))] flex-col gap-3 p-4 sm:p-5;
+  }
+
+  .plan-add-course-header {
+    @apply flex items-start justify-between gap-3;
+  }
+
+  .plan-add-course-kicker {
+    @apply text-[10px] font-bold uppercase tracking-widest text-york-muted;
+  }
+
+  .plan-add-course-title {
+    @apply mt-0.5 font-display text-lg font-semibold text-york-black dark:text-white;
+  }
+
+  .plan-add-course-term {
+    @apply mt-1;
+  }
+
+  .plan-add-course-close {
+    @apply flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-xl leading-none transition-colors;
+    color: var(--theme-muted);
+    background: color-mix(in srgb, var(--theme-border) 35%, transparent);
+  }
+
+  .plan-add-course-close:hover {
+    color: var(--theme-foreground);
+    background: color-mix(in srgb, var(--theme-border) 55%, transparent);
+  }
+
+  .plan-add-course-search {
+    @apply w-full rounded-xl border px-3 py-2 text-sm;
+    border-color: var(--theme-border);
+    background: var(--theme-surface-muted);
+    color: var(--theme-foreground);
+  }
+
+  .plan-add-course-results {
+    @apply min-h-[8rem] flex-1 space-y-1 overflow-y-auto rounded-xl border p-1;
+    border-color: var(--theme-border);
+    background: color-mix(in srgb, var(--theme-surface-muted) 70%, transparent);
+  }
+
+  .plan-add-course-result {
+    @apply flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm transition-colors;
+    color: var(--theme-foreground);
+  }
+
+  .plan-add-course-result:hover:not(:disabled) {
+    background: color-mix(in srgb, var(--theme-primary) 10%, transparent);
+  }
+
+  .plan-add-course-result:disabled {
+    @apply cursor-not-allowed opacity-50;
+  }
+
+  .plan-add-course-result-code {
+    @apply shrink-0 font-semibold;
+    font-family: var(--theme-font-mono, ui-monospace, monospace);
+  }
+
+  .plan-add-course-result-title {
+    @apply min-w-0 flex-1 truncate text-york-muted;
+  }
+
+  .plan-add-course-result-credits {
+    @apply shrink-0 text-xs font-semibold;
+    font-family: var(--theme-font-mono, ui-monospace, monospace);
+    color: var(--theme-muted);
+  }
+
+  .plan-add-course-empty {
+    @apply px-3 py-6 text-center text-sm text-york-muted;
+  }
+
+  .plan-add-course-footer {
+    @apply flex justify-end border-t pt-3;
+    border-color: var(--theme-border);
+  }
+
+  .plan-add-course-cancel {
+    @apply rounded-lg px-3 py-1.5 text-sm font-medium transition-colors;
+    color: var(--theme-muted);
+  }
+
+  .plan-add-course-cancel:hover {
+    color: var(--theme-foreground);
+    background: color-mix(in srgb, var(--theme-border) 40%, transparent);
+  }
+
   .plan-term-bubble {
     position: relative;
     display: flex;
@@ -2155,6 +2997,11 @@
 
   .plan-term-bubble--empty::before {
     opacity: 0.35;
+  }
+
+  .plan-term-bubble--empty .plan-course-list {
+    flex: 1;
+    min-height: 3rem;
   }
 
   .plan-term-empty-body {
@@ -2304,47 +3151,6 @@
     top: 1.35rem;
   }
 
-  .plan-schedule-warnings {
-    @apply mb-4 rounded-xl border px-4 py-3 text-sm;
-    border-color: color-mix(in srgb, var(--theme-accent) 45%, var(--theme-border));
-    background: color-mix(in srgb, var(--theme-accent) 8%, var(--theme-surface));
-  }
-
-  .plan-schedule-warnings__title {
-    @apply font-semibold text-york-black dark:text-white;
-  }
-
-  .plan-schedule-warnings__hint {
-    @apply mt-1;
-  }
-
-  .plan-schedule-warnings__list {
-    @apply mt-3 space-y-2;
-  }
-
-  .plan-schedule-warnings__item {
-    @apply w-full rounded-lg border px-3 py-2 text-left transition-colors;
-    border-color: color-mix(in srgb, var(--theme-accent) 35%, var(--theme-border));
-    background: color-mix(in srgb, var(--theme-surface) 92%, var(--theme-accent));
-  }
-
-  .plan-schedule-warnings__item:hover {
-    border-color: color-mix(in srgb, var(--theme-accent) 55%, var(--theme-border));
-    background: color-mix(in srgb, var(--theme-surface) 88%, var(--theme-accent));
-  }
-
-  .plan-schedule-warnings__course {
-    @apply mr-2 font-semibold text-york-black dark:text-white;
-  }
-
-  .plan-schedule-warnings__term {
-    @apply mr-2 text-xs font-medium uppercase tracking-wide text-york-muted;
-  }
-
-  .plan-schedule-warnings__message {
-    @apply block mt-1 text-xs text-stone-600 dark:text-stone-300;
-  }
-
   .plan-term-schedule-warn {
     @apply ml-auto inline-flex h-5 min-w-5 items-center justify-center rounded-full px-1 text-[10px] font-bold;
     background: color-mix(in srgb, var(--theme-accent) 92%, #000);
@@ -2356,7 +3162,7 @@
   }
 
   .plan-course-card {
-    @apply relative flex items-stretch gap-0 overflow-hidden;
+    @apply relative flex items-stretch gap-0 overflow-hidden cursor-grab active:cursor-grabbing;
     border-radius: max(0.375rem, calc(var(--theme-radius) * 0.5));
     border: 1px solid var(--theme-border);
     background: color-mix(in srgb, var(--theme-surface-muted) 85%, var(--theme-surface));
@@ -2375,6 +3181,7 @@
   }
 
   .plan-course-card--stub {
+    @apply cursor-default;
     border-style: dashed;
     border-color: color-mix(in srgb, var(--theme-accent) 60%, transparent);
     background: color-mix(in srgb, var(--theme-accent) 10%, transparent);
@@ -2397,7 +3204,7 @@
   }
 
   .plan-course-handle {
-    @apply flex w-5 shrink-0 cursor-grab items-center justify-center border-r text-[10px] transition-colors active:cursor-grabbing sm:w-7 sm:text-xs;
+    @apply flex w-5 shrink-0 cursor-grab select-none items-center justify-center border-r text-[10px] transition-colors active:cursor-grabbing sm:w-7 sm:text-xs;
     border-color: var(--theme-border);
     background: color-mix(in srgb, var(--theme-border) 35%, transparent);
     color: var(--theme-muted);
@@ -2406,6 +3213,17 @@
   .plan-course-handle:hover {
     background: color-mix(in srgb, var(--theme-primary) 12%, transparent);
     color: var(--theme-primary);
+  }
+
+  .plan-course-remove {
+    @apply flex w-5 shrink-0 items-center justify-center border-l text-base leading-none transition-colors sm:w-7;
+    border-color: var(--theme-border);
+    color: var(--theme-muted);
+  }
+
+  .plan-course-remove:hover {
+    background: color-mix(in srgb, var(--theme-danger, #b91c1c) 12%, transparent);
+    color: var(--theme-danger, #b91c1c);
   }
 
   .plan-course-body {

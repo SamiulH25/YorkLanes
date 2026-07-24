@@ -4,7 +4,7 @@
  * Returns the data shape the dashboard widgets expect.
  *
  * EXPAND HERE:
- * - progress      -> Thor (Progress Tracker) writes query logic, expose via this route
+ * - progress      -> Thor — uses buildPlanProgressResult
  * - assignments   -> Sarah (Assignment Calendar) writes query logic
  * - finance       -> Taziz (Finance Module) writes query logic
  * - quickLinks    -> add links to feature pages as they are built in apps/web
@@ -25,7 +25,8 @@ import {
   listFinanceEntries,
   listFinanceEntriesViaRest,
 } from "../services/finance.js";
-
+import { getLatestPlanForUser } from "../services/planGenerator.js";
+import { buildPlanProgressResult } from "../services/progress.js";
 import { findUserById } from "../services/users.js";
 import type { DashboardSummary } from "../types/dashboard.js";
 
@@ -133,21 +134,50 @@ dashboardRouter.get("/summary", async (req, res) => {
     // Keep the dashboard available when assignments cannot be loaded.
   }
 
+  // progress stuff (thor)
+  let programme: string | null = null;
+  let startingYear: number | null = null;
+  let progress: DashboardSummary["progress"] = {
+    percentComplete: 0,
+    label: "Import a degree plan to track progress",
+    segments: [],
+  };
+
+  if (req.session.userId && usePostgres) {
+    try {
+      const plan = await getLatestPlanForUser(getPool(), req.session.userId);
+      if (plan) {
+        // same logic as /api/progress
+        const result = await buildPlanProgressResult(getPool(), plan);
+        programme = plan.programme_name;
+        startingYear = plan.starting_year;
+        progress = {
+          percentComplete: result.percentComplete,
+          label: result.message,
+          segments: result.segments,
+        };
+      }
+    } catch (e) {
+      progress = {
+        percentComplete: 0,
+        label: "Degree progress unavailable right now. Open Progress to try again.",
+        segments: [],
+      };
+    }
+  }
+
   const summary: DashboardSummary = {
     user: {
       displayName,
-      programme: null,
-      startingYear: null,
+      programme,
+      startingYear,
     },
-    progress: {
-      percentComplete: 0,
-      label: "Degree progress not configured",
-    },
+    progress,
     assignments,
     finance,
     quickLinks: [
       { label: "Degree Plan", href: "/plan", featureOwner: "Samiul", status: "ready" },
-      { label: "Progress Tracker", href: "/progress", featureOwner: "Thor", status: "in-progress" },
+      { label: "Progress Tracker", href: "/progress", featureOwner: "Thor", status: "ready" },
       { label: "Course Explorer", href: "/courses", featureOwner: "Jericho", status: "ready" },
       { label: "Schedule Builder", href: "/schedule", featureOwner: "Nabeela", status: "in-progress" },
       { label: "Assignments", href: "/assignments", featureOwner: "Sarah", status: "in-progress" },

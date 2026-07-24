@@ -31,12 +31,12 @@ function guestFinanceSummary(message: string): DashboardSummary["finance"] {
 function guestDashboardSummary(financeMessage: string): DashboardSummary {
   return {
     user: { displayName: "Guest", programme: null, startingYear: null },
-    progress: { percentComplete: 0, label: "Sign in to sync degree progress" },
+    progress: { percentComplete: 0, label: "Sign in to sync degree progress", segments: [] },
     assignments: { upcoming: [], message: "Sign in to sync assignments, or open Assignments to continue." },
     finance: guestFinanceSummary(financeMessage),
     quickLinks: [
       { label: "Degree Plan", href: "/plan", featureOwner: "Samiul", status: "ready" },
-      { label: "Progress Tracker", href: "/progress", featureOwner: "Thor", status: "in-progress" },
+      { label: "Progress Tracker", href: "/progress", featureOwner: "Thor", status: "ready" },
       { label: "Course Explorer", href: "/courses", featureOwner: "Jericho", status: "ready" },
       { label: "Schedule Builder", href: "/schedule", featureOwner: "Nabeela", status: "in-progress" },
       { label: "Assignments", href: "/assignments", featureOwner: "Sarah", status: "in-progress" },

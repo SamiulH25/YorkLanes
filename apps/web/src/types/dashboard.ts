@@ -12,6 +12,12 @@ export interface DashboardSummary {
   progress: {
     percentComplete: number;
     label: string;
+    segments?: Array<{
+      id: "major" | "generalEducation" | "electives";
+      label: string;
+      completed: number;
+      percentOfTotal: number;
+    }>;
   };
   assignments: {
     upcoming: AssignmentPreview[];

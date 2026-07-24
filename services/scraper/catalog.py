@@ -125,6 +125,79 @@ class SessionTerm:
     year: int
 
 
+# York CDM faculty codes for the crsq1 direct search endpoint.
+SUBJECT_FACULTY_CODES: dict[str, str] = {
+    "adms": "AP",
+    "eecs": "LE",
+    "math": "SC",
+    "phys": "SC",
+    "chem": "SC",
+    "biol": "SC",
+    "psyc": "AS",
+    "econ": "AS",
+    "engl": "AS",
+    "phil": "AS",
+}
+
+CDM_CRSQ1_PATH = "/Apps/WebObjects/cdm.woa/wa/crsq1"
+
+
+def faculty_for_subject(subject_code: str) -> str:
+    """Map a subject code (e.g. EECS) to the York CDM faculty code (e.g. LE)."""
+    import os
+
+    override = os.environ.get("CDM_FACULTY_OVERRIDE", "").strip()
+    if override:
+        return override.upper()
+
+    faculty = SUBJECT_FACULTY_CODES.get(subject_code.strip().lower())
+    if faculty:
+        return faculty
+
+    raise ValueError(
+        f"No faculty code mapped for subject '{subject_code}'. "
+        "Add it to SUBJECT_FACULTY_CODES in catalog.py or set CDM_FACULTY_OVERRIDE."
+    )
+
+
+def term_to_crsq1_params(term: SessionTerm) -> dict[str, str | int]:
+    """Map a SessionTerm to crsq1 query parameters."""
+    kind = term.term_kind
+    if kind == "FULL_YEAR":
+        return {"academicyear": term.year, "studysession": "fw"}
+    if kind == "SUMMER":
+        return {"academicyear": term.year, "studysession": "s"}
+    if kind == "FALL":
+        return {"academicyear": term.year, "studysession": "f"}
+    if kind == "WINTER":
+        return {"academicyear": term.year, "studysession": "w"}
+    raise ValueError(f"Cannot map term '{term.code}' to crsq1 parameters")
+
+
+def default_current_terms() -> list[SessionTerm]:
+    """Return likely-active CDM terms based on the current calendar date."""
+    from datetime import datetime
+
+    now = datetime.now()
+    year = now.year
+    month = now.month
+
+    if 5 <= month <= 8:
+        return [
+            normalize_term(f"Summer {year}"),
+            normalize_term(f"Fall/Winter {year}-{year + 1}"),
+        ]
+    if month >= 9:
+        return [
+            normalize_term(f"Fall/Winter {year}-{year + 1}"),
+            normalize_term(f"Summer {year + 1}"),
+        ]
+    return [
+        normalize_term(f"Fall/Winter {year - 1}-{year}"),
+        normalize_term(f"Summer {year}"),
+    ]
+
+
 def normalize_term(label: str) -> SessionTerm:
     """Map a CDM session label (e.g. 'Fall/Winter 2026-2027') to a canonical term."""
     match = SESSION_TERM_LABEL.search(label or "")

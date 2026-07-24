@@ -11,13 +11,29 @@ import re
 import time
 from pathlib import Path
 from typing import Any
+from urllib.parse import urlencode
 
 from bs4 import BeautifulSoup
 
-from catalog import CourseRecord, extract_prerequisite_codes, normalize_course_code
+from catalog import (
+    CDM_CRSQ1_PATH,
+    CourseRecord,
+    SessionTerm,
+    default_current_terms,
+    extract_prerequisite_codes,
+    faculty_for_subject,
+    normalize_course_code,
+    term_to_crsq1_params,
+)
 from cdm_http import CdmHttp, REQUEST_DELAY_SEC
 
 USER_AGENT = CdmHttp().session.headers["User-Agent"]
+
+CRSQ1_COURSE_CODE = re.compile(
+    r"(?:(?:AP|FA|HH|SC|LE|SB|GL|ES)/)?"
+    r"([A-Z]+)\s+(\d{4}[A-Z]?)\s+([\d.]+)",
+    re.IGNORECASE,
+)
 
 COURSE_LIST_ROW = re.compile(
     r"<a[^>]+href=\"([^\"]+)\"[^>]*>\s*"
@@ -41,6 +57,61 @@ class CdmScraper:
     def _post(self, url: str, data: dict[str, Any]) -> str:
         return self.http.post(url, data)
 
+    def build_crsq1_url(self, subject_code: str, term: SessionTerm) -> str:
+        params = term_to_crsq1_params(term)
+        query = urlencode(
+            {
+                "faculty": faculty_for_subject(subject_code),
+                "subject": subject_code.upper(),
+                "academicyear": params["academicyear"],
+                "studysession": params["studysession"],
+            }
+        )
+        return f"{self.base_url}{CDM_CRSQ1_PATH}?{query}"
+
+    def fetch_subject_list_crsq1(self, subject_code: str, term: SessionTerm) -> str:
+        return self._get(self.build_crsq1_url(subject_code, term))
+
+    def parse_crsq1_rows(self, list_html: str) -> list[tuple[str, str, str, float, str]]:
+        """Parse crsq1 results; returns (schedule_href, subject, number, credits, title)."""
+        soup = BeautifulSoup(list_html, "html.parser")
+        parsed: list[tuple[str, str, str, float, str]] = []
+
+        for row in soup.find_all("tr"):
+            cells = row.find_all("td")
+            if len(cells) < 3:
+                continue
+
+            course_text = cells[0].get_text(" ", strip=True)
+            match = CRSQ1_COURSE_CODE.match(course_text)
+            if not match:
+                continue
+
+            subject, number, credits = match.groups()
+            title = cells[1].get_text(" ", strip=True)
+
+            schedule_href = None
+            for link in cells[2].find_all("a", href=True):
+                link_text = link.get_text(" ", strip=True).lower()
+                if "schedule" in link_text:
+                    schedule_href = link["href"]
+                    break
+            if not schedule_href:
+                fallback = cells[2].find("a", href=True)
+                schedule_href = fallback["href"] if fallback else None
+            if schedule_href:
+                parsed.append(
+                    (
+                        schedule_href,
+                        subject.upper(),
+                        number.upper(),
+                        float(credits),
+                        title,
+                    )
+                )
+
+        return parsed
+
     def get_subject_form_attributes(self) -> dict[str, Any]:
         root_html = self._get(self.course_url)
 
@@ -52,13 +123,27 @@ class CdmScraper:
         subject_url = subject_href if subject_href.startswith("http") else self.base_url + subject_href
         subject_page_html = self._get(subject_url)
 
-        form_action = re.search(
+        form_action_url = None
+        form_action_match = re.search(
             r'<form[^>]+action="([^"]+)"[^>]*name="subjectSearchForm"',
             subject_page_html,
             re.I,
         )
-        if not form_action:
-            raise RuntimeError("Could not find CDM subject search form")
+        if form_action_match:
+            form_action_url = form_action_match.group(1)
+        else:
+            soup = BeautifulSoup(subject_page_html, "html.parser")
+            form = soup.find("form", attrs={"name": "subjectSearchForm"})
+            if not form:
+                form = soup.find("form", attrs={"name": re.compile("subject", re.I)})
+            if form and form.get("action"):
+                form_action_url = form["action"]
+
+        if not form_action_url:
+            raise RuntimeError(
+                "Could not find CDM subject search form. "
+                "Use the crsq1 direct search path instead (schedule/cdm commands do this automatically)."
+            )
 
         wosid = re.search(r'name="wosid"\s+value="([^"]+)"', subject_page_html, re.I)
         if not wosid:
@@ -73,7 +158,7 @@ class CdmScraper:
             )
         ]
 
-        action = form_action.group(1)
+        action = form_action_url
         form_url = action if action.startswith("http") else self.base_url + action
 
         return {
@@ -146,21 +231,18 @@ class CdmScraper:
                     return sibling.get_text(" ", strip=True)
         return None
 
-    def scrape_subject(self, subject_code: str) -> list[CourseRecord]:
-        attrs = self.get_subject_form_attributes()
+    def scrape_subject(self, subject_code: str, term: SessionTerm | None = None) -> list[CourseRecord]:
         subject_code = subject_code.upper()
-        subject_id = next((sid for sid, code in attrs["subjects"] if code == subject_code), None)
-        if subject_id is None:
-            known = ", ".join(code for _, code in attrs["subjects"][:20])
-            raise ValueError(f"Unknown subject '{subject_code}'. Examples: {known}")
-
-        list_html = self.fetch_subject_list_html(attrs, subject_id)
-        rows = self.parse_list_rows(list_html)
+        current_term = term or default_current_terms()[0]
+        list_html = self.fetch_subject_list_crsq1(subject_code, current_term)
+        rows = self.parse_crsq1_rows(list_html)
 
         seen: set[str] = set()
         courses: list[CourseRecord] = []
 
-        for href, subject, number, credits, title, _ in rows:
+        for href, subject, number, credits, title in rows:
+            if subject != subject_code:
+                continue
             code = normalize_course_code(subject, number)
             if code in seen:
                 continue

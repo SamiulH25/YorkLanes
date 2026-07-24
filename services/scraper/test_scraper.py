@@ -8,15 +8,19 @@ from catalog import (
     CourseRecord,
     SectionRecord,
     extract_prerequisite_codes,
+    faculty_for_subject,
     from_yoki_entry,
     normalize_stored_code,
     parse_course_codes,
     normalize_term,
     parse_meeting_cell,
+    term_to_crsq1_params,
 )
 from cdm_cookies import cookies_from_netscape
 from cdm_http import is_cloudflare_challenge, looks_like_cdm_page
-from schedule_scraper import ScheduleScraper
+from cdm_scraper import CdmScraper
+from schedule_scraper import DEFAULT_WORKERS, PassportYorkRequiredError, ScheduleScraper
+from timetable_parser import parse_active_timetable_html
 from scrape_courses import load_json_courses, save_json, load_json_sections
 
 FIXTURE = Path(__file__).parent / "fixtures" / "eecs_sample.json"
@@ -99,6 +103,40 @@ def test_cloudflare_detection() -> None:
     assert is_cloudflare_challenge("<html>cf_chl_opt</html>", 200)
     assert not is_cloudflare_challenge("<html>York Courses WebObjects subjectSearchForm</html>", 200)
     assert looks_like_cdm_page("<html>Search Courses subjectSearchForm</html>")
+    assert looks_like_cdm_page("<html>Current Courses Search Results</html>")
+
+
+def test_crsq1_helpers() -> None:
+    assert faculty_for_subject("eecs") == "LE"
+    assert faculty_for_subject("adms") == "AP"
+
+    term = normalize_term("Fall/Winter 2026-2027")
+    assert term_to_crsq1_params(term) == {"academicyear": 2026, "studysession": "fw"}
+
+
+def test_parse_crsq1_rows() -> None:
+    fixture = Path(__file__).parent / "fixtures" / "crsq1_adms_snippet.html"
+    scraper = CdmScraper()
+    rows = scraper.parse_crsq1_rows(fixture.read_text(encoding="utf-8"))
+    assert len(rows) == 2
+    assert rows[0][1:] == ("ADMS", "1000", 3.0, "Introduction to Business")
+    assert rows[0][0].endswith("/schedule/1000")
+
+
+def test_parse_active_timetable_eecs_1028() -> None:
+    fixture = Path(__file__).parent / "fixtures" / "timetable_eecs_1028_snippet.html"
+    sections = parse_active_timetable_html(
+        fixture.read_text(encoding="utf-8"),
+        subject_code="EECS",
+        term_code="2021 S",
+        term_kind="SUMMER",
+    )
+    assert len(sections) >= 3
+    lect = [s for s in sections if s.course_code == "EECS 1028" and s.section_code.startswith("LECT")]
+    assert lect
+    assert any(s.day == "MON" and s.start_time == "11:00" and s.end_time == "12:30" for s in lect)
+    tut = [s for s in sections if s.section_code.startswith("TUTR 01")]
+    assert tut and tut[0].day == "WED"
 
 
 def test_parse_detail_sections_from_fixture() -> None:
@@ -140,6 +178,20 @@ def test_section_fixture_roundtrip() -> None:
 
 
 
+def test_data_lake_object_paths() -> None:
+    from datetime import datetime, timezone
+
+    from data_lake import build_object_path, sanitize_segment
+
+    assert sanitize_segment("EECS 1028") == "eecs-1028"
+    path = build_object_path(
+        "sections",
+        "batch-2026-S",
+        timestamp=datetime(2026, 7, 23, 15, 30, 45, tzinfo=timezone.utc),
+    )
+    assert path == "sections/2026/07/23/20260723T153045Z_batch-2026-s.json"
+
+
 def main() -> None:
     test_parse_prerequisites_from_description()
     test_fixture_load_and_roundtrip()
@@ -149,8 +201,12 @@ def main() -> None:
     test_parse_meeting_cell()
     test_import_netscape_cookies()
     test_cloudflare_detection()
+    test_crsq1_helpers()
+    test_parse_crsq1_rows()
+    test_parse_active_timetable_eecs_1028()
     test_parse_detail_sections_from_fixture()
     test_section_fixture_roundtrip()
+    test_data_lake_object_paths()
     print("All scraper tests passed.")
 
 

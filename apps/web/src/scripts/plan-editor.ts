@@ -6,7 +6,10 @@
  */
 import {
   cachePlanGraphSnapshot,
+  countScheduleWarningsForTerm,
+  listScheduleWarnings,
   readPlanGraphSnapshot,
+  scheduleWarningForCourse,
   type PlanGraphSnapshot,
 } from "../lib/plan-store";
 import {
@@ -301,6 +304,56 @@ function updateSelectionLegend(state: EditorState): void {
   el.textContent = `Blue = prerequisite (${prereqCount}) · Amber dashed = co-requisite (${coreqCount})`;
 }
 
+function updateScheduleWarningsPanel(state: EditorState): void {
+  const panel = document.getElementById("plan-schedule-warnings");
+  const list = document.getElementById("plan-schedule-warnings-list");
+  if (!panel || !list) return;
+
+  const warnings = state.graph ? listScheduleWarnings(state.graph) : [];
+  list.replaceChildren();
+
+  if (warnings.length === 0) {
+    panel.classList.add("hidden");
+    return;
+  }
+
+  panel.classList.remove("hidden");
+  for (const warning of warnings) {
+    const item = document.createElement("li");
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "plan-schedule-warnings__item";
+    button.dataset.courseId = warning.course_id;
+    button.innerHTML = `<span class="plan-schedule-warnings__course">${warning.course_code}</span>
+      <span class="plan-schedule-warnings__term">${warning.term_label}</span>
+      <span class="plan-schedule-warnings__message">${warning.message}</span>`;
+    button.title = "Show this course on the plan";
+    item.appendChild(button);
+    list.appendChild(item);
+  }
+}
+
+function updateTermWarningBadges(state: EditorState): void {
+  if (!state.graph) return;
+
+  document.querySelectorAll<HTMLElement>(".plan-term-bubble[data-term-id]").forEach((bubble) => {
+    const termId = bubble.dataset.termId;
+    if (!termId) return;
+
+    const count = countScheduleWarningsForTerm(state.graph!, termId);
+    const badge = bubble.querySelector<HTMLElement>(".plan-term-schedule-warn");
+    if (!badge) return;
+
+    badge.hidden = count === 0;
+    badge.textContent = count > 0 ? String(count) : "";
+    badge.title =
+      count > 0
+        ? `${count} course${count === 1 ? "" : "s"} in this term with no recorded ${bubble.dataset.season ?? "season"} offerings`
+        : "";
+    bubble.classList.toggle("plan-term-bubble--schedule-warn", count > 0);
+  });
+}
+
 function updateWarningBadges(state: EditorState): void {
   if (!state.graph) return;
 
@@ -405,9 +458,9 @@ function highlightSelection(state: EditorState): void {
   const card = document.querySelector<HTMLElement>(
     `.plan-course-card[data-course-id="${CSS.escape(state.selectedCourseId)}"]`,
   );
-  const scheduleWarning = state.graph?.schedule_warnings?.find(
-    (warning) => warning.course_id === state.selectedCourseId,
-  );
+  const scheduleWarning = state.graph
+    ? scheduleWarningForCourse(state.graph, state.selectedCourseId)
+    : undefined;
 
   let label = "";
   if (card?.dataset.courseCode) {
@@ -425,6 +478,8 @@ function highlightSelection(state: EditorState): void {
 function syncCardChrome(state: EditorState): void {
   highlightSelection(state);
   updateWarningBadges(state);
+  updateTermWarningBadges(state);
+  updateScheduleWarningsPanel(state);
   updateCompletedStyles(state);
 }
 
@@ -786,6 +841,28 @@ function bindDragAndDrop(state: EditorState): void {
   });
 }
 
+function bindScheduleWarningPanel(state: EditorState): void {
+  const list = document.getElementById("plan-schedule-warnings-list");
+  if (!list) return;
+
+  list.addEventListener("click", (event) => {
+    const button = (event.target as HTMLElement).closest<HTMLButtonElement>(
+      ".plan-schedule-warnings__item",
+    );
+    const courseId = button?.dataset.courseId;
+    if (!courseId) return;
+
+    state.selectedCourseId = courseId;
+    scheduleRedraw(state, { chrome: true, animate: true });
+    updateSelectionLegend(state);
+
+    const card = document.querySelector<HTMLElement>(
+      `.plan-course-card[data-course-id="${CSS.escape(courseId)}"]`,
+    );
+    card?.scrollIntoView({ behavior: "smooth", block: "nearest", inline: "nearest" });
+  });
+}
+
 function bindSelection(state: EditorState): void {
   const root = document.getElementById("plan-editor");
   if (!root) return;
@@ -876,7 +953,7 @@ async function loadGraph(state: EditorState): Promise<void> {
     const response = await fetchPlanGraph(state.plan.id);
     applyGraphResponse(state, response);
     updateDependencySummary(state);
-    setStatus("Click a course to see prereqs · tick completed courses you have already taken");
+    setStatus("Click a course to see prereqs · season alerts use scraped F/W/S history");
     scheduleRedraw(state, { chrome: true, animate: false });
     updateSelectionLegend(state);
   } catch (error) {
@@ -921,6 +998,7 @@ export function initPlanEditor(plan: DegreePlan): void {
   });
 
   bindDragAndDrop(state);
+  bindScheduleWarningPanel(state);
   bindSelection(state);
   bindCompletionToggles(state);
   bindRedrawOnLayoutChange(state);

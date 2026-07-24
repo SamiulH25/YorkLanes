@@ -22,6 +22,7 @@ You do **not** need a Supabase login or dashboard access for normal feature work
 | [Development guide](./development.md) | Short setup reference and conventions |
 | [Maintainer guide](./maintainer.md) | Database owner: migrations, Supabase CLI, secrets |
 | [Database](./database.md) | Postgres schema reference |
+| [Data lake](./data-lake.md) | Supabase Storage raw scrape archives |
 | [Deployment](./deployment.md) | Production hosting and release checklist |
 | [Degree plan feature](./features/degree-plan.md) | Checklist import, parser, editor, prereq graph |
 | [Schedule integration](./features/schedule-integration.md) | Scraped `course_sections` → plan warnings + Nabeela schedule page |

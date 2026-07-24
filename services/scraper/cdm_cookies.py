@@ -5,7 +5,7 @@ import json
 from http.cookiejar import MozillaCookieJar
 from pathlib import Path
 
-from cdm_http import CDM_ROOT_URL, DEFAULT_STATE_FILE, CdmHttp, CdmChallengeError
+from cdm_http import CDM_ROOT_URL, DEFAULT_STATE_FILE, CdmHttp, CdmChallengeError, normalize_cookie_value
 
 
 def cookies_from_netscape(path: Path) -> list[dict]:
@@ -17,7 +17,7 @@ def cookies_from_netscape(path: Path) -> list[dict]:
         cookies.append(
             {
                 "name": cookie.name,
-                "value": cookie.value,
+                "value": normalize_cookie_value(cookie.value),
                 "domain": cookie.domain,
                 "path": cookie.path or "/",
             }
@@ -30,7 +30,14 @@ def cookies_from_playwright_json(path: Path) -> list[dict]:
     raw = payload.get("cookies", payload)
     if not isinstance(raw, list):
         raise ValueError("Expected a JSON object with a cookies array")
-    return [item for item in raw if isinstance(item, dict) and item.get("name")]
+    return [
+        {
+            **item,
+            "value": normalize_cookie_value(str(item.get("value", ""))),
+        }
+        for item in raw
+        if isinstance(item, dict) and item.get("name")
+    ]
 
 
 def write_storage_state(cookies: list[dict], out_path: Path) -> None:

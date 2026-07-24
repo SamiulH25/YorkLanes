@@ -84,6 +84,27 @@ Output: `output/fixture_courses.json`
 python scrape_courses.py yoki --subject eecs --out output/eecs.json
 ```
 
+## Data lake (raw archives)
+
+Scrape outputs are archived to Supabase Storage bucket `data-lake` when configured.
+See [`docs/data-lake.md`](../../docs/data-lake.md).
+
+Requires in `apps/api/.env`:
+
+```env
+SUPABASE_URL=https://<project>.supabase.co
+SUPABASE_SERVICE_ROLE_KEY=<secret>
+SUPABASE_DB_URL=<postgres url>
+```
+
+```bash
+npm run scraper:schedule:all
+npm run scraper:schedule:db    # warehouse + lake archive
+npm run scraper:lake:upload    # manual upload only
+```
+
+Use `--skip-lake` on any scraper command to skip Storage upload.
+
 ## Import courses into Supabase
 
 Uses `SUPABASE_DB_URL` or `DATABASE_URL` from `apps/api/.env`.
@@ -104,6 +125,22 @@ Respectful defaults: 1.5s delay between requests, identifiable User-Agent.
 ## Schedule / section scraper
 
 Scrapes per-course CDM detail tables into `course_sections` (one row per meeting day).
+
+Live scrapes use York's documented `crsq1` direct search URL (faculty + subject + term)
+instead of the legacy subject search form, which CDM no longer serves reliably.
+
+**Passport York required for meeting times.** CDM shows "Please click here to see details"
+when you are not logged in. Export cookies from a browser session where you are logged
+into Passport York on [York CDM](https://w2prod.sis.yorku.ca/Apps/WebObjects/cdm), then:
+
+```bash
+npm run scraper:cdm:import-cookies -- ~/cdm-cookies.txt
+```
+
+The scraper prefers **View Active Course Timetables** faculty exports (full day/time data);
+if those are unavailable it falls back to per-course schedule pages.
+
+Course detail pages are fetched in parallel (default 4 workers). Override with `--workers`.
 
 | Mode | From repo root | Notes |
 |------|----------------|-------|

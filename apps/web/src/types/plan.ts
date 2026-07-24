@@ -34,6 +34,22 @@ export interface DegreePlan {
   programme_name: string | null;
   starting_year: number;
   source_filename: string | null;
+  complementary_filename?: string | null;
   parse_warnings: string[];
   terms: PlanTerm[];
+}
+
+export interface ComplementaryCatalogSummary {
+  programme_hint: string | null;
+  total_credits: number;
+  min_subject_area_credits: number;
+  listed_course_count: number;
+  subject_area_count: number;
+}
+
+export interface ComplementaryListedCourse {
+  code: string;
+  credits: number;
+  raw: string;
+  counts_as_subject_area: boolean;
 }

@@ -2,19 +2,13 @@
  * Dashboard API route.
  *
  * Returns the data shape the dashboard widgets expect.
- *
- * EXPAND HERE:
- * - progress      -> Thor (Progress Tracker) writes query logic, expose via this route
- * - assignments   -> Sarah (Assignment Calendar) writes query logic
- * - finance       -> Taziz (Finance Module) writes query logic
- * - quickLinks    -> add links to feature pages as they are built in apps/web
  */
 import { Router } from "express";
 import { getPool } from "../db/index.js";
 import {
   canUseAssignmentsRest,
-  listUpcomingAssignments,
-  listUpcomingAssignmentsViaRest,
+  listAssignmentsDueThisWeek,
+  listAssignmentsDueThisWeekViaRest,
 } from "../services/assignments.js";
 import {
   canUseFinanceRest,
@@ -25,7 +19,9 @@ import {
   listFinanceEntries,
   listFinanceEntriesViaRest,
 } from "../services/finance.js";
-
+import { getLatestPlanForUser } from "../services/planGenerator.js";
+import { buildPlanProgressResult } from "../services/progress.js";
+import { listTodayClasses } from "../services/schedules.js";
 import { findUserById } from "../services/users.js";
 import type { DashboardSummary } from "../types/dashboard.js";
 
@@ -51,8 +47,30 @@ function emptyFinance(message: string): DashboardSummary["finance"] {
   };
 }
 
+async function loadUserProgramme(
+  userId: string,
+): Promise<{ programme: string | null; startingYear: number | null }> {
+  try {
+    const result = await getPool().query<{ programme_name: string; starting_year: number }>(
+      `select programme_name, starting_year
+       from public.user_programmes
+       where user_id = $1`,
+      [userId],
+    );
+    const row = result.rows[0];
+    if (row) {
+      return { programme: row.programme_name, startingYear: row.starting_year };
+    }
+  } catch {
+    // Programme table may not exist yet.
+  }
+  return { programme: null, startingYear: null };
+}
+
 dashboardRouter.get("/summary", async (req, res) => {
   let displayName = "Student";
+  let programme: string | null = null;
+  let startingYear: number | null = null;
   let finance = emptyFinance("Open Finances to track income, expenses, and budgets.");
   const usePostgres = Boolean(process.env.SUPABASE_DB_URL?.trim() || process.env.DATABASE_URL?.trim());
   const month = currentMonth();
@@ -62,6 +80,9 @@ dashboardRouter.get("/summary", async (req, res) => {
     if (user) {
       displayName = user.display_name;
     }
+    const programmeInfo = await loadUserProgramme(req.session.userId);
+    programme = programmeInfo.programme;
+    startingYear = programmeInfo.startingYear;
   }
 
   if (req.session.userId) {
@@ -112,13 +133,13 @@ dashboardRouter.get("/summary", async (req, res) => {
 
   let assignments: DashboardSummary["assignments"] = {
     upcoming: [],
-    message: "No upcoming assignments.",
+    message: "No assignments due in the next 7 days.",
   };
   try {
     const upcoming = usePostgres
-      ? await listUpcomingAssignments(getPool(), req.session.userId)
+      ? await listAssignmentsDueThisWeek(getPool(), req.session.userId)
       : canUseAssignmentsRest()
-        ? await listUpcomingAssignmentsViaRest(req.session.userId)
+        ? await listAssignmentsDueThisWeekViaRest(req.session.userId)
         : [];
     assignments = {
       upcoming: upcoming.map((item) => ({
@@ -127,32 +148,97 @@ dashboardRouter.get("/summary", async (req, res) => {
         dueAt: item.dueAt,
         courseCode: item.courseCode,
       })),
-      message: upcoming.length === 0 ? "No upcoming assignments." : undefined,
+      message:
+        upcoming.length === 0
+          ? "No assignments due in the next 7 days."
+          : undefined,
     };
   } catch {
     // Keep the dashboard available when assignments cannot be loaded.
   }
 
+  let schedule: DashboardSummary["schedule"] = {
+    today: [],
+    hasPrimary: false,
+    savedCount: 0,
+    message: "Build your weekly timetable to see today's classes.",
+  };
+  if (req.session.userId && usePostgres) {
+    try {
+      const result = await listTodayClasses(getPool(), req.session.userId);
+      const primary = result.primarySchedule ?? undefined;
+      schedule = {
+        today: result.today.map((item) => ({
+          id: item.id,
+          courseCode: item.courseCode,
+          sectionCode: item.sectionCode,
+          componentType: item.componentType,
+          startTime: item.startTime,
+          endTime: item.endTime,
+          room: item.room,
+          campus: item.campus,
+        })),
+        primarySchedule: primary,
+        activeSchedule: primary,
+        hasPrimary: result.hasPrimary,
+        savedCount: result.savedCount,
+        message:
+          result.today.length === 0
+            ? !result.hasPrimary && result.savedCount > 0
+              ? "Choose a primary schedule to show today's classes on your dashboard."
+              : !result.hasPrimary
+                ? "Build your weekly timetable to see today's classes."
+                : "No more classes scheduled for today."
+            : undefined,
+      };
+    } catch {
+      schedule = {
+        today: [],
+        hasPrimary: false,
+        savedCount: 0,
+        message: "Schedule data is unavailable right now.",
+      };
+    }
+  }
+
+  let progress: DashboardSummary["progress"] = {
+    percentComplete: 0,
+    label: "Import your degree checklist to track progress.",
+  };
+  if (req.session.userId && usePostgres) {
+    try {
+      const plan = await getLatestPlanForUser(getPool(), req.session.userId);
+      if (plan) {
+        const planProgress = buildPlanProgressResult(plan);
+        progress = {
+          percentComplete: planProgress.percentComplete,
+          label: planProgress.message,
+          completed: planProgress.completed,
+          total: planProgress.total,
+          planId: planProgress.planId,
+        };
+        if (!programme && planProgress.programmeName) {
+          programme = planProgress.programmeName;
+        }
+        if (!startingYear && planProgress.startingYear) {
+          startingYear = planProgress.startingYear;
+        }
+      }
+    } catch {
+      // Keep default progress when plan cannot be loaded.
+    }
+  }
+
   const summary: DashboardSummary = {
     user: {
       displayName,
-      programme: null,
-      startingYear: null,
+      programme,
+      startingYear,
     },
-    progress: {
-      percentComplete: 0,
-      label: "Degree progress not configured",
-    },
+    progress,
     assignments,
     finance,
-    quickLinks: [
-      { label: "Degree Plan", href: "/plan", featureOwner: "Samiul", status: "ready" },
-      { label: "Progress Tracker", href: "/progress", featureOwner: "Thor", status: "in-progress" },
-      { label: "Course Explorer", href: "/courses", featureOwner: "Jericho", status: "ready" },
-      { label: "Schedule Builder", href: "/schedule", featureOwner: "Nabeela", status: "in-progress" },
-      { label: "Assignments", href: "/assignments", featureOwner: "Sarah", status: "in-progress" },
-      { label: "Finance", href: "/finance", featureOwner: "Taziz", status: "ready" },
-    ],
+    schedule,
   };
 
   res.json(summary);

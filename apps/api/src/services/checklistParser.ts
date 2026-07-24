@@ -8,6 +8,7 @@ import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { promisify } from "node:util";
 import { fileURLToPath } from "node:url";
+import { resolvePythonPath } from "../lib/pythonPath.js";
 
 const execFileAsync = promisify(execFile);
 
@@ -38,7 +39,6 @@ export interface ParsedChecklist {
 
 const REPO_ROOT = resolve(fileURLToPath(new URL("../../../..", import.meta.url)));
 const PARSER_SCRIPT = join(REPO_ROOT, "services", "checklist-parser", "parse_checklist.py");
-const PYTHON = process.env.PYTHON_PATH ?? "python";
 
 export async function parseChecklistFile(
   buffer: Buffer,
@@ -50,7 +50,7 @@ export async function parseChecklistFile(
 
   try {
     await writeFile(tempPath, buffer);
-    const { stdout } = await execFileAsync(PYTHON, [PARSER_SCRIPT, tempPath], {
+    const { stdout } = await execFileAsync(resolvePythonPath(), [PARSER_SCRIPT, tempPath], {
       maxBuffer: 10 * 1024 * 1024,
     });
     const parsed = JSON.parse(stdout) as ParsedChecklist;

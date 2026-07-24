@@ -3,7 +3,7 @@
 import BaseLayout from "./BaseLayout.astro";
 import YorkMark from "../components/YorkMark.astro";
 import SettingsMenu from "../components/SettingsMenu.astro";
-import { fetchAuthStatus, fetchSessionUser, signOutUrl } from "../lib/auth";
+import { fetchSessionUser, signOutUrl } from "../lib/auth";
 
 export const prerender = false;
 
@@ -26,15 +26,6 @@ const { title = "Dashboard | YorkLanes", activeNav = "dashboard", collapseSideba
 
 const cookie = Astro.request.headers.get("cookie");
 const sessionUser = await fetchSessionUser(cookie);
-// Keep demos working when Google OAuth is not configured yet.
-// Once OAuth is enabled, require a signed-in session for dashboard pages.
-if (!sessionUser) {
-  const { oauthEnabled } = await fetchAuthStatus();
-  if (oauthEnabled) {
-    const returnTo = `${Astro.url.pathname}${Astro.url.search}`;
-    return Astro.redirect(`/login?returnTo=${encodeURIComponent(returnTo)}`);
-  }
-}
 
 const displayName = sessionUser?.displayName ?? "Guest";
 const userInitial = displayName.charAt(0).toUpperCase();

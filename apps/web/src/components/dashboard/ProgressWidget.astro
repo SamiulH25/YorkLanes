@@ -9,17 +9,21 @@ const { progress } = Astro.props;
 const radius = 52;
 const circumference = 2 * Math.PI * radius;
 const offset = circumference - (progress.percentComplete / 100) * circumference;
+const hasPlan = Boolean(progress.planId);
+const planHref = progress.planId ? `/plan?id=${progress.planId}` : "/plan";
 ---
 
-<section class="surface relative h-full overflow-hidden p-6">
+<section class="dashboard-widget dashboard-widget--progress surface relative h-full overflow-hidden p-6">
   <div class="widget-glow pointer-events-none absolute -right-8 -top-8 h-32 w-32 rounded-full blur-2xl"></div>
 
   <div class="widget-header">
     <div>
-      <p class="label">Your degree</p>
+      <p class="label">Degree plan</p>
       <h2 class="heading-widget mt-1">Progress</h2>
     </div>
-    <span class="badge bg-brand-subtle text-brand">Fall 2025</span>
+    <a href={planHref} class="btn-ghost px-3 py-2 text-xs sm:text-sm">
+      {hasPlan ? "Open plan" : "Get started"}
+    </a>
   </div>
 
   <div class="mt-8 flex flex-col items-center gap-8 sm:flex-row">
@@ -46,20 +50,20 @@ const offset = circumference - (progress.percentComplete / 100) * circumference;
 
     <div class="flex-1 text-center sm:text-left">
       <p class="text-secondary text-sm leading-relaxed">{progress.label}</p>
-      <div class="mt-5 space-y-2.5">
-        <div class="flex items-center gap-2.5 text-xs font-medium text-muted">
-          <span class="chart-dot-1 h-2 w-2 rounded-full"></span>
-          Major requirements
-        </div>
-        <div class="flex items-center gap-2.5 text-xs font-medium text-muted">
-          <span class="chart-dot-2 h-2 w-2 rounded-full"></span>
-          General education
-        </div>
-        <div class="flex items-center gap-2.5 text-xs font-medium text-muted">
-          <span class="chart-dot-3 h-2 w-2 rounded-full"></span>
-          Electives
-        </div>
-      </div>
+      {
+        hasPlan && progress.total !== undefined && progress.total > 0 && (
+          <p class="mt-2 text-xs font-medium text-muted">
+            {progress.completed} of {progress.total} courses marked complete
+          </p>
+        )
+      }
+      {
+        !hasPlan && (
+          <a href="/plan/setup" class="btn-york mt-5 inline-flex text-sm">
+            Import checklist
+          </a>
+        )
+      }
     </div>
   </div>
 </section>

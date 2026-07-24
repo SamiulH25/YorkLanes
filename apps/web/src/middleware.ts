@@ -1,17 +1,24 @@
 import type { MiddlewareHandler } from "astro";
 
-const API_ORIGIN = "http://localhost:3001";
+const API_ORIGIN = import.meta.env.API_INTERNAL_URL ?? "http://localhost:3001";
 
-export const onRequest: MiddlewareHandler = async (context, next) => {
-  if (!import.meta.env.DEV) {
-    return next();
-  }
+const PROTECTED_PATHS = [
+  "/dashboard",
+  "/plan",
+  "/courses",
+  "/schedule",
+  "/progress",
+  "/finance",
+  "/assignments",
+  "/onboarding",
+];
 
+function isProtectedPath(pathname: string): boolean {
+  return PROTECTED_PATHS.some((path) => pathname === path || pathname.startsWith(`${path}/`));
+}
+
+async function proxyApiRequest(context: Parameters<MiddlewareHandler>[0]): Promise<Response> {
   const { pathname, search } = context.url;
-  if (!pathname.startsWith("/api") && pathname !== "/health") {
-    return next();
-  }
-
   const target = `${API_ORIGIN}${pathname}${search}`;
   const request = context.request;
   const headers = new Headers(request.headers);
@@ -41,4 +48,41 @@ export const onRequest: MiddlewareHandler = async (context, next) => {
       headers: { "Content-Type": "application/json" },
     });
   }
+}
+
+async function requiresAuthRedirect(context: Parameters<MiddlewareHandler>[0]): Promise<boolean> {
+  const cookie = context.request.headers.get("cookie");
+  try {
+    const meResponse = await fetch(`${API_ORIGIN}/api/auth/me`, {
+      headers: cookie ? { cookie } : undefined,
+    });
+    if (meResponse.ok) {
+      const data = (await meResponse.json()) as { user?: unknown };
+      if (data.user) return false;
+    }
+
+    const statusResponse = await fetch(`${API_ORIGIN}/api/auth/status`);
+    if (!statusResponse.ok) return false;
+    const status = (await statusResponse.json()) as { oauthEnabled?: boolean };
+    return Boolean(status.oauthEnabled);
+  } catch {
+    return false;
+  }
+}
+
+export const onRequest: MiddlewareHandler = async (context, next) => {
+  const { pathname, search } = context.url;
+
+  if (pathname.startsWith("/api") || pathname === "/health") {
+    if (import.meta.env.DEV) {
+      return proxyApiRequest(context);
+    }
+    return next();
+  }
+
+  if (isProtectedPath(pathname) && (await requiresAuthRedirect(context))) {
+    return context.redirect(`/login?returnTo=${encodeURIComponent(`${pathname}${search}`)}`);
+  }
+
+  return next();
 };

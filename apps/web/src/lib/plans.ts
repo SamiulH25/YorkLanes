@@ -139,6 +139,116 @@ export async function updatePlanCourseCompletion(
   return payload as PlanGraphResponse;
 }
 
+export async function createPlanSummerTerm(
+  planId: string,
+  checklistYear: number,
+): Promise<PlanGraphResponse> {
+  const response = await fetch(`${getApiUrl()}/api/plans/${planId}/terms`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ checklistYear, session: "summer" }),
+    credentials: "include",
+  });
+  const payload = await response.json();
+  if (!response.ok) {
+    throw new Error(payload.error ?? "Failed to create summer term");
+  }
+  return payload as PlanGraphResponse;
+}
+
+export async function addPlanCourse(
+  planId: string,
+  termId: string,
+  courseCode: string,
+  options: { fromComplementary?: boolean } = {},
+): Promise<PlanGraphResponse> {
+  const response = await fetch(`${getApiUrl()}/api/plans/${planId}/courses`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      termId,
+      courseCode,
+      fromComplementary: options.fromComplementary === true,
+    }),
+    credentials: "include",
+  });
+  const payload = await response.json();
+  if (!response.ok) {
+    throw new Error(payload.error ?? "Failed to add course");
+  }
+  return payload as PlanGraphResponse;
+}
+
+export async function fetchComplementarySummary(
+  planId: string,
+): Promise<{
+  filename: string | null;
+  summary: import("../types/plan").ComplementaryCatalogSummary | null;
+}> {
+  const response = await fetch(`${getApiUrl()}/api/plans/${planId}/complementary`, planRequestInit());
+  const payload = await response.json();
+  if (!response.ok) {
+    throw new Error(payload.error ?? "Failed to load complementary catalogue");
+  }
+  return payload as {
+    filename: string | null;
+    summary: import("../types/plan").ComplementaryCatalogSummary | null;
+  };
+}
+
+export async function searchComplementaryCourses(
+  planId: string,
+  query: string,
+  limit = 20,
+): Promise<{ courses: import("../types/plan").ComplementaryListedCourse[]; total: number }> {
+  const params = new URLSearchParams({ q: query, limit: String(limit) });
+  const response = await fetch(
+    `${getApiUrl()}/api/plans/${planId}/complementary/search?${params}`,
+    planRequestInit(),
+  );
+  const payload = await response.json();
+  if (!response.ok) {
+    throw new Error(payload.error ?? "Complementary search failed");
+  }
+  return payload as { courses: import("../types/plan").ComplementaryListedCourse[]; total: number };
+}
+
+export async function uploadComplementaryPdf(
+  planId: string,
+  file: File,
+): Promise<PlanGraphResponse & { catalog: unknown }> {
+  const formData = new FormData();
+  formData.set("complementary", file, file.name);
+
+  const response = await fetch(`${getApiUrl()}/api/plans/${planId}/complementary`, {
+    method: "POST",
+    body: formData,
+    credentials: "include",
+  });
+  const payload = await response.json();
+  if (!response.ok) {
+    const parts = [payload.error ?? "Failed to upload complementary PDF"];
+    if (payload.hint) parts.push(String(payload.hint));
+    throw new Error(parts.join(" "));
+  }
+  return payload as PlanGraphResponse & { catalog: unknown };
+}
+
+export async function removePlanCourse(
+  planId: string,
+  courseId: string,
+): Promise<PlanGraphResponse> {
+  const response = await fetch(`${getApiUrl()}/api/plans/${planId}/courses/${courseId}`, {
+    method: "DELETE",
+    credentials: "include",
+  });
+  const payload = await response.json();
+  if (!response.ok) {
+    throw new Error(payload.error ?? "Failed to remove course");
+  }
+  return payload as PlanGraphResponse;
+}
+
 export async function updatePlanLayout(
   planId: string,
   moves: PlanLayoutMove[],

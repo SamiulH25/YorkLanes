@@ -13,6 +13,9 @@ export interface DashboardSummary {
   progress: {
     percentComplete: number;
     label: string;
+    completed?: number;
+    total?: number;
+    planId?: string;
   };
   assignments: {
     upcoming: AssignmentPreview[];
@@ -32,7 +35,23 @@ export interface DashboardSummary {
     linked: boolean;
     message?: string;
   };
-  quickLinks: QuickLink[];
+  schedule: {
+    today: TodayClassPreview[];
+    primarySchedule?: {
+      planYear: number;
+      planSeason: string;
+      cdmTerm: string;
+    };
+    /** @deprecated Use primarySchedule */
+    activeSchedule?: {
+      planYear: number;
+      planSeason: string;
+      cdmTerm: string;
+    };
+    hasPrimary: boolean;
+    savedCount: number;
+    message?: string;
+  };
 }
 
 export interface AssignmentPreview {
@@ -42,9 +61,14 @@ export interface AssignmentPreview {
   courseCode?: string;
 }
 
-export interface QuickLink {
-  label: string;
-  href?: string;
-  featureOwner: string;
-  status: "not-started" | "in-progress" | "ready";
+export interface TodayClassPreview {
+  id: string;
+  courseCode: string;
+  sectionCode: string;
+  componentType: string;
+  startTime: string;
+  endTime: string;
+  room?: string | null;
+  campus?: string | null;
 }
+

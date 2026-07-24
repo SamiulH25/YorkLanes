@@ -49,6 +49,14 @@ export interface SchedulePlacementWarning {
   message: string;
 }
 
+export interface ComplementaryWarning {
+  severity: "warning" | "info";
+  code: string;
+  message: string;
+  course_id?: string;
+  course_code?: string;
+}
+
 export interface PlanGraphSnapshot {
   plan_id: string;
   plan?: DegreePlan;
@@ -57,6 +65,7 @@ export interface PlanGraphSnapshot {
   course_codes: string[];
   offering_seasons?: Record<string, SeasonFlags & { has_history: boolean }>;
   schedule_warnings?: SchedulePlacementWarning[];
+  complementary_warnings?: ComplementaryWarning[];
   updated_at: string;
 }
 
@@ -109,6 +118,66 @@ export function listPlannedCourseCodes(snapshot: PlanGraphSnapshot): string[] {
     .map((p) => p.course_code);
 }
 
+export type PlanSeasonFilter = "all" | "fall" | "winter" | "summer";
+
+export function normalizePlanSeason(session: string): Exclude<PlanSeasonFilter, "all"> | "other" {
+  const value = session.toLowerCase();
+  if (value.includes("fall") || value.includes("autumn")) return "fall";
+  if (value.includes("winter")) return "winter";
+  if (value.includes("summer")) return "summer";
+  return "other";
+}
+
+export function listPlanChecklistYears(snapshot: PlanGraphSnapshot): number[] {
+  if (snapshot.plan?.terms?.length) {
+    return [...new Set(snapshot.plan.terms.map((term) => term.checklist_year))].sort((a, b) => a - b);
+  }
+  return [];
+}
+
+export function listPlannedCoursesForYear(
+  snapshot: PlanGraphSnapshot,
+  checklistYear: number,
+  season: PlanSeasonFilter = "all",
+): CoursePlacement[] {
+  if (!snapshot.plan) {
+    return snapshot.placements.filter((placement) => (placement.entry_kind ?? "course") === "course");
+  }
+
+  const allowedTermIds = new Set(
+    snapshot.plan.terms
+      .filter((term) => {
+        if (term.checklist_year !== checklistYear) return false;
+        if (season === "all") return true;
+        const mapped = normalizePlanSeason(term.session);
+        return mapped === season || mapped === "other";
+      })
+      .map((term) => term.id),
+  );
+
+  return snapshot.placements
+    .filter(
+      (placement) =>
+        (placement.entry_kind ?? "course") === "course" && allowedTermIds.has(placement.term_id),
+    )
+    .sort((a, b) => a.term_sort_order - b.term_sort_order || a.sort_order - b.sort_order);
+}
+
+export function listPlannedCourseCodesForYear(
+  snapshot: PlanGraphSnapshot,
+  checklistYear: number,
+  season: PlanSeasonFilter = "all",
+): string[] {
+  const seen = new Set<string>();
+  const codes: string[] = [];
+  for (const placement of listPlannedCoursesForYear(snapshot, checklistYear, season)) {
+    if (seen.has(placement.course_code)) continue;
+    seen.add(placement.course_code);
+    codes.push(placement.course_code);
+  }
+  return codes;
+}
+
 export function listPlanStubs(snapshot: PlanGraphSnapshot): CoursePlacement[] {
   return snapshot.placements.filter((p) => p.entry_kind === "stub");
 }
@@ -155,6 +224,10 @@ export function scheduleWarningForCourse(
 
 export function countScheduleWarningsForTerm(snapshot: PlanGraphSnapshot, termId: string): number {
   return scheduleWarningsForTerm(snapshot, termId).length;
+}
+
+export function listComplementaryWarnings(snapshot: PlanGraphSnapshot): ComplementaryWarning[] {
+  return [...(snapshot.complementary_warnings ?? [])];
 }
 
 export function courseById(plan: DegreePlan, courseId: string): { course: PlanCourse; term: PlanTerm } | null {

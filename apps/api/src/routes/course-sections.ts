@@ -3,7 +3,7 @@
  */
 import { Router } from "express";
 import { getCourseOfferingSummary } from "../services/courseOfferings.js";
-import { listCourseSections } from "../services/course-sections.js";
+import { listCourseSections, listCdmTerms } from "../services/course-sections.js";
 
 export const courseSectionsRouter = Router();
 
@@ -37,6 +37,16 @@ courseSectionsRouter.get("/summary", async (req, res) => {
       status: "ok",
       summary,
     });
+  } catch (error) {
+    dbErrorResponse(res, error);
+  }
+});
+
+courseSectionsRouter.get("/terms", async (req, res) => {
+  try {
+    const courseCode = typeof req.query.course_code === "string" ? req.query.course_code : undefined;
+    const terms = await listCdmTerms(courseCode);
+    res.json({ terms });
   } catch (error) {
     dbErrorResponse(res, error);
   }

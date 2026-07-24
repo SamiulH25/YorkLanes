@@ -1,4 +1,5 @@
-/** Progress tracker — Thor. Guide: docs/tasks/progress.md */
+// progress route - thor
+// docs/tasks/progress.md
 import { Router } from "express";
 import { getPool } from "../db/index.js";
 import { getPlanById } from "../services/planGenerator.js";
@@ -6,8 +7,12 @@ import { buildPlanProgressResult } from "../services/progress.js";
 
 export const progressRouter = Router();
 
+// turn db errors into something useful
 function progressError(error: unknown): { status: number; body: { error: string; hint?: string } } {
-  const message = error instanceof Error ? error.message : "Failed to load progress";
+  let message = "Failed to load progress";
+  if (error instanceof Error) {
+    message = error.message;
+  }
 
   if (message.includes("No database configured") || message.includes("SUPABASE_DB_URL")) {
     return {
@@ -47,7 +52,10 @@ function progressError(error: unknown): { status: number; body: { error: string;
 }
 
 progressRouter.get("/", async (req, res) => {
-  const planId = typeof req.query.planId === "string" ? req.query.planId.trim() : "";
+  let planId = "";
+  if (typeof req.query.planId === "string") {
+    planId = req.query.planId.trim();
+  }
 
   if (!planId) {
     res.status(400).json({
@@ -64,7 +72,7 @@ progressRouter.get("/", async (req, res) => {
       return;
     }
 
-    const result = buildPlanProgressResult(plan);
+    const result = await buildPlanProgressResult(getPool(), plan);
     res.json({
       feature: "progress",
       status: "ready",

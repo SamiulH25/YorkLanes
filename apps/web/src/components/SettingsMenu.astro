@@ -63,30 +63,27 @@ const swatches: Record<string, string> = Object.fromEntries(themes.map((t) => [t
 
     <div class="max-h-[min(70vh,28rem)] overflow-y-auto px-4 py-4">
       <section>
-        <p class="label">Theme</p>
-        <ul class="mt-2 space-y-1.5" role="list">
+        <p class="label">Color</p>
+        <div class="mt-2 grid grid-cols-5 gap-2" role="list">
           {
             themes.map((theme) => (
-              <li>
-                <button
-                  type="button"
-                  data-theme-id={theme.id}
-                  class="settings-theme-option flex w-full items-center gap-3 rounded-[var(--theme-radius-button)] border border-transparent px-3 py-2.5 text-left transition-colors hover:bg-surface-muted"
-                >
-                  <span
-                    class="theme-swatch h-9 w-9 shrink-0 rounded-[var(--theme-radius-button)] border-2 border-transparent"
-                    style={`background: ${swatches[theme.id]}`}
-                    aria-hidden="true"
-                  />
-                  <span class="min-w-0 flex-1">
-                    <span class="block text-sm font-semibold text-foreground">{theme.label}</span>
-                    <span class="block text-xs text-muted">{theme.description}</span>
-                  </span>
-                </button>
-              </li>
+              <button
+                type="button"
+                data-theme-id={theme.id}
+                class="settings-theme-option flex flex-col items-center gap-1.5 rounded-[var(--theme-radius-button)] border border-transparent p-2 transition-colors hover:bg-surface-muted"
+                aria-label={theme.label}
+                title={theme.label}
+              >
+                <span
+                  class="theme-swatch h-10 w-10 rounded-full border-2 border-transparent"
+                  style={`background: ${swatches[theme.id]}`}
+                  aria-hidden="true"
+                />
+                <span class="text-xs font-medium text-muted">{theme.label}</span>
+              </button>
             ))
           }
-        </ul>
+        </div>
       </section>
 
       <section class="mt-5">
@@ -147,19 +144,11 @@ const swatches: Record<string, string> = Object.fromEntries(themes.map((t) => [t
 </script>
 
 <style>
-  :global(html[data-theme="york"] .settings-theme-option[data-theme-id="york"]),
-  :global(html[data-theme="midnight"] .settings-theme-option[data-theme-id="midnight"]),
-  :global(html[data-theme="retro"] .settings-theme-option[data-theme-id="retro"]),
-  :global(html[data-theme="paper"] .settings-theme-option[data-theme-id="paper"]),
   :global(.settings-theme-option.is-active) {
     border-color: color-mix(in srgb, var(--theme-primary) 35%, transparent);
     background: color-mix(in srgb, var(--theme-primary) 8%, transparent);
   }
 
-  :global(html[data-theme="york"] .settings-theme-option[data-theme-id="york"] .theme-swatch),
-  :global(html[data-theme="midnight"] .settings-theme-option[data-theme-id="midnight"] .theme-swatch),
-  :global(html[data-theme="retro"] .settings-theme-option[data-theme-id="retro"] .theme-swatch),
-  :global(html[data-theme="paper"] .settings-theme-option[data-theme-id="paper"] .theme-swatch),
   :global(.settings-theme-option.is-active .theme-swatch) {
     border-color: var(--theme-primary);
     box-shadow: var(--theme-shadow-button);

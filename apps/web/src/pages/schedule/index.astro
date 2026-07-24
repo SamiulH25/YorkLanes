@@ -1,432 +1,147 @@
 ---
 import DashboardLayout from "../../layouts/DashboardLayout.astro";
+import { fetchCourseSections } from "../../lib/course-sections";
 
 export const prerender = false;
 
-const days = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"];
+const focusCourse = Astro.url.searchParams.get("course")?.trim().toUpperCase() ?? "";
+const focusTerm = Astro.url.searchParams.get("term")?.trim() ?? "";
 
-const hours = [
-  "8:00 AM",
-  "9:00 AM",
-  "10:00 AM",
-  "11:00 AM",
-  "12:00 PM",
-  "1:00 PM",
-  "2:00 PM",
-  "3:00 PM",
-  "4:00 PM",
-  "5:00 PM",
-  "6:00 PM",
-];
+let initialTerms: string[] = [];
+if (focusCourse) {
+  try {
+    const sections = await fetchCourseSections({
+      courseCode: focusCourse,
+      term: focusTerm || undefined,
+    });
+    initialTerms = [...new Set(sections.groups.map((group) => group.term))].sort((a, b) =>
+      b.localeCompare(a),
+    );
+  } catch {
+    initialTerms = focusTerm ? [focusTerm] : [];
+  }
+}
 ---
 
 <DashboardLayout title="Schedule | YorkLanes" activeNav="schedule">
-  <main
-    class="min-h-screen bg-slate-50 px-6 py-8 text-slate-900 transition-colors dark:bg-slate-950 dark:text-white"
+  <Fragment slot="header">
+    <div class="flex flex-wrap items-start justify-between gap-4">
+      <div>
+        <p class="label">This term</p>
+        <h1 class="heading-page">Weekly schedule</h1>
+        <p class="mt-1 text-sm text-muted">
+          Build your week from scraped York section times, starting with courses from your degree plan.
+        </p>
+      </div>
+      <a href="/plan" class="btn-ghost shrink-0 px-4 py-2 text-sm">Open degree plan</a>
+    </div>
+  </Fragment>
+
+  <div
+    class="schedule-layout"
+    data-schedule-root
+    data-focus-course={focusCourse}
+    data-focus-term={focusTerm}
+    style={`--schedule-day-count: 5; --schedule-row-height: 5rem;`}
   >
-    <div class="mx-auto max-w-7xl space-y-6">
-      <section>
-        <p class="text-sm font-semibold uppercase tracking-wide text-york-red">
-          Schedule Builder
-        </p>
-
-        <h1 class="mt-2 text-3xl font-bold text-slate-900 dark:text-white">
-          Weekly Schedule
-        </h1>
-
-        <p class="mt-2 text-slate-600 dark:text-slate-400">
-          Add courses manually and view them in a weekly timetable.
-        </p>
+    <aside class="grid gap-4">
+      <section class="surface p-5">
+        <p class="label">Term</p>
+        <select
+          data-schedule-term
+          class="field-select mt-2"
+          aria-label="Select academic term"
+        >
+          {
+            initialTerms.length > 0 ? (
+              initialTerms.map((term, index) => (
+                <option value={term} selected={index === 0}>
+                  {term}
+                </option>
+              ))
+            ) : (
+              <option value="">Loading terms…</option>
+            )
+          }
+        </select>
       </section>
 
-      <section
-        class="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm transition-colors dark:border-slate-700 dark:bg-slate-900 dark:shadow-lg"
-      >
-        <h2 class="text-lg font-semibold text-slate-900 dark:text-white">
-          Add schedule entry
-        </h2>
-
-        <form id="schedule-form" class="mt-4 grid gap-4 md:grid-cols-5">
+      <section class="surface p-5">
+        <div class="flex items-center justify-between gap-3">
           <div>
-            <label
-              for="course-code"
-              class="mb-1 block text-sm font-medium text-slate-700 dark:text-slate-200"
-            >
-              Course code
-            </label>
+            <p class="label">Planned courses</p>
+            <h2 class="heading-widget mt-1">From your plan</h2>
+          </div>
+        </div>
+        <div class="schedule-course-list mt-4" data-schedule-courses></div>
 
+        <form data-schedule-search class="mt-5 grid gap-3">
+          <label class="block">
+            <span class="label">Search course</span>
             <input
-              id="course-code"
               name="courseCode"
               type="text"
-              placeholder="EECS 3421"
-              required
-              class="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-slate-900 outline-none placeholder:text-slate-400 focus:border-york-red focus:ring-2 focus:ring-red-100 dark:border-slate-600 dark:bg-slate-800 dark:text-white dark:placeholder:text-slate-500 dark:focus:ring-red-900"
+              placeholder="EECS 1028"
+              class="field-input"
             />
-          </div>
-
-          <div>
-            <label
-              for="day"
-              class="mb-1 block text-sm font-medium text-slate-700 dark:text-slate-200"
-            >
-              Day
-            </label>
-
-            <select
-              id="day"
-              name="day"
-              required
-              class="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-slate-900 outline-none focus:border-york-red focus:ring-2 focus:ring-red-100 dark:border-slate-600 dark:bg-slate-800 dark:text-white dark:focus:ring-red-900"
-            >
-              <option value="">Select day</option>
-
-              {
-                days.map((day) => (
-                  <option value={day}>{day}</option>
-                ))
-              }
-            </select>
-          </div>
-
-          <div>
-            <label
-              for="start-time"
-              class="mb-1 block text-sm font-medium text-slate-700 dark:text-slate-200"
-            >
-              Start time
-            </label>
-
-            <input
-              id="start-time"
-              name="startTime"
-              type="time"
-              min="08:00"
-              max="18:00"
-              required
-              class="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-slate-900 outline-none focus:border-york-red focus:ring-2 focus:ring-red-100 dark:border-slate-600 dark:bg-slate-800 dark:text-white dark:focus:ring-red-900"
-            />
-          </div>
-
-          <div>
-            <label
-              for="end-time"
-              class="mb-1 block text-sm font-medium text-slate-700 dark:text-slate-200"
-            >
-              End time
-            </label>
-
-            <input
-              id="end-time"
-              name="endTime"
-              type="time"
-              min="08:00"
-              max="19:00"
-              required
-              class="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-slate-900 outline-none focus:border-york-red focus:ring-2 focus:ring-red-100 dark:border-slate-600 dark:bg-slate-800 dark:text-white dark:focus:ring-red-900"
-            />
-          </div>
-
-          <div class="flex items-end">
-            <button
-              type="submit"
-              class="w-full rounded-lg bg-york-red px-4 py-2 font-semibold text-white transition hover:opacity-90"
-            >
-              Add course
-            </button>
-          </div>
+          </label>
+          <button type="submit" class="btn-york w-full justify-center text-sm">Load sections</button>
         </form>
-
-        <p
-          id="form-message"
-          class="mt-3 hidden text-sm font-medium"
-          aria-live="polite"
-        >
-        </p>
       </section>
 
-      <section
-        class="overflow-x-auto rounded-2xl border border-slate-200 bg-white shadow-sm transition-colors dark:border-slate-700 dark:bg-slate-900 dark:shadow-lg"
-      >
-        <div class="min-w-[900px]">
-          <div
-            class="grid grid-cols-[100px_repeat(5,1fr)] border-b border-slate-200 dark:border-slate-700"
-          >
-            <div class="bg-slate-50 p-3 dark:bg-slate-950"></div>
+      <section class="surface p-5">
+        <div>
+          <p class="label">Sections</p>
+          <h2 class="heading-widget mt-1" data-schedule-section-heading>Sections</h2>
+        </div>
+        <div class="schedule-section-browser mt-4" data-schedule-sections>
+          <p class="schedule-status">Select a course to browse scraped section times.</p>
+        </div>
+      </section>
+    </aside>
 
-            {
-              days.map((day) => (
-                <div class="border-l border-slate-200 bg-slate-50 p-3 text-center font-semibold text-slate-700 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-200">
-                  {day}
-                </div>
-              ))
-            }
+    <div class="grid gap-4">
+      <p data-schedule-status class="schedule-status" hidden></p>
+
+      <section class="schedule-grid-shell">
+        <div class="schedule-grid" data-schedule-grid>
+          <div class="schedule-grid__header" data-schedule-grid-header>
+            <div class="schedule-grid__corner"></div>
+            <div class="schedule-grid__day">Monday</div>
+            <div class="schedule-grid__day">Tuesday</div>
+            <div class="schedule-grid__day">Wednesday</div>
+            <div class="schedule-grid__day">Thursday</div>
+            <div class="schedule-grid__day">Friday</div>
           </div>
 
-          <div class="relative">
-            {
-              hours.map((hour) => (
-                <div class="grid h-20 grid-cols-[100px_repeat(5,1fr)] border-b border-slate-200 dark:border-slate-700">
-                  <div class="bg-white p-3 text-sm text-slate-500 dark:bg-slate-900 dark:text-slate-400">
-                    {hour}
-                  </div>
-
-                  {days.map(() => (
-                    <div class="border-l border-slate-200 bg-white dark:border-slate-700 dark:bg-slate-900" />
-                  ))}
-                </div>
-              ))
-            }
-
-            <div
-              id="schedule-events"
-              class="pointer-events-none absolute inset-0"
-            >
+          <div class="relative" style={`--schedule-row-height: 5rem;`}>
+            <div data-schedule-grid-body>
+              {
+                Array.from({ length: 12 }).map((_, index) => {
+                  const hour = 8 + index;
+                  const period = hour >= 12 ? "PM" : "AM";
+                  const displayHour = hour % 12 || 12;
+                  return (
+                    <div class="schedule-grid__row">
+                      <div class="schedule-grid__hour">{displayHour}:00 {period}</div>
+                      <div class="schedule-grid__cell"></div>
+                      <div class="schedule-grid__cell"></div>
+                      <div class="schedule-grid__cell"></div>
+                      <div class="schedule-grid__cell"></div>
+                      <div class="schedule-grid__cell"></div>
+                    </div>
+                  );
+                })
+              }
             </div>
+            <div class="schedule-grid__events" data-schedule-events></div>
           </div>
         </div>
       </section>
     </div>
-  </main>
+  </div>
 
   <script>
-    const form =
-      document.querySelector<HTMLFormElement>("#schedule-form");
-
-    const eventsContainer =
-      document.querySelector<HTMLDivElement>("#schedule-events");
-
-    const message =
-      document.querySelector<HTMLParagraphElement>("#form-message");
-
-    const scheduleDays = [
-      "Monday",
-      "Tuesday",
-      "Wednesday",
-      "Thursday",
-      "Friday",
-    ];
-
-    const scheduleStartHour = 8;
-    const scheduleEndHour = 19;
-    const rowHeight = 80;
-
-    function showMessage(
-      text: string,
-      type: "success" | "error",
-    ): void {
-      if (!message) return;
-
-      message.textContent = text;
-
-      message.classList.remove(
-        "hidden",
-        "text-green-700",
-        "text-red-700",
-        "dark:text-green-400",
-        "dark:text-red-400",
-      );
-
-      if (type === "success") {
-        message.classList.add(
-          "text-green-700",
-          "dark:text-green-400",
-        );
-      } else {
-        message.classList.add(
-          "text-red-700",
-          "dark:text-red-400",
-        );
-      }
-    }
-
-    function formatTime(time: string): string {
-      const [hourText, minuteText] = time.split(":");
-
-      const hour = Number(hourText);
-      const minute = minuteText ?? "00";
-      const period = hour >= 12 ? "PM" : "AM";
-      const displayHour = hour % 12 || 12;
-
-      return `${displayHour}:${minute} ${period}`;
-    }
-
-    function convertTimeToMinutes(time: string): number {
-      const [hourText, minuteText] = time.split(":");
-
-      const hour = Number(hourText);
-      const minute = Number(minuteText);
-
-      return hour * 60 + minute;
-    }
-
-    function createTextElement(
-      className: string,
-      text: string,
-    ): HTMLParagraphElement {
-      const element = document.createElement("p");
-
-      element.className = className;
-      element.textContent = text;
-
-      return element;
-    }
-
-    function addScheduleEntry(
-      courseCode: string,
-      day: string,
-      startTime: string,
-      endTime: string,
-    ): void {
-      if (!eventsContainer) return;
-
-      const dayIndex = scheduleDays.indexOf(day);
-
-      if (dayIndex === -1) {
-        showMessage("Please select a valid weekday.", "error");
-        return;
-      }
-
-      const startMinutes = convertTimeToMinutes(startTime);
-      const endMinutes = convertTimeToMinutes(endTime);
-
-      const scheduleStartMinutes = scheduleStartHour * 60;
-      const scheduleEndMinutes = scheduleEndHour * 60;
-
-      if (
-        startMinutes < scheduleStartMinutes ||
-        endMinutes > scheduleEndMinutes
-      ) {
-        showMessage(
-          "Please choose a time between 8:00 AM and 7:00 PM.",
-          "error",
-        );
-
-        return;
-      }
-
-      if (endMinutes <= startMinutes) {
-        showMessage(
-          "The end time must be later than the start time.",
-          "error",
-        );
-
-        return;
-      }
-
-      const minutesFromScheduleStart =
-        startMinutes - scheduleStartMinutes;
-
-      const durationMinutes = endMinutes - startMinutes;
-
-      const top =
-        (minutesFromScheduleStart / 60) * rowHeight;
-
-      const height =
-        (durationMinutes / 60) * rowHeight;
-
-      const eventCard = document.createElement("article");
-
-      eventCard.className =
-        "pointer-events-auto absolute overflow-hidden rounded-lg border border-red-300 bg-red-100 p-2 pr-8 text-sm shadow-sm dark:border-red-500 dark:bg-red-950";
-
-      eventCard.style.left =
-        `calc(100px + ${dayIndex} * ((100% - 100px) / 5))`;
-
-      eventCard.style.top = `${top}px`;
-
-      eventCard.style.width =
-        "calc((100% - 100px) / 5)";
-
-      eventCard.style.height =
-        `${Math.max(height, 44)}px`;
-
-      const courseName = createTextElement(
-        "font-bold text-red-900 dark:text-red-100",
-        courseCode.toUpperCase(),
-      );
-
-      const courseTime = createTextElement(
-        "text-red-800 dark:text-red-200",
-        `${formatTime(startTime)} – ${formatTime(endTime)}`,
-      );
-
-      const removeButton = document.createElement("button");
-
-      removeButton.type = "button";
-
-      removeButton.className =
-        "absolute right-2 top-1 rounded px-1 text-lg font-bold text-red-700 hover:bg-red-200 hover:text-red-950 dark:text-red-200 dark:hover:bg-red-900 dark:hover:text-white";
-
-      removeButton.setAttribute(
-        "aria-label",
-        `Remove ${courseCode}`,
-      );
-
-      removeButton.textContent = "×";
-
-      removeButton.addEventListener("click", () => {
-        eventCard.remove();
-
-        showMessage(
-          `${courseCode.toUpperCase()} was removed.`,
-          "success",
-        );
-      });
-
-      eventCard.append(
-        courseName,
-        courseTime,
-        removeButton,
-      );
-
-      eventsContainer.appendChild(eventCard);
-
-      showMessage(
-        `${courseCode.toUpperCase()} was added to ${day}.`,
-        "success",
-      );
-    }
-
-    form?.addEventListener("submit", (event) => {
-      event.preventDefault();
-
-      const formData = new FormData(form);
-
-      const courseCode =
-        String(formData.get("courseCode") ?? "").trim();
-
-      const day =
-        String(formData.get("day") ?? "");
-
-      const startTime =
-        String(formData.get("startTime") ?? "");
-
-      const endTime =
-        String(formData.get("endTime") ?? "");
-
-      if (
-        !courseCode ||
-        !day ||
-        !startTime ||
-        !endTime
-      ) {
-        showMessage(
-          "Please complete all fields.",
-          "error",
-        );
-
-        return;
-      }
-
-      addScheduleEntry(
-        courseCode,
-        day,
-        startTime,
-        endTime,
-      );
-
-      form.reset();
-    });
+    import "../../scripts/schedule-page.ts";
   </script>
 </DashboardLayout>

@@ -1,9 +1,8 @@
-export type ThemeId = "york" | "midnight" | "retro" | "paper";
+export type ThemeId = "york" | "blue" | "green" | "purple" | "teal";
 
 export interface ThemeOption {
   id: ThemeId;
   label: string;
-  description: string;
   swatch: string;
 }
 
@@ -13,38 +12,30 @@ export const DEFAULT_THEME_ID: ThemeId = "york";
 export const THEME_STORAGE_KEY = "yorklanes-theme-id";
 export const MODE_STORAGE_KEY = "theme";
 
-/** York is always first — the default campus theme. */
+const LEGACY_THEME_IDS = new Set(["midnight", "retro", "paper"]);
+
 export const themes: ThemeOption[] = [
-  {
-    id: "york",
-    label: "York",
-    description: "Campus red, soft cards, classic dashboard",
-    swatch: "#E31837",
-  },
-  {
-    id: "midnight",
-    label: "Phosphor",
-    description: "CRT scanlines, terminal glow, mono type",
-    swatch: "linear-gradient(180deg, #33ff66, #020504)",
-  },
-  {
-    id: "retro",
-    label: "Sticker",
-    description: "Neubrutalist halftone, hard shadows, hot pink",
-    swatch: "linear-gradient(135deg, #fff500 40%, #ff2d6a 40%, #ff2d6a 60%, #00d4ff 60%)",
-  },
-  {
-    id: "paper",
-    label: "Broadsheet",
-    description: "Letterpress rules, editorial margin, ink serif",
-    swatch: "linear-gradient(90deg, #8b1a1a 3px, #f4f0e6 3px)",
-  },
+  { id: "york", label: "Red", swatch: "#e31837" },
+  { id: "blue", label: "Blue", swatch: "#2563eb" },
+  { id: "green", label: "Green", swatch: "#16a34a" },
+  { id: "purple", label: "Purple", swatch: "#7c3aed" },
+  { id: "teal", label: "Teal", swatch: "#0d9488" },
 ];
 
 export const themeIds = themes.map((theme) => theme.id) as ThemeId[];
 
 export function isThemeId(value: string | null | undefined): value is ThemeId {
   return themeIds.includes(value as ThemeId);
+}
+
+export function normalizeThemeId(value: string | null | undefined): ThemeId {
+  if (value && isThemeId(value)) {
+    return value;
+  }
+  if (value && LEGACY_THEME_IDS.has(value)) {
+    return DEFAULT_THEME_ID;
+  }
+  return DEFAULT_THEME_ID;
 }
 
 export function defaultThemeId(): ThemeId {

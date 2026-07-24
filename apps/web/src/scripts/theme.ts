@@ -3,6 +3,7 @@ import {
   defaultThemeId,
   isThemeId,
   MODE_STORAGE_KEY,
+  normalizeThemeId,
   THEME_STORAGE_KEY,
   type ThemeId,
 } from "../lib/themes";
@@ -11,7 +12,15 @@ const SWITCH_MS = 320;
 
 function readStoredThemeId(): ThemeId {
   const stored = localStorage.getItem(THEME_STORAGE_KEY);
-  return stored && isThemeId(stored) ? stored : defaultThemeId();
+  if (stored && isThemeId(stored)) {
+    return stored;
+  }
+  if (stored) {
+    const normalized = normalizeThemeId(stored);
+    localStorage.setItem(THEME_STORAGE_KEY, normalized);
+    return normalized;
+  }
+  return defaultThemeId();
 }
 
 function readStoredDark(): boolean {

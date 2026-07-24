@@ -57,11 +57,14 @@ Before using recurring entries against the remote database, the maintainer must 
 - [x] Keep dashboard reachable for demos when Google OAuth is not configured (redirect only once OAuth is enabled)
 - [x] Income-by-category breakdown beside the expense chart
 - [x] Due-this-month strip for recurring entries with Log next
+- [x] Richer dashboard Finance widget (income, expenses, month budget, link to `/finance`)
 - [ ] Tighter Supabase RLS with the maintainer once OAuth is configured for demos
 
 Signed-in users read and write only their own `finance_entries` and `finance_monthly_budgets` rows via `req.session.userId`. Guests see a sign-in banner and keep drafts in localStorage so demos still work without Google OAuth.
 
 The Due this month strip lists recurring entries whose next date falls in the selected budget month and has not already been logged.
+
+The dashboard Finance widget shows live income, expenses, balance, and current-month budget progress when the user is signed in. Guests get a clear CTA to `/finance` instead of shared cloud totals.
 
 ## After that
 

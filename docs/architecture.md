@@ -30,7 +30,8 @@ flowchart TB
   end
 
   subgraph data [Hosted Supabase]
-    Postgres[(PostgreSQL)]
+    Postgres[(PostgreSQL warehouse)]
+    Storage[(Storage data-lake)]
   end
 
   AstroPages -->|fetch PUBLIC_API_URL| Express
@@ -40,6 +41,7 @@ flowchart TB
   PG --> Postgres
   Express -->|spawn PYTHON| Parser
   Scraper -->|optional import| Postgres
+  Scraper -->|raw JSON archives| Storage
 ```
 
 ## Design principles

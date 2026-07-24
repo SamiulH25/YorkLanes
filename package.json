@@ -19,7 +19,7 @@
     "doctor": "node scripts/tools.mjs doctor",
     "smoke": "node scripts/tools.mjs smoke",
     "tools": "node scripts/tools.mjs help",
-    "test:parser": "node scripts/tools.mjs parser",
+    "test:api": "tsx --test apps/api/src/services/**/*.test.ts",
     "check": "npm run build -w apps/api && npm run check -w apps/web",
     "build": "npm run build -w apps/web && npm run build -w apps/api",
     "build:prod": "npm run build:prod -w apps/web && npm run build -w apps/api",
@@ -46,7 +46,8 @@
     "scraper:schedule:all": "node scripts/scraper-run.mjs schedule-batch --out output/sections.json",
     "scraper:schedule:all-terms": "node scripts/scraper-run.mjs schedule --subject eecs --all-terms --out output/sections.json",
     "scraper:schedule:fixture": "node scripts/scraper-run.mjs schedule-fixture --out output/sections.json",
-    "scraper:schedule:db": "node scripts/scraper-run.mjs db --kind sections --input output/sections.json"
+    "scraper:schedule:db": "node scripts/scraper-run.mjs db --kind sections --input output/sections.json",
+    "scraper:lake:upload": "node scripts/scraper-run.mjs lake-upload --input output/sections.json --kind sections"
   },
   "devDependencies": {
     "concurrently": "^9.1.2",

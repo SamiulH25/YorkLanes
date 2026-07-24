@@ -1944,7 +1944,7 @@
   }
 
   .plan-term-header {
-    @apply mb-2 shrink-0 border-b border-york-stone/50 pb-2 dark:border-white/10;
+    @apply mb-2 flex flex-wrap items-baseline gap-x-2 gap-y-1 shrink-0 border-b border-york-stone/50 pb-2 dark:border-white/10;
   }
 
   .plan-term-session {
@@ -2078,6 +2078,57 @@
 
   .plan-course-card--warning.plan-course-card--schedule-warn .plan-course-schedule-warn {
     top: 1.35rem;
+  }
+
+  .plan-schedule-warnings {
+    @apply mb-4 rounded-xl border px-4 py-3 text-sm;
+    border-color: color-mix(in srgb, var(--theme-accent) 45%, var(--theme-border));
+    background: color-mix(in srgb, var(--theme-accent) 8%, var(--theme-surface));
+  }
+
+  .plan-schedule-warnings__title {
+    @apply font-semibold text-york-black dark:text-white;
+  }
+
+  .plan-schedule-warnings__hint {
+    @apply mt-1;
+  }
+
+  .plan-schedule-warnings__list {
+    @apply mt-3 space-y-2;
+  }
+
+  .plan-schedule-warnings__item {
+    @apply w-full rounded-lg border px-3 py-2 text-left transition-colors;
+    border-color: color-mix(in srgb, var(--theme-accent) 35%, var(--theme-border));
+    background: color-mix(in srgb, var(--theme-surface) 92%, var(--theme-accent));
+  }
+
+  .plan-schedule-warnings__item:hover {
+    border-color: color-mix(in srgb, var(--theme-accent) 55%, var(--theme-border));
+    background: color-mix(in srgb, var(--theme-surface) 88%, var(--theme-accent));
+  }
+
+  .plan-schedule-warnings__course {
+    @apply mr-2 font-semibold text-york-black dark:text-white;
+  }
+
+  .plan-schedule-warnings__term {
+    @apply mr-2 text-xs font-medium uppercase tracking-wide text-york-muted;
+  }
+
+  .plan-schedule-warnings__message {
+    @apply block mt-1 text-xs text-stone-600 dark:text-stone-300;
+  }
+
+  .plan-term-schedule-warn {
+    @apply ml-auto inline-flex h-5 min-w-5 items-center justify-center rounded-full px-1 text-[10px] font-bold;
+    background: color-mix(in srgb, var(--theme-accent) 92%, #000);
+    color: #1a1208;
+  }
+
+  .plan-term-bubble--schedule-warn {
+    border-color: color-mix(in srgb, var(--theme-accent) 40%, var(--theme-border));
   }
 
   .plan-course-card {

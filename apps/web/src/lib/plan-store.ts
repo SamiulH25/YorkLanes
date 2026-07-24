@@ -135,6 +135,28 @@ export function findUnsatisfiedDependencies(snapshot: PlanGraphSnapshot): Course
   return snapshot.dependencies.filter((edge) => !edge.satisfied);
 }
 
+export function listScheduleWarnings(snapshot: PlanGraphSnapshot): SchedulePlacementWarning[] {
+  return [...(snapshot.schedule_warnings ?? [])];
+}
+
+export function scheduleWarningsForTerm(
+  snapshot: PlanGraphSnapshot,
+  termId: string,
+): SchedulePlacementWarning[] {
+  return listScheduleWarnings(snapshot).filter((warning) => warning.term_id === termId);
+}
+
+export function scheduleWarningForCourse(
+  snapshot: PlanGraphSnapshot,
+  courseId: string,
+): SchedulePlacementWarning | undefined {
+  return listScheduleWarnings(snapshot).find((warning) => warning.course_id === courseId);
+}
+
+export function countScheduleWarningsForTerm(snapshot: PlanGraphSnapshot, termId: string): number {
+  return scheduleWarningsForTerm(snapshot, termId).length;
+}
+
 export function courseById(plan: DegreePlan, courseId: string): { course: PlanCourse; term: PlanTerm } | null {
   for (const term of plan.terms) {
     const course = term.courses.find((c) => c.id === courseId);

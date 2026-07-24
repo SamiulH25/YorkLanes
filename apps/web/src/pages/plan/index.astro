@@ -191,6 +191,17 @@ const showSummerRow = yearColumns.some((column) => column.summer !== null);
             <p id="plan-link-legend" class="hidden mt-1 text-xs text-york-muted" />
           </div>
         </div>
+
+        <div id="plan-schedule-warnings" class="plan-schedule-warnings hidden" aria-live="polite">
+          <div class="plan-schedule-warnings__header">
+            <p class="plan-schedule-warnings__title">Season offering alerts</p>
+            <p class="plan-schedule-warnings__hint text-xs text-york-muted">
+              Based on scraped York timetables — not year-specific. A course flagged in Winter has no recorded Winter sections in our data.
+            </p>
+          </div>
+          <ul id="plan-schedule-warnings-list" class="plan-schedule-warnings__list"></ul>
+        </div>
+
         <p id="plan-editor-status" class="mb-3 text-xs text-york-muted" />
 
         <div class="plan-editor-canvas" id="plan-editor-canvas">
@@ -250,6 +261,11 @@ const showSummerRow = yearColumns.some((column) => column.summer !== null);
                               <div class="plan-term-header">
                                 <p class="plan-term-session">{label}</p>
                                 <h3 class="plan-term-title">{term.label}</h3>
+                                <span
+                                  class="plan-term-schedule-warn"
+                                  hidden
+                                  aria-label="Season offering warnings in this term"
+                                ></span>
                               </div>
 
                               <ul class="plan-course-list" data-term-id={term.id} data-drop-zone>

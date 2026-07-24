@@ -6,7 +6,7 @@
  * Schedule warnings = course placed in a season with no scraped offering history.
  */
 import type { Pool } from "pg";
-import { getSeasonHistoryForCourses } from "./courseOfferings.js";
+import { getSeasonHistoryForCourses, type CourseSeasonHistory } from "./courseOfferings.js";
 import type { DegreePlanRow } from "./planGenerator.js";
 import {
   SEASON_LABEL,
@@ -61,7 +61,7 @@ export interface PlanGraphSnapshot {
   schedule_warnings: SchedulePlacementWarning[];
 }
 
-const CONCRETE_COURSE_CODE = /^[A-Z]{2,6} \d{4}$/;
+const CONCRETE_COURSE_CODE = /^[A-Z]{2,6} \d{4}[A-Z]?$/;
 const COURSE_CODE_IN_TEXT =
   /(?:AP\/|FA\/|HH\/|SC\/|LE\/|SB\/|GL\/|ES\/)?([A-Z]{2,6})\s+(\d{4}[A-Z]?)/gi;
 
@@ -188,6 +188,54 @@ function isCorequisiteSatisfied(
   return fromTerm !== undefined && toTerm !== undefined && fromTerm === toTerm;
 }
 
+function formatSeasonsSeen(flags: SeasonFlags): string {
+  const seenLabels = (["fall", "winter", "summer"] as Season[])
+    .filter((season) => flags[season])
+    .map((season) => SEASON_LABEL[season]);
+
+  if (seenLabels.length === 0) return "no recorded seasons";
+  if (seenLabels.length === 1) return `only ${seenLabels[0]}`;
+  return `typically ${seenLabels.join(" / ")}`;
+}
+
+export function computeScheduleWarnings(
+  placements: CoursePlacement[],
+  terms: Array<{ id: string; session: string; label?: string }>,
+  seasonHistory: Map<string, CourseSeasonHistory>,
+): SchedulePlacementWarning[] {
+  const termById = new Map(terms.map((term) => [term.id, term]));
+  const warnings: SchedulePlacementWarning[] = [];
+
+  for (const placement of placements) {
+    if (placement.entry_kind !== "course" || !isConcreteCourseCode(placement.course_code)) {
+      continue;
+    }
+
+    const term = termById.get(placement.term_id);
+    if (!term) continue;
+
+    const plannedSeason = seasonFromPlanSession(term.session);
+    if (!plannedSeason) continue;
+
+    const history = seasonHistory.get(placement.course_code.toUpperCase());
+    if (!history?.has_history) continue;
+    if (seasonOffered(history.seasons, plannedSeason)) continue;
+
+    warnings.push({
+      course_id: placement.course_id,
+      course_code: placement.course_code,
+      term_id: placement.term_id,
+      term_label: placement.term_label || term.label || term.session,
+      planned_season: plannedSeason,
+      seasons_seen: history.seasons,
+      severity: "warning",
+      message: `${placement.course_code} has no recorded ${SEASON_LABEL[plannedSeason]} offerings (${formatSeasonsSeen(history.seasons)})`,
+    });
+  }
+
+  return warnings;
+}
+
 export async function buildPlanGraph(pool: Pool, plan: DegreePlanRow): Promise<PlanGraphSnapshot> {
   const placements = buildPlacements(plan);
   const completedIds = buildCompletedIds(plan);
@@ -289,47 +337,7 @@ export async function buildPlanGraph(pool: Pool, plan: DegreePlanRow): Promise<P
     };
   }
 
-  const termById = new Map(plan.terms.map((term) => [term.id, term]));
-  const schedule_warnings: SchedulePlacementWarning[] = [];
-
-  for (const placement of placements) {
-    if (placement.entry_kind !== "course" || !isConcreteCourseCode(placement.course_code)) {
-      continue;
-    }
-
-    const term = termById.get(placement.term_id);
-    if (!term) continue;
-
-    const plannedSeason = seasonFromPlanSession(term.session);
-    if (!plannedSeason) continue;
-
-    const history = seasonHistory.get(placement.course_code.toUpperCase());
-    if (!history?.has_history) continue;
-
-    if (seasonOffered(history.seasons, plannedSeason)) continue;
-
-    const seenLabels = (["fall", "winter", "summer"] as Season[])
-      .filter((season) => history.seasons[season])
-      .map((season) => SEASON_LABEL[season]);
-
-    const seenText =
-      seenLabels.length === 0
-        ? "no recorded seasons"
-        : seenLabels.length === 1
-          ? `only ${seenLabels[0]}`
-          : `typically ${seenLabels.join(" / ")}`;
-
-    schedule_warnings.push({
-      course_id: placement.course_id,
-      course_code: placement.course_code,
-      term_id: placement.term_id,
-      term_label: placement.term_label,
-      planned_season: plannedSeason,
-      seasons_seen: history.seasons,
-      severity: "warning",
-      message: `${placement.course_code} has no recorded ${SEASON_LABEL[plannedSeason]} offerings (${seenText})`,
-    });
-  }
+  const schedule_warnings = computeScheduleWarnings(placements, plan.terms, seasonHistory);
 
   return {
     plan_id: plan.id,

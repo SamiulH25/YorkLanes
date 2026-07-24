@@ -95,6 +95,17 @@ The API detects whether `completed` exists at runtime (`planCourseSchema.ts`) fo
 | `20250710000000_finance_entry_recurrence.sql` | Add recurring-entry schedule support |
 | `20260710000000_assignments_user_scope.sql` | `assignments` `user_id` + `created_at`, per-user title, RLS |
 
+| `20260723000000_data_lake.sql` | Supabase Storage bucket `data-lake` + `data_lake_catalog` index |
+
+### Data lake
+
+| Component | Purpose |
+|-----------|---------|
+| Storage bucket `data-lake` | Private raw JSON archives from scrapes |
+| `data_lake_catalog` | Index of lake objects (path, size, metadata) |
+
+Postgres feature tables are the **warehouse**; Storage is the **lake**. See [data-lake.md](./data-lake.md).
+
 ### Finance module
 
 | Table | Purpose |

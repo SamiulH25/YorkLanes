@@ -11,7 +11,7 @@ CDM_BASE_URL = "https://w2prod.sis.yorku.ca"
 CDM_ROOT_URL = f"{CDM_BASE_URL}/Apps/WebObjects/cdm"
 DEFAULT_STATE_FILE = Path(__file__).parent / "cdm_session.json"
 REQUEST_DELAY_SEC = 1.5
-
+PARALLEL_REQUEST_DELAY_SEC = 0.35
 BROWSER_HEADERS = {
     "User-Agent": (
         "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 "
@@ -59,8 +59,18 @@ def looks_like_cdm_page(html: str) -> bool:
             "york courses",
             "search courses",
             "course description",
+            "current courses search results",
+            "course description and schedule",
         )
     )
+
+
+def normalize_cookie_value(value: str) -> str:
+    """Strip wrapping quotes some cookies.txt exports include around values."""
+    cleaned = (value or "").strip()
+    if len(cleaned) >= 2 and cleaned[0] == '"' and cleaned[-1] == '"':
+        return cleaned[1:-1]
+    return cleaned
 
 
 def load_storage_state(session: requests.Session, state_path: Path) -> bool:
@@ -81,7 +91,7 @@ def load_storage_state(session: requests.Session, state_path: Path) -> bool:
             continue
         session.cookies.set(
             cookie["name"],
-            cookie["value"],
+            normalize_cookie_value(str(cookie["value"])),
             domain=cookie.get("domain"),
             path=cookie.get("path", "/"),
         )
@@ -108,14 +118,34 @@ class CdmHttp:
         self,
         session: requests.Session | None = None,
         state_path: Path | None = None,
+        *,
+        request_delay: float = REQUEST_DELAY_SEC,
     ) -> None:
         self.base_url = CDM_BASE_URL
         self.course_url = CDM_ROOT_URL
         self.state_path = state_path or DEFAULT_STATE_FILE
+        self.request_delay = request_delay
         self.session = session or requests.Session()
         self.session.headers.update(BROWSER_HEADERS)
         load_storage_state(self.session, self.state_path)
         self._last_referer = self.course_url
+
+    def fork(self, request_delay: float | None = None) -> CdmHttp:
+        """Clone cookies into a new session for parallel workers."""
+        session = requests.Session()
+        session.headers.update(dict(self.session.headers))
+        for cookie in self.session.cookies:
+            session.cookies.set(
+                cookie.name,
+                cookie.value,
+                domain=cookie.domain,
+                path=cookie.path,
+            )
+        return CdmHttp(
+            session=session,
+            state_path=self.state_path,
+            request_delay=request_delay if request_delay is not None else PARALLEL_REQUEST_DELAY_SEC,
+        )
 
     def has_saved_session(self) -> bool:
         return self.state_path.is_file()
@@ -136,7 +166,8 @@ class CdmHttp:
         )
         self._validate(response)
         self._last_referer = url
-        time.sleep(REQUEST_DELAY_SEC)
+        if self.request_delay > 0:
+            time.sleep(self.request_delay)
         return response.text
 
     def post(self, url: str, data: dict) -> str:
@@ -152,8 +183,25 @@ class CdmHttp:
         )
         self._validate(response)
         self._last_referer = url
-        time.sleep(REQUEST_DELAY_SEC)
+        if self.request_delay > 0:
+            time.sleep(self.request_delay)
         return response.text
 
     def persist_cookies(self) -> None:
         save_storage_state(self.session, self.state_path)
+
+    def fetch_bytes(self, url: str, *, referer: str | None = None) -> bytes:
+        response = self.session.get(
+            url,
+            timeout=120,
+            headers={"Referer": referer or self._last_referer},
+        )
+        preview = response.content[:4096].decode("utf-8", errors="ignore")
+        if is_cloudflare_challenge(preview, response.status_code):
+            raise CdmChallengeError(response.url)
+        if response.status_code >= 400:
+            response.raise_for_status()
+        self._last_referer = url
+        if self.request_delay > 0:
+            time.sleep(self.request_delay)
+        return response.content

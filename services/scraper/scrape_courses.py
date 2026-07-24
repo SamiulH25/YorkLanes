@@ -14,7 +14,9 @@ from catalog import CourseRecord, SectionRecord, from_yoki_entry
 from cdm_http import CdmChallengeError
 from cdm_scraper import CdmScraper
 from db_importer import upsert_courses, upsert_sections
-from schedule_scraper import ScheduleScraper
+from data_lake import DataLakeError, maybe_archive_json_file
+from schedule_scraper import DEFAULT_WORKERS, ScheduleScraper
+from timetable_parser import PassportYorkRequiredError
 
 ROOT = Path(__file__).parent
 FIXTURES = ROOT / "fixtures"
@@ -51,6 +53,9 @@ def report_cdm_block() -> int:
 
 
 def handle_cdm_failure(exc: Exception) -> int | None:
+    if isinstance(exc, PassportYorkRequiredError):
+        print(str(exc), file=sys.stderr)
+        return 1
     if isinstance(exc, CdmChallengeError):
         return report_cdm_challenge(exc.url)
     if isinstance(exc, requests.HTTPError) and exc.response is not None and exc.response.status_code == 403:
@@ -134,6 +139,7 @@ def cmd_fixture(args: argparse.Namespace) -> int:
     save_json(courses, out)
     print(f"Loaded {len(courses)} courses from {fixture}")
     print(f"Wrote {out}")
+    _archive_to_data_lake(args, out, dataset_kind="courses", label=fixture.stem)
     return 0
 
 
@@ -151,6 +157,13 @@ def cmd_yoki(args: argparse.Namespace) -> int:
     save_json(courses, out)
     print(f"Downloaded {len(courses)} {args.subject.upper()} courses from Yoki cache")
     print(f"Wrote {out}")
+    _archive_to_data_lake(
+        args,
+        out,
+        dataset_kind="courses",
+        label=f"yoki-{args.subject.lower()}",
+        metadata={"source": "yoki", "subject": args.subject.lower()},
+    )
     return 0
 
 
@@ -178,6 +191,13 @@ def cmd_yoki_batch(args: argparse.Namespace) -> int:
     out = Path(args.out)
     save_json(all_courses, out)
     print(f"Wrote {len(all_courses)} total courses to {out}")
+    _archive_to_data_lake(
+        args,
+        out,
+        dataset_kind="courses",
+        label="yoki-batch",
+        metadata={"source": "yoki", "subjects": subjects},
+    )
     return 0
 
 
@@ -194,20 +214,33 @@ def cmd_cdm(args: argparse.Namespace) -> int:
     save_json(courses, out)
     print(f"Scraped {len(courses)} {args.subject.upper()} courses from CDM")
     print(f"Wrote {out}")
+    _archive_to_data_lake(
+        args,
+        out,
+        dataset_kind="courses",
+        label=f"cdm-{args.subject.lower()}",
+        metadata={"source": "cdm", "subject": args.subject.lower()},
+    )
     return 0
 
 
 def _resolve_term(scraper: ScheduleScraper, term_arg: str):
+    from catalog import default_current_terms, normalize_term
+
     terms = scraper.list_terms()
-    if not terms:
-        raise RuntimeError("Could not enumerate CDM session terms")
     if term_arg in ("current", ""):
         return terms[0]
+
     for term in terms:
         if term.code.lower() == term_arg.lower():
             return term
-    codes = ", ".join(t.code for t in terms)
-    raise ValueError(f"Unknown term '{term_arg}'. Available: {codes}")
+
+    parsed = normalize_term(term_arg)
+    if parsed.term_kind != "UNKNOWN":
+        return parsed
+
+    codes = ", ".join(t.code for t in default_current_terms())
+    raise ValueError(f"Unknown term '{term_arg}'. Try: current, or one of {codes}")
 
 
 def _write_sections_json(sections: list[SectionRecord], out: Path) -> None:
@@ -218,10 +251,43 @@ def _write_sections_json(sections: list[SectionRecord], out: Path) -> None:
     )
 
 
+def _archive_to_data_lake(
+    args: argparse.Namespace,
+    path: Path,
+    *,
+    dataset_kind: str,
+    label: str,
+    metadata: dict | None = None,
+) -> None:
+    if getattr(args, "skip_lake", False):
+        return
+
+    try:
+        result = maybe_archive_json_file(
+            path,
+            dataset_kind=dataset_kind,
+            label=label,
+            metadata=metadata,
+        )
+    except DataLakeError as exc:
+        print(f"Data lake upload failed: {exc}", file=sys.stderr)
+        return
+
+    if result is None:
+        return
+
+    print(
+        f"Archived to data lake: {result.bucket_id}/{result.object_path} "
+        f"({result.byte_size} bytes)"
+    )
+
+
 def cmd_schedule(args: argparse.Namespace) -> int:
-    scraper = ScheduleScraper()
+    scraper = ScheduleScraper(verbose=not args.quiet, workers=args.workers)
     try:
         term = _resolve_term(scraper, args.term)
+        worker_note = f", {scraper.workers} workers" if scraper.workers > 1 else ""
+        print(f"Scraping {args.subject.upper()} for {term.code}{worker_note}...", flush=True)
         sections = scraper.scrape_subject_term(args.subject, term, all_terms=args.all_terms)
     except Exception as exc:
         code = handle_cdm_failure(exc)
@@ -233,12 +299,19 @@ def cmd_schedule(args: argparse.Namespace) -> int:
     scope = "all terms" if args.all_terms else term.code
     print(f"Scraped {len(sections)} section meetings for {args.subject.upper()} ({scope})")
     print(f"Wrote {out}")
+    _archive_to_data_lake(
+        args,
+        out,
+        dataset_kind="sections",
+        label=f"{args.subject.lower()}-{term.code.replace(' ', '-')}",
+        metadata={"source": "cdm", "subject": args.subject.lower(), "term": term.code},
+    )
     return 0
 
 
 def cmd_schedule_batch(args: argparse.Namespace) -> int:
     subjects = [item.strip().lower() for item in args.subjects.split(",") if item.strip()]
-    scraper = ScheduleScraper()
+    scraper = ScheduleScraper(verbose=not args.quiet, workers=args.workers)
     try:
         term = _resolve_term(scraper, args.term)
     except Exception as exc:
@@ -247,10 +320,15 @@ def cmd_schedule_batch(args: argparse.Namespace) -> int:
             return code
         raise
 
+    scope = "all terms" if args.all_terms else term.code
+    worker_note = f", {scraper.workers} workers per subject" if scraper.workers > 1 else ""
+    print(f"Scraping {len(subjects)} subjects for {scope}{worker_note}...", flush=True)
+
     all_sections: list[SectionRecord] = []
     seen: set[tuple[str, str, str, str, str, str]] = set()
 
-    for subject in subjects:
+    for index, subject in enumerate(subjects, start=1):
+        print(f"\n[{index}/{len(subjects)}] {subject.upper()}", flush=True)
         try:
             sections = scraper.scrape_subject_term(subject, term, all_terms=args.all_terms)
         except Exception as exc:
@@ -279,8 +357,14 @@ def cmd_schedule_batch(args: argparse.Namespace) -> int:
 
     out = Path(args.out)
     _write_sections_json(all_sections, out)
-    scope = "all terms" if args.all_terms else term.code
-    print(f"Wrote {len(all_sections)} total section meetings ({scope}) to {out}")
+    print(f"\nWrote {len(all_sections)} total section meetings ({scope}) to {out}")
+    _archive_to_data_lake(
+        args,
+        out,
+        dataset_kind="sections",
+        label=f"batch-{scope.replace(' ', '-')}",
+        metadata={"source": "cdm", "subjects": subjects, "term": scope},
+    )
     return 0
 
 
@@ -295,6 +379,13 @@ def cmd_schedule_fixture(args: argparse.Namespace) -> int:
     )
     print(f"Parsed {len(sections)} section meetings from fixtures in {args.fixture}")
     print(f"Wrote {out}")
+    _archive_to_data_lake(
+        args,
+        out,
+        dataset_kind="sections",
+        label=f"fixture-{args.subject.lower()}",
+        metadata={"source": "fixture", "subject": args.subject.lower(), "term": args.term},
+    )
     return 0
 
 
@@ -337,25 +428,77 @@ def cmd_cdm_import_cookies(args: argparse.Namespace) -> int:
         )
         return 1
 
-    print(f"Imported CDM cookies to {target}")
-    print("Retry your scrape command (for example: npm run scraper:schedule:all)")
+        print(f"Imported CDM cookies to {target}")
+        print(
+            "For schedule scraping, export cookies while logged into Passport York on CDM "
+            "(meeting times are hidden without a PPY session)."
+        )
+        print("Retry your scrape command (for example: npm run scraper:schedule:all)")
     return 0
 
 
 def cmd_db(args: argparse.Namespace) -> int:
     load_dotenv(ROOT.parent.parent / "apps" / "api" / ".env")
+    input_path = Path(args.input)
     if args.kind == "sections":
-        sections = load_json_sections(Path(args.input))
+        sections = load_json_sections(input_path)
         stats = upsert_sections(sections, dry_run=args.dry_run)
         action = "Would import" if args.dry_run else "Imported"
         print(f"{action} {stats['sections']} section meetings")
+        if not args.dry_run:
+            _archive_to_data_lake(
+                args,
+                input_path,
+                dataset_kind="sections",
+                label=input_path.stem,
+                metadata={"source": "db-import", "kind": "sections"},
+            )
         return 0
 
-    courses = load_json_courses(Path(args.input))
+    courses = load_json_courses(input_path)
     stats = upsert_courses(courses, dry_run=args.dry_run)
     action = "Would import" if args.dry_run else "Imported"
     print(f"{action} {stats['courses']} courses, {stats['prerequisites']} prerequisite edges")
+    if not args.dry_run:
+        _archive_to_data_lake(
+            args,
+            input_path,
+            dataset_kind="courses",
+            label=input_path.stem,
+            metadata={"source": "db-import", "kind": "courses"},
+        )
     return 0
+
+
+def cmd_lake_upload(args: argparse.Namespace) -> int:
+    from data_lake import archive_json_file
+
+    try:
+        result = archive_json_file(
+            Path(args.input),
+            dataset_kind=args.kind,
+            label=args.label or Path(args.input).stem,
+            metadata={"source": "manual-upload"},
+        )
+    except DataLakeError as exc:
+        print(f"Error: {exc}", file=sys.stderr)
+        return 1
+
+    print(
+        f"Uploaded {result.byte_size} bytes to {result.bucket_id}/{result.object_path}"
+        + (f" ({result.record_count} records)" if result.record_count is not None else "")
+    )
+    if result.catalog_id:
+        print(f"Catalog id: {result.catalog_id}")
+    return 0
+
+
+def add_lake_flags(parser: argparse.ArgumentParser) -> None:
+    parser.add_argument(
+        "--skip-lake",
+        action="store_true",
+        help="Do not archive output JSON to Supabase Storage data lake",
+    )
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -365,11 +508,13 @@ def build_parser() -> argparse.ArgumentParser:
     fixture = sub.add_parser("fixture", help="Load local fixture JSON (offline test)")
     fixture.add_argument("--fixture", default=str(FIXTURES / "eecs_sample.json"))
     fixture.add_argument("--out", default=str(OUTPUT / "fixture_courses.json"))
+    add_lake_flags(fixture)
     fixture.set_defaults(func=cmd_fixture)
 
     yoki = sub.add_parser("yoki", help="Download a subject JSON cache from SSADC Yoki")
     yoki.add_argument("--subject", default="eecs")
     yoki.add_argument("--out", default=str(OUTPUT / "yoki_courses.json"))
+    add_lake_flags(yoki)
     yoki.set_defaults(func=cmd_yoki)
 
     yoki_batch = sub.add_parser("yoki-batch", help="Download multiple subjects from Yoki")
@@ -379,18 +524,28 @@ def build_parser() -> argparse.ArgumentParser:
         help="Comma-separated subject codes (default: common faculties)",
     )
     yoki_batch.add_argument("--out", default=str(OUTPUT / "catalogue.json"))
+    add_lake_flags(yoki_batch)
     yoki_batch.set_defaults(func=cmd_yoki_batch)
 
     cdm = sub.add_parser("cdm", help="Live scrape one subject from York CDM (may be blocked)")
     cdm.add_argument("--subject", default="eecs")
     cdm.add_argument("--out", default=str(OUTPUT / "cdm_courses.json"))
+    add_lake_flags(cdm)
     cdm.set_defaults(func=cmd_cdm)
 
     schedule = sub.add_parser("schedule", help="Live scrape section timetables for a subject (may be blocked)")
     schedule.add_argument("--subject", default="eecs")
     schedule.add_argument("--term", default="current", help="Term code (e.g. '2026-2027 FW') or 'current'")
     schedule.add_argument("--all-terms", action="store_true", help="Scrape every available term for this subject")
+    schedule.add_argument("--quiet", action="store_true", help="Suppress per-course progress output")
+    schedule.add_argument(
+        "--workers",
+        type=int,
+        default=DEFAULT_WORKERS,
+        help=f"Parallel course detail fetches (default: {DEFAULT_WORKERS}; use 1 for sequential)",
+    )
     schedule.add_argument("--out", default=str(OUTPUT / "sections.json"))
+    add_lake_flags(schedule)
     schedule.set_defaults(func=cmd_schedule)
 
     schedule_batch = sub.add_parser(
@@ -404,7 +559,15 @@ def build_parser() -> argparse.ArgumentParser:
     )
     schedule_batch.add_argument("--term", default="current", help="Term code (e.g. '2026-2027 FW') or 'current'")
     schedule_batch.add_argument("--all-terms", action="store_true", help="Scrape every available term per subject")
+    schedule_batch.add_argument("--quiet", action="store_true", help="Suppress per-course progress output")
+    schedule_batch.add_argument(
+        "--workers",
+        type=int,
+        default=DEFAULT_WORKERS,
+        help=f"Parallel course detail fetches per subject (default: {DEFAULT_WORKERS}; use 1 for sequential)",
+    )
     schedule_batch.add_argument("--out", default=str(OUTPUT / "sections.json"))
+    add_lake_flags(schedule_batch)
     schedule_batch.set_defaults(func=cmd_schedule_batch)
 
     schedule_fixture = sub.add_parser("schedule-fixture", help="Parse section timetables from saved HTML (offline)")
@@ -412,6 +575,7 @@ def build_parser() -> argparse.ArgumentParser:
     schedule_fixture.add_argument("--subject", default="eecs")
     schedule_fixture.add_argument("--term", default="2026-2027 FW")
     schedule_fixture.add_argument("--out", default=str(OUTPUT / "sections.json"))
+    add_lake_flags(schedule_fixture)
     schedule_fixture.set_defaults(func=cmd_schedule_fixture)
 
     bootstrap = sub.add_parser(
@@ -437,7 +601,19 @@ def build_parser() -> argparse.ArgumentParser:
     db.add_argument("--input", default=str(OUTPUT / "fixture_courses.json"))
     db.add_argument("--kind", choices=("courses", "sections"), default="courses")
     db.add_argument("--dry-run", action="store_true")
+    add_lake_flags(db)
     db.set_defaults(func=cmd_db)
+
+    lake_upload = sub.add_parser("lake-upload", help="Upload a JSON file to the Supabase data lake")
+    lake_upload.add_argument("--input", required=True, help="Local JSON file to archive")
+    lake_upload.add_argument(
+        "--kind",
+        choices=("courses", "sections", "catalogue", "raw"),
+        default="raw",
+        help="Dataset folder prefix in the data-lake bucket",
+    )
+    lake_upload.add_argument("--label", help="Filename label (default: input stem)")
+    lake_upload.set_defaults(func=cmd_lake_upload)
 
     return parser
 

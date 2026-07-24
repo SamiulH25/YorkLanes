@@ -25,6 +25,22 @@ export const prerender = false;
     data-income-categories={INCOME_CATEGORIES.join("|")}
     class="grid gap-4 xl:grid-cols-[minmax(0,1fr)_24rem]"
   >
+    <aside
+      data-finance-signin
+      hidden
+      class="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-york-gold/40 bg-york-gold/10 px-4 py-3 xl:col-span-2"
+    >
+      <div>
+        <p class="text-sm font-semibold text-york-black dark:text-white">
+          Sign in to save finance data to your account
+        </p>
+        <p class="mt-1 text-xs text-york-muted">
+          Guests keep a local draft on this device. Signed-in users sync to the cloud and only see their own rows.
+        </p>
+      </div>
+      <a href="/login?returnTo=/finance" class="btn-york shrink-0 px-4 py-2 text-sm">Sign in</a>
+    </aside>
+
     <section class="grid gap-4 md:grid-cols-3 xl:col-span-2">
       <article class="surface p-5">
         <p class="label">Balance</p>

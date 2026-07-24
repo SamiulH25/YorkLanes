@@ -40,6 +40,7 @@ interface MonthlyTotal {
 
 const STORAGE_KEY = "yorklanes.finance.entries";
 const BUDGET_STORAGE_KEY = "yorklanes.finance.budgets";
+const API_CREDENTIALS: RequestInit = { credentials: "include" };
 const currency = new Intl.NumberFormat("en-CA", {
   style: "currency",
   currency: "CAD",
@@ -197,21 +198,39 @@ function normalizeEntry(entry: FinanceEntry): FinanceEntry {
   };
 }
 
+async function fetchSignedIn(): Promise<boolean> {
+  try {
+    const response = await fetch("/api/auth/me", API_CREDENTIALS);
+    if (!response.ok) return false;
+    const data = (await response.json()) as { user?: { id?: string } | null };
+    return Boolean(data.user?.id);
+  } catch {
+    return false;
+  }
+}
+
+function setSignInPrompt(root: HTMLElement, show: boolean): void {
+  const banner = root.querySelector<HTMLElement>("[data-finance-signin]");
+  if (!banner) return;
+  banner.hidden = !show;
+}
+
 async function fetchApiEntries(): Promise<FinanceEntry[]> {
-  const response = await fetch("/api/finance/entries");
+  const response = await fetch("/api/finance/entries", API_CREDENTIALS);
   if (!response.ok) throw new Error(`Finance API error: ${response.status}`);
   const data = (await response.json()) as FinanceEntriesResponse;
   return data.entries.map(normalizeEntry);
 }
 
 async function fetchApiFinance(): Promise<FinanceResponse> {
-  const response = await fetch("/api/finance");
+  const response = await fetch("/api/finance", API_CREDENTIALS);
   if (!response.ok) throw new Error(`Finance API error: ${response.status}`);
   return response.json() as Promise<FinanceResponse>;
 }
 
 async function postApiEntry(entry: Omit<FinanceEntry, "id" | "createdAt">): Promise<FinanceEntry> {
   const response = await fetch("/api/finance/entries", {
+    ...API_CREDENTIALS,
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
@@ -229,7 +248,10 @@ async function postApiEntry(entry: Omit<FinanceEntry, "id" | "createdAt">): Prom
 }
 
 async function deleteApiEntry(entryId: string): Promise<void> {
-  const response = await fetch(`/api/finance/entries/${entryId}`, { method: "DELETE" });
+  const response = await fetch(`/api/finance/entries/${entryId}`, {
+    ...API_CREDENTIALS,
+    method: "DELETE",
+  });
   if (!response.ok) throw new Error(`Finance delete API error: ${response.status}`);
 }
 
@@ -238,6 +260,7 @@ async function patchApiEntry(
   entry: Omit<FinanceEntry, "id" | "createdAt">,
 ): Promise<FinanceEntry> {
   const response = await fetch(`/api/finance/entries/${entryId}`, {
+    ...API_CREDENTIALS,
     method: "PATCH",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
@@ -255,14 +278,17 @@ async function patchApiEntry(
 }
 
 async function postApiNextOccurrence(entryId: string): Promise<FinanceEntry> {
-  const response = await fetch(`/api/finance/entries/${entryId}/next`, { method: "POST" });
+  const response = await fetch(`/api/finance/entries/${entryId}/next`, {
+    ...API_CREDENTIALS,
+    method: "POST",
+  });
   if (!response.ok) throw new Error(`Finance next occurrence API error: ${response.status}`);
   const data = (await response.json()) as { entry: FinanceEntry };
   return normalizeEntry(data.entry);
 }
 
 async function fetchApiBudget(month: string): Promise<FinanceBudget> {
-  const response = await fetch(`/api/finance/budget/${month}`);
+  const response = await fetch(`/api/finance/budget/${month}`, API_CREDENTIALS);
   if (!response.ok) throw new Error(`Finance budget API error: ${response.status}`);
   const data = (await response.json()) as { budget: FinanceBudget };
   return data.budget;
@@ -270,6 +296,7 @@ async function fetchApiBudget(month: string): Promise<FinanceBudget> {
 
 async function putApiBudget(month: string, amountCents: number): Promise<FinanceBudget> {
   const response = await fetch(`/api/finance/budget/${month}`, {
+    ...API_CREDENTIALS,
     method: "PUT",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ amount: amountCents / 100 }),
@@ -682,21 +709,32 @@ async function initFinance(root: HTMLElement): Promise<void> {
   render(root, entries, budgetCents, selectedMonth, monthOnly, editingId);
   setMode(root, apiAvailable);
   setRecurrenceAvailability(root, apiAvailable, recurrenceSupported);
+  setSignInPrompt(root, false);
 
-  try {
-    const [apiEntries, apiBudget, apiFinance] = await Promise.all([
-      fetchApiEntries(),
-      fetchApiBudget(selectedMonth),
-      fetchApiFinance(),
-    ]);
-    entries = apiEntries;
-    budgetCents = apiBudget.amountCents;
-    apiAvailable = true;
-    recurrenceSupported = apiFinance.recurrenceSupported === true;
-    render(root, entries, budgetCents, selectedMonth, monthOnly, editingId);
-    setMode(root, apiAvailable);
-    setRecurrenceAvailability(root, apiAvailable, recurrenceSupported);
-  } catch {
+  const signedIn = await fetchSignedIn();
+  setSignInPrompt(root, !signedIn);
+
+  if (signedIn) {
+    try {
+      const [apiEntries, apiBudget, apiFinance] = await Promise.all([
+        fetchApiEntries(),
+        fetchApiBudget(selectedMonth),
+        fetchApiFinance(),
+      ]);
+      entries = apiEntries;
+      budgetCents = apiBudget.amountCents;
+      apiAvailable = true;
+      recurrenceSupported = apiFinance.recurrenceSupported === true;
+      render(root, entries, budgetCents, selectedMonth, monthOnly, editingId);
+      setMode(root, apiAvailable);
+      setRecurrenceAvailability(root, apiAvailable, recurrenceSupported);
+    } catch {
+      apiAvailable = false;
+      recurrenceSupported = true;
+      setMode(root, apiAvailable);
+      setRecurrenceAvailability(root, apiAvailable, recurrenceSupported);
+    }
+  } else {
     apiAvailable = false;
     recurrenceSupported = true;
     setMode(root, apiAvailable);

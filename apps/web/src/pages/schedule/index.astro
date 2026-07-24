@@ -39,6 +39,9 @@ const startNew = Astro.url.searchParams.get("new") === "1";
           <p class="label">Your timetables</p>
           <h2 class="heading-widget mt-1">Saved schedules</h2>
           <p class="mt-1 text-sm text-muted">Pick a schedule to view or edit, or start a new one.</p>
+          <p class="mt-2 text-xs text-muted">
+            Your <strong>dashboard</strong> shows today&apos;s classes from whichever schedule you mark as your dashboard schedule.
+          </p>
         </div>
         <button type="button" class="btn-york px-4 py-2 text-sm" data-schedule-new>
           New schedule
@@ -47,6 +50,9 @@ const startNew = Astro.url.searchParams.get("new") === "1";
       <div class="schedule-saved-list mt-5" data-schedule-saved>
         <p class="schedule-status">Loading saved schedules…</p>
       </div>
+      <p class="schedule-dashboard-hint mt-3 text-xs text-muted hidden" data-schedule-dashboard-hint hidden>
+        Choose a dashboard schedule so the home page can show today&apos;s classes.
+      </p>
     </section>
 
     <section class="surface p-5 schedule-create" data-schedule-create hidden>
@@ -104,8 +110,13 @@ const startNew = Astro.url.searchParams.get("new") === "1";
           <button type="button" class="btn-ghost px-3 py-2 text-xs" data-schedule-panel-toggle aria-expanded="true">
             Hide section choices
           </button>
-          <button type="button" class="btn-ghost px-3 py-2 text-xs" data-schedule-set-active hidden>
-            Use for dashboard
+          <button
+            type="button"
+            class="schedule-dashboard-btn btn-york px-3 py-2 text-xs"
+            data-schedule-set-active
+            title="Use this timetable for today's classes on your dashboard"
+          >
+            Use on dashboard
           </button>
           <button type="button" class="btn-ghost px-3 py-2 text-xs" data-schedule-back-home>
             All schedules

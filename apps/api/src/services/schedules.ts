@@ -72,21 +72,81 @@ export interface TodayClassPreview {
   endTime: string;
   room?: string | null;
   campus?: string | null;
+  status: "upcoming" | "in_progress" | "past";
 }
 
-const WEEKDAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+/** York campus wall-clock for "today" filtering on the dashboard. */
+export const SCHEDULE_TIMEZONE = "America/Toronto";
+
+const DAY_ABBREV_TO_FULL: Record<string, string> = {
+  SUN: "Sunday",
+  SUNDAY: "Sunday",
+  MON: "Monday",
+  MONDAY: "Monday",
+  M: "Monday",
+  TUE: "Tuesday",
+  TUESDAY: "Tuesday",
+  T: "Tuesday",
+  WED: "Wednesday",
+  WEDNESDAY: "Wednesday",
+  W: "Wednesday",
+  THU: "Thursday",
+  THURSDAY: "Thursday",
+  R: "Thursday",
+  FRI: "Friday",
+  FRIDAY: "Friday",
+  F: "Friday",
+  SAT: "Saturday",
+  SATURDAY: "Saturday",
+};
+
+export function parseWallClockTime(value: string | Date): { hours: number; minutes: number } {
+  if (typeof value === "string") {
+    const match = value.trim().match(/^(\d{1,2}):(\d{2})/);
+    if (match) {
+      return { hours: Number(match[1]), minutes: Number(match[2]) };
+    }
+    return { hours: 0, minutes: 0 };
+  }
+  // node-pg returns TIME columns as Date anchored at UTC epoch.
+  return { hours: value.getUTCHours(), minutes: value.getUTCMinutes() };
+}
+
+export function formatWallClockTime(value: string | Date): string {
+  const { hours, minutes } = parseWallClockTime(value);
+  return `${String(hours).padStart(2, "0")}:${String(minutes).padStart(2, "0")}`;
+}
+
+export function normalizeScheduleDay(day: string): string {
+  const trimmed = day.trim();
+  const upper = trimmed.toUpperCase();
+  if (DAY_ABBREV_TO_FULL[upper]) return DAY_ABBREV_TO_FULL[upper];
+  const match = Object.values(DAY_ABBREV_TO_FULL).find(
+    (full) => full.toLowerCase() === trimmed.toLowerCase(),
+  );
+  return match ?? trimmed;
+}
+
+export function scheduleClock(
+  now = new Date(),
+  timeZone = SCHEDULE_TIMEZONE,
+): { dayName: string; minutesSinceMidnight: number } {
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone,
+    weekday: "long",
+    hour: "numeric",
+    minute: "numeric",
+    hourCycle: "h23",
+  }).formatToParts(now);
+
+  const dayName = parts.find((part) => part.type === "weekday")?.value ?? "Monday";
+  const hour = Number(parts.find((part) => part.type === "hour")?.value ?? 0);
+  const minute = Number(parts.find((part) => part.type === "minute")?.value ?? 0);
+  return { dayName, minutesSinceMidnight: hour * 60 + minute };
+}
 
 function formatTime(value: string | Date): string {
-  if (typeof value === "string") {
-    return value.slice(0, 5);
-  }
-  const hours = String(value.getHours()).padStart(2, "0");
-  const minutes = String(value.getMinutes()).padStart(2, "0");
-  return `${hours}:${minutes}`;
-}
-
-function todayName(): string {
-  return WEEKDAYS[new Date().getDay()];
+  return formatWallClockTime(value);
 }
 
 function mapEntryRow(row: {
@@ -106,7 +166,7 @@ function mapEntryRow(row: {
     course_code: row.course_code,
     section_code: row.section_code,
     component_type: row.component_type,
-    day: row.day,
+    day: normalizeScheduleDay(row.day),
     start_time: formatTime(row.start_time),
     end_time: formatTime(row.end_time),
     room: row.room,
@@ -245,7 +305,7 @@ export async function upsertScheduleWeek(
           entry.course_code,
           entry.section_code,
           entry.component_type,
-          entry.day,
+          normalizeScheduleDay(entry.day),
           entry.start_time,
           entry.end_time,
           entry.room ?? null,
@@ -262,6 +322,17 @@ export async function upsertScheduleWeek(
          values ($1, $2, $3::uuid, $4::jsonb)`,
         [scheduleId, bundle.course_code, bundle.bundle_id, JSON.stringify(bundle.picks ?? {})],
       );
+    }
+
+    const activeCheck = await client.query<{ has_active: boolean }>(
+      `select exists(
+         select 1 from public.user_schedules
+         where user_id = $1 and is_active = true
+       ) as has_active`,
+      [userId],
+    );
+    if (!activeCheck.rows[0]?.has_active) {
+      await client.query(`update public.user_schedules set is_active = true where id = $1`, [scheduleId]);
     }
 
     await client.query("commit");
@@ -395,11 +466,14 @@ export async function listTodayClasses(
   pool: pg.Pool,
   userId: string,
   limit = 8,
+  now = new Date(),
 ): Promise<{
   today: TodayClassPreview[];
   primarySchedule: { planYear: number; planSeason: string; cdmTerm: string } | null;
   hasPrimary: boolean;
   savedCount: number;
+  todayBlockCount: number;
+  totalBlockCount: number;
 }> {
   const [primary, savedCount] = await Promise.all([
     getPrimaryScheduleMeta(pool, userId),
@@ -407,7 +481,14 @@ export async function listTodayClasses(
   ]);
 
   if (!primary) {
-    return { today: [], primarySchedule: null, hasPrimary: false, savedCount };
+    return {
+      today: [],
+      primarySchedule: null,
+      hasPrimary: false,
+      savedCount,
+      todayBlockCount: 0,
+      totalBlockCount: 0,
+    };
   }
 
   const header = await pool.query<{ id: string }>(
@@ -416,38 +497,52 @@ export async function listTodayClasses(
     [userId, primary.planYear, primary.planSeason, primary.cdmTerm],
   );
   if (header.rows.length === 0) {
-    return { today: [], primarySchedule: primary, hasPrimary: true, savedCount };
+    return {
+      today: [],
+      primarySchedule: primary,
+      hasPrimary: true,
+      savedCount,
+      todayBlockCount: 0,
+      totalBlockCount: 0,
+    };
   }
 
-  const now = new Date();
-  const nowMinutes = now.getHours() * 60 + now.getMinutes();
-  const day = todayName();
+  const { dayName, minutesSinceMidnight: nowMinutes } = scheduleClock(now);
 
   const result = await pool.query<{
     id: string;
     course_code: string;
     section_code: string;
     component_type: string;
+    day: string;
     start_time: string | Date;
     end_time: string | Date;
     room: string | null;
     campus: string | null;
   }>(
-    `select id, course_code, section_code, component_type, start_time, end_time, room, campus
+    `select id, course_code, section_code, component_type, day, start_time, end_time, room, campus
      from public.schedule_entries
-     where schedule_id = $1 and day = $2
+     where schedule_id = $1
      order by start_time asc`,
-    [header.rows[0].id, day],
+    [header.rows[0].id],
   );
 
-  const today = result.rows
+  const todayRows = result.rows.filter((row) => normalizeScheduleDay(row.day) === dayName);
+
+  const today = todayRows
     .map((row) => {
       const startTime = formatTime(row.start_time);
       const endTime = formatTime(row.end_time);
-      const [sh, sm] = startTime.split(":").map(Number);
-      const [eh, em] = endTime.split(":").map(Number);
-      const startMinutes = sh * 60 + sm;
-      const endMinutes = eh * 60 + em;
+      const start = parseWallClockTime(row.start_time);
+      const end = parseWallClockTime(row.end_time);
+      const startMinutes = start.hours * 60 + start.minutes;
+      const endMinutes = end.hours * 60 + end.minutes;
+      let status: TodayClassPreview["status"] = "upcoming";
+      if (nowMinutes >= endMinutes) {
+        status = "past";
+      } else if (nowMinutes >= startMinutes) {
+        status = "in_progress";
+      }
       return {
         id: row.id,
         courseCode: row.course_code,
@@ -458,12 +553,19 @@ export async function listTodayClasses(
         room: row.room,
         campus: row.campus,
         startMinutes,
-        endMinutes,
+        status,
       };
     })
-    .filter((item) => item.endMinutes > nowMinutes)
+    .sort((a, b) => a.startMinutes - b.startMinutes)
     .slice(0, limit)
-    .map(({ startMinutes: _s, endMinutes: _e, ...item }) => item);
+    .map(({ startMinutes: _s, ...item }) => item);
 
-  return { today, primarySchedule: primary, hasPrimary: true, savedCount };
+  return {
+    today,
+    primarySchedule: primary,
+    hasPrimary: true,
+    savedCount,
+    todayBlockCount: todayRows.length,
+    totalBlockCount: result.rows.length,
+  };
 }

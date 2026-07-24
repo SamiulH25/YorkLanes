@@ -143,6 +143,7 @@ export function initSchedulePage(options: SchedulePageOptions = {}): void {
   const gridHeader = root.querySelector<HTMLElement>("[data-schedule-grid-header]");
   const gridBody = root.querySelector<HTMLElement>("[data-schedule-grid-body]");
   const savedList = root.querySelector<HTMLElement>("[data-schedule-saved]");
+  const dashboardHint = root.querySelector<HTMLElement>("[data-schedule-dashboard-hint]");
   const setActiveButton = root.querySelector<HTMLButtonElement>("[data-schedule-set-active]");
   const timetableSubtitle = root.querySelector<HTMLElement>("[data-schedule-timetable-subtitle]");
   const confirmButton = root.querySelector<HTMLButtonElement>("[data-schedule-confirm]");
@@ -410,20 +411,23 @@ export function initSchedulePage(options: SchedulePageOptions = {}): void {
         entries: state.entries,
         bundles: bundlesPayload(),
       });
-      if (!saved) return;
+      if (!saved) {
+        setStatus("Sign in to sync your timetable to the dashboard.", "error");
+        return;
+      }
       cloudSyncEnabled = true;
       currentIsActive = saved.isActive;
-      if (!saved.isActive && saved.entries.length > 0) {
-        const all = await fetchSavedSchedules();
-        if (!all.some((item) => item.isActive)) {
-          const activated = await setActiveSchedule(state.planYear, state.planSeason, state.cdmTerm);
-          if (activated) currentIsActive = true;
-        }
-      }
       await refreshSavedSchedules();
       updateSetActiveButton();
-    } catch {
-      // Keep local draft when cloud save fails.
+      if (entries.length > 0 && currentIsActive) {
+        setStatus("Timetable saved — today's classes will show on your dashboard.", "success");
+      }
+    } catch (error) {
+      const message =
+        error instanceof Error
+          ? error.message
+          : "Could not sync your timetable. Check that you are signed in and the API is running.";
+      setStatus(message, "error");
     }
   }
 
@@ -434,6 +438,7 @@ export function initSchedulePage(options: SchedulePageOptions = {}): void {
       return;
     }
 
+    let loadedFromLocal = false;
     try {
       const remote = await fetchScheduleWeek(planYear, planSeason, cdmTerm);
       if (remote) {
@@ -449,9 +454,15 @@ export function initSchedulePage(options: SchedulePageOptions = {}): void {
         writeScheduleWeekState(currentContext());
       } else {
         loadWeekForCurrentFilters();
+        loadedFromLocal = entries.length > 0;
       }
     } catch {
       loadWeekForCurrentFilters();
+      loadedFromLocal = entries.length > 0;
+    }
+
+    if (loadedFromLocal) {
+      persistWeek();
     }
   }
 
@@ -512,13 +523,87 @@ export function initSchedulePage(options: SchedulePageOptions = {}): void {
     return planYearValue === planYear && planSeasonValue === planSeason && cdmTermValue === cdmTerm;
   }
 
+  function scheduleExistsInCloud(planYearValue: number, planSeasonValue: string, cdmTermValue: string): boolean {
+    return savedSchedules.some(
+      (item) =>
+        item.source === "cloud" &&
+        item.planYear === planYearValue &&
+        item.planSeason === planSeasonValue &&
+        item.cdmTerm === cdmTermValue,
+    );
+  }
+
+  async function ensureScheduleSavedToCloud(): Promise<boolean> {
+    const cdmTerm = selectedCdmTerm();
+    if (!cdmTerm) return false;
+
+    if (scheduleExistsInCloud(planYear, planSeason, cdmTerm)) {
+      return true;
+    }
+
+    try {
+      const saved = await saveScheduleWeek({
+        planYear,
+        planSeason,
+        cdmTerm,
+        entries,
+        bundles: bundlesPayload(),
+      });
+      if (!saved) return false;
+      cloudSyncEnabled = true;
+      currentIsActive = saved.isActive;
+      writeScheduleWeekState(currentContext());
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
+  async function activateForDashboard(
+    targetPlanYear: number,
+    targetPlanSeason: string,
+    targetCdmTerm: string,
+  ): Promise<boolean> {
+    const matchesCurrent =
+      targetPlanYear === planYear &&
+      targetPlanSeason === planSeason &&
+      targetCdmTerm === selectedCdmTerm();
+
+    if (matchesCurrent) {
+      const saved = await ensureScheduleSavedToCloud();
+      if (!saved) return false;
+    }
+
+    const ok = await setActiveSchedule(targetPlanYear, targetPlanSeason, targetCdmTerm);
+    if (!ok) return false;
+
+    currentIsActive = isCurrentScheduleKey(targetPlanYear, targetPlanSeason, targetCdmTerm);
+    await refreshSavedSchedules();
+    updateSetActiveButton();
+    updateDashboardHint();
+    return true;
+  }
+
+  function updateDashboardHint(): void {
+    if (!dashboardHint) return;
+    const cloudSchedules = savedSchedules.filter((item) => item.source === "cloud");
+    const hasPrimary = cloudSchedules.some((item) => item.isActive);
+    const show = mode === "home" && cloudSchedules.length > 0 && !hasPrimary;
+    dashboardHint.hidden = !show;
+    dashboardHint.classList.toggle("hidden", !show);
+  }
+
   function updateSetActiveButton(): void {
     if (!setActiveButton) return;
-    const cdmTerm = resolveSelectedTerm(termSelect, availableTerms, options.focusTerm);
-    const hasEntries = entries.length > 0;
-    setActiveButton.hidden = !cloudSyncEnabled || !hasEntries || !cdmTerm;
-    setActiveButton.disabled = currentIsActive;
-    setActiveButton.textContent = currentIsActive ? "Primary schedule" : "Set as primary";
+    const cdmTerm = selectedCdmTerm();
+    const showInEditor = mode === "editor" && Boolean(cdmTerm);
+    setActiveButton.hidden = !showInEditor;
+    setActiveButton.disabled = !showInEditor || currentIsActive;
+    setActiveButton.classList.toggle("schedule-dashboard-btn--active", currentIsActive);
+    setActiveButton.textContent = currentIsActive ? "Dashboard schedule" : "Use on dashboard";
+    setActiveButton.title = currentIsActive
+      ? "This timetable powers today's classes on your dashboard"
+      : "Show this timetable's classes on your dashboard home page";
   }
 
   function renderSavedSchedules(): void {
@@ -533,12 +618,14 @@ export function initSchedulePage(options: SchedulePageOptions = {}): void {
         </div>
       `;
       updateSetActiveButton();
+      updateDashboardHint();
       return;
     }
 
     savedList.innerHTML = savedSchedules
       .map((item) => {
         const active = isCurrentScheduleKey(item.planYear, item.planSeason, item.cdmTerm);
+        const canSetDashboard = item.source === "cloud";
         return `
           <article class="schedule-saved-card${active ? " is-active" : ""}${item.isActive ? " is-dashboard" : ""}">
             <button type="button" class="schedule-saved-card__open" data-load-schedule
@@ -546,20 +633,25 @@ export function initSchedulePage(options: SchedulePageOptions = {}): void {
               data-plan-season="${item.planSeason}"
               data-cdm-term="${item.cdmTerm}"
               data-entry-count="${item.entryCount}">
-              <p class="schedule-saved-card__title">Year ${item.planYear} · ${seasonLabel(item.planSeason)}</p>
+              <div class="schedule-saved-card__header">
+                <p class="schedule-saved-card__title">Year ${item.planYear} · ${seasonLabel(item.planSeason)}</p>
+                ${
+                  item.isActive
+                    ? `<span class="schedule-saved-card__badge">Dashboard schedule</span>`
+                    : ""
+                }
+              </div>
               <p class="schedule-saved-card__term">${item.cdmTerm}</p>
               <p class="schedule-saved-card__meta">${item.courseCount} course${item.courseCount === 1 ? "" : "s"} · ${item.entryCount} block${item.entryCount === 1 ? "" : "s"}</p>
               <p class="schedule-saved-card__cta">Open schedule →</p>
             </button>
             <div class="schedule-saved-card__actions">
               ${
-                item.isActive
-                  ? `<span class="schedule-saved-card__badge">Primary</span>`
-                  : cloudSyncEnabled
-                    ? `<button type="button" class="schedule-saved-card__action" data-activate-schedule
+                !item.isActive && canSetDashboard
+                  ? `<button type="button" class="schedule-saved-card__action schedule-saved-card__action--primary" data-activate-schedule
                         data-plan-year="${item.planYear}"
                         data-plan-season="${item.planSeason}"
-                        data-cdm-term="${item.cdmTerm}">Set primary</button>`
+                        data-cdm-term="${item.cdmTerm}">Use on dashboard</button>`
                     : ""
               }
               <button type="button" class="schedule-saved-card__action schedule-saved-card__action--danger"
@@ -573,6 +665,7 @@ export function initSchedulePage(options: SchedulePageOptions = {}): void {
       })
       .join("");
     updateSetActiveButton();
+    updateDashboardHint();
   }
 
   function updateTimetableSubtitle(): void {
@@ -1194,23 +1287,16 @@ export function initSchedulePage(options: SchedulePageOptions = {}): void {
     }
 
     if (activateButton?.dataset.planYear && activateButton.dataset.cdmTerm) {
-      void setActiveSchedule(
+      void activateForDashboard(
         Number(activateButton.dataset.planYear),
         activateButton.dataset.planSeason || "all",
         activateButton.dataset.cdmTerm,
-      ).then(async (ok) => {
+      ).then((ok) => {
         if (!ok) {
-          setStatus("Could not set primary schedule. Save the timetable first or refresh the page.", "error");
+          setStatus("Could not set dashboard schedule. Save the timetable first or refresh the page.", "error");
           return;
         }
-        currentIsActive = isCurrentScheduleKey(
-          Number(activateButton.dataset.planYear),
-          activateButton.dataset.planSeason || "all",
-          activateButton.dataset.cdmTerm || "",
-        );
-        await refreshSavedSchedules();
-        updateSetActiveButton();
-        setStatus("This timetable is now shown on your dashboard.", "success");
+        setStatus("This timetable now powers today's classes on your dashboard.", "success");
       });
       return;
     }
@@ -1234,17 +1320,14 @@ export function initSchedulePage(options: SchedulePageOptions = {}): void {
   });
 
   setActiveButton?.addEventListener("click", () => {
-    const cdmTerm = resolveSelectedTerm(termSelect, availableTerms, options.focusTerm);
+    const cdmTerm = selectedCdmTerm();
     if (!cdmTerm) return;
-    void setActiveSchedule(planYear, planSeason, cdmTerm).then(async (ok) => {
+    void activateForDashboard(planYear, planSeason, cdmTerm).then((ok) => {
       if (!ok) {
-        setStatus("Could not set primary schedule. Save the timetable first or refresh the page.", "error");
+        setStatus("Could not set dashboard schedule. Try saving your timetable first.", "error");
         return;
       }
-      currentIsActive = true;
-      await refreshSavedSchedules();
-      updateSetActiveButton();
-      setStatus("This timetable is now shown on your dashboard.", "success");
+      setStatus("This timetable now powers today's classes on your dashboard.", "success");
     });
   });
 }

@@ -16,6 +16,15 @@ export interface PlanGraphResponse {
   graph: Omit<PlanGraphSnapshot, "plan" | "updated_at">;
 }
 
+export interface RemovedRequiredCourse {
+  code: string;
+  title: string | null;
+}
+
+export interface RemovePlanCourseResponse extends PlanGraphResponse {
+  removed_required_course?: RemovedRequiredCourse | null;
+}
+
 function planRequestInit(cookieHeader?: string | null, init?: RequestInit): RequestInit {
   const headers = new Headers(init?.headers);
   if (cookieHeader) {
@@ -237,7 +246,7 @@ export async function uploadComplementaryPdf(
 export async function removePlanCourse(
   planId: string,
   courseId: string,
-): Promise<PlanGraphResponse> {
+): Promise<RemovePlanCourseResponse> {
   const response = await fetch(`${getApiUrl()}/api/plans/${planId}/courses/${courseId}`, {
     method: "DELETE",
     credentials: "include",
@@ -246,7 +255,7 @@ export async function removePlanCourse(
   if (!response.ok) {
     throw new Error(payload.error ?? "Failed to remove course");
   }
-  return payload as PlanGraphResponse;
+  return payload as RemovePlanCourseResponse;
 }
 
 export async function updatePlanLayout(

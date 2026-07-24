@@ -3,6 +3,7 @@
  * Setup: docs/tasks/auth.md
  */
 import { Router, type Response } from "express";
+import type { Session } from "express-session";
 import { getAuthConfig } from "../config/auth.js";
 import { getPool } from "../db/index.js";
 import {
@@ -41,6 +42,24 @@ function safeReturnTo(value: unknown): string | null {
   return value;
 }
 
+function parseRememberMe(value: unknown): boolean {
+  if (value === "0" || value === "false") {
+    return false;
+  }
+  return true;
+}
+
+function applySessionCookieLifetime(session: Session, rememberMe: boolean): void {
+  const { sessionPersistentMaxAgeMs } = getAuthConfig();
+  if (rememberMe) {
+    session.cookie.maxAge = sessionPersistentMaxAgeMs;
+    return;
+  }
+  // Browser session cookie — cleared when the browser closes.
+  session.cookie.maxAge = undefined;
+  session.cookie.expires = undefined;
+}
+
 authRouter.get("/google", (req, res) => {
   const { configured } = getAuthConfig();
   if (!configured) {
@@ -55,6 +74,8 @@ authRouter.get("/google", (req, res) => {
     } else {
       delete req.session.returnTo;
     }
+
+    req.session.rememberMe = parseRememberMe(req.query.remember);
 
     const oauth = createOAuthClient();
     const state = createOAuthState();
@@ -114,9 +135,19 @@ authRouter.get("/google/callback", async (req, res) => {
       }
 
       req.session.userId = user.id;
+      const rememberMe = req.session.rememberMe ?? true;
+      delete req.session.rememberMe;
+      applySessionCookieLifetime(req.session, rememberMe);
       const returnTo = safeReturnTo(req.session.returnTo);
       delete req.session.returnTo;
-      res.redirect(returnTo ? `${webOrigin}${returnTo}` : `${webOrigin}/dashboard`);
+      req.session.save((saveError) => {
+        if (saveError) {
+          console.error("[auth/google/callback] session save", saveError);
+          redirectToLogin(res, "oauth-callback-failed");
+          return;
+        }
+        res.redirect(returnTo ? `${webOrigin}${returnTo}` : `${webOrigin}/dashboard`);
+      });
     });
   } catch (error) {
     console.error("[auth/google/callback]", error);

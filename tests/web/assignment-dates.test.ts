@@ -1,9 +1,11 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import {
+  assignmentDueThisWeekBounds,
   daysUntilDue,
   dueCalendarDate,
   formatDashboardDueLabel,
+  isAssignmentDueInNextWeek,
   isAssignmentDueUrgent,
 } from "../../apps/web/src/lib/assignment-dates.ts";
 
@@ -44,5 +46,17 @@ describe("isAssignmentDueUrgent", () => {
     assert.equal(isAssignmentDueUrgent("2025-07-25T00:00:00.000Z", today), true);
     assert.equal(isAssignmentDueUrgent("2025-07-26T00:00:00.000Z", today), true);
     assert.equal(isAssignmentDueUrgent("2025-07-27T00:00:00.000Z", today), false);
+  });
+});
+
+describe("assignmentDueThisWeekBounds", () => {
+  it("matches the API dashboard window on late Toronto evenings", () => {
+    const now = new Date("2025-07-24T22:00:00-04:00");
+    const bounds = assignmentDueThisWeekBounds(now);
+
+    assert.equal(bounds.today, "2025-07-24");
+    assert.equal(bounds.weekEnd, "2025-07-31");
+    assert.equal(isAssignmentDueInNextWeek("2025-07-24T00:00:00.000Z", now), true);
+    assert.equal(isAssignmentDueInNextWeek("2025-07-31T00:00:00.000Z", now), false);
   });
 });

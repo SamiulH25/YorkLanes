@@ -1491,6 +1491,39 @@
     padding: 0;
   }
 
+  .schedule-saved-card__header {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.35rem;
+  }
+
+  .schedule-saved-card__action--primary {
+    color: var(--theme-primary);
+    border-color: color-mix(in srgb, var(--theme-primary) 35%, var(--theme-border));
+    background: color-mix(in srgb, var(--theme-primary) 8%, var(--theme-surface));
+    font-weight: 700;
+  }
+
+  .schedule-saved-card__action--primary:hover {
+    border-color: color-mix(in srgb, var(--theme-primary) 55%, var(--theme-border));
+    background: color-mix(in srgb, var(--theme-primary) 14%, var(--theme-surface));
+  }
+
+  .schedule-dashboard-btn--active {
+    cursor: default;
+    opacity: 0.92;
+    box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--theme-primary) 35%, transparent);
+  }
+
+  .schedule-dashboard-hint {
+    padding: 0.65rem 0.85rem;
+    border-radius: 0.75rem;
+    border: 1px dashed color-mix(in srgb, var(--theme-primary) 35%, var(--theme-border));
+    background: color-mix(in srgb, var(--theme-primary) 6%, var(--theme-surface));
+  }
+
   .schedule-saved-card__title {
     font-size: 0.9rem;
     font-weight: 700;
@@ -2257,6 +2290,10 @@
     @apply grid min-h-0 flex-1 place-items-center overflow-y-auto px-4 py-2 sm:px-6 sm:py-4;
   }
 
+  html.cookie-consent-visible body {
+    padding-bottom: max(6.5rem, calc(env(safe-area-inset-bottom) + 5rem));
+  }
+
   .onboarding-main {
     @apply py-6;
   }
@@ -2349,6 +2386,257 @@
     @apply flex min-w-0 flex-1 flex-col gap-2;
   }
 
+  .plan-missing-required__list {
+    @apply mt-3 flex flex-wrap gap-2;
+  }
+
+  .plan-missing-required__item {
+    @apply inline-flex max-w-full flex-col rounded-lg border px-3 py-2 text-left transition-colors;
+    border-color: color-mix(in srgb, var(--theme-primary) 35%, var(--theme-border));
+    background: color-mix(in srgb, var(--theme-surface) 92%, var(--theme-primary));
+  }
+
+  .plan-missing-required__item:hover {
+    border-color: color-mix(in srgb, var(--theme-primary) 55%, var(--theme-border));
+    background: color-mix(in srgb, var(--theme-surface) 88%, var(--theme-primary));
+  }
+
+  .plan-missing-required__code {
+    @apply font-semibold text-york-black dark:text-white;
+  }
+
+  .plan-missing-required__title-text {
+    @apply mt-0.5 text-xs text-stone-600 dark:text-stone-300;
+  }
+
+  .plan-alerts {
+    @apply mb-4 flex flex-col gap-3;
+  }
+
+  .plan-alert-panel {
+    @apply rounded-xl border px-4 py-3 text-sm;
+    border-color: color-mix(in srgb, var(--theme-border) 85%, var(--theme-surface));
+    background: color-mix(in srgb, var(--theme-surface-muted) 55%, var(--theme-surface));
+    box-shadow: var(--theme-shadow-card);
+  }
+
+  .plan-alert-panel--notes {
+    border-color: color-mix(in srgb, var(--theme-accent) 40%, var(--theme-border));
+    background: color-mix(in srgb, var(--theme-accent) 8%, var(--theme-surface));
+  }
+
+  .plan-alert-panel--missing {
+    border-color: color-mix(in srgb, var(--theme-primary) 40%, var(--theme-border));
+    background: color-mix(in srgb, var(--theme-primary) 7%, var(--theme-surface));
+  }
+
+  .plan-alert-panel--complementary {
+    border-color: color-mix(in srgb, var(--theme-warning) 38%, var(--theme-border));
+    background: color-mix(in srgb, var(--theme-warning) 6%, var(--theme-surface));
+  }
+
+  .plan-alert-panel--schedule {
+    border-color: color-mix(in srgb, var(--theme-accent) 38%, var(--theme-border));
+    background: color-mix(in srgb, var(--theme-accent) 6%, var(--theme-surface));
+  }
+
+  .plan-alert-panel__title {
+    @apply font-semibold text-york-black dark:text-white;
+  }
+
+  .plan-alert-panel__hint {
+    @apply mt-1 text-xs leading-relaxed text-york-muted;
+  }
+
+  .plan-alert-panel__notes-list {
+    @apply mt-2 list-inside list-disc space-y-1 text-xs text-stone-600 dark:text-stone-300;
+  }
+
+  .plan-alert-panel__content {
+    @apply mt-3 space-y-2.5;
+  }
+
+  .plan-alert-info {
+    @apply rounded-lg border px-3 py-2 text-xs leading-relaxed;
+    border-color: color-mix(in srgb, var(--theme-border) 80%, var(--theme-surface));
+    background: color-mix(in srgb, var(--theme-surface) 96%, var(--theme-border));
+    color: var(--theme-muted);
+  }
+
+  .plan-alert-note {
+    @apply rounded-lg px-3 py-2 text-xs leading-relaxed;
+    background: color-mix(in srgb, var(--theme-warning) 10%, transparent);
+    color: var(--theme-muted);
+  }
+
+  .plan-alert-progress__header {
+    @apply mb-1.5 flex flex-wrap items-baseline justify-between gap-2 text-xs;
+  }
+
+  .plan-alert-progress__label {
+    @apply font-semibold text-york-black dark:text-white;
+  }
+
+  .plan-alert-progress__value {
+    @apply text-york-muted;
+  }
+
+  .plan-alert-progress__track {
+    @apply h-2 overflow-hidden rounded-full;
+    background: color-mix(in srgb, var(--theme-border) 55%, transparent);
+  }
+
+  .plan-alert-progress__fill {
+    @apply block h-full rounded-full transition-[width] duration-300 ease-out;
+  }
+
+  .plan-alert-progress__track--warning .plan-alert-progress__fill {
+    background: color-mix(in srgb, var(--theme-warning) 85%, #000);
+  }
+
+  .plan-alert-progress__track--accent .plan-alert-progress__fill {
+    background: color-mix(in srgb, var(--theme-accent) 85%, #000);
+  }
+
+  .plan-alert-stub-group__title {
+    @apply mb-2 text-xs font-semibold uppercase tracking-wide text-york-muted;
+  }
+
+  .plan-alert-stub-group__chips {
+    @apply flex flex-wrap gap-2;
+  }
+
+  .plan-alert-chip {
+    @apply inline-flex min-w-[5.5rem] flex-col rounded-lg border px-3 py-2 text-left transition-colors;
+    border-color: color-mix(in srgb, var(--theme-warning) 35%, var(--theme-border));
+    background: color-mix(in srgb, var(--theme-surface) 94%, var(--theme-warning));
+  }
+
+  .plan-alert-chip:hover {
+    border-color: color-mix(in srgb, var(--theme-warning) 55%, var(--theme-border));
+    background: color-mix(in srgb, var(--theme-surface) 90%, var(--theme-warning));
+  }
+
+  .plan-alert-chip__credits {
+    @apply text-sm font-semibold text-york-black dark:text-white;
+  }
+
+  .plan-alert-chip__term {
+    @apply mt-0.5 text-[11px] text-york-muted;
+  }
+
+  .plan-alert-row {
+    @apply flex w-full items-start gap-3 rounded-lg border px-3 py-2.5 text-left transition-colors;
+    border-color: color-mix(in srgb, var(--theme-border) 75%, var(--theme-surface));
+    background: color-mix(in srgb, var(--theme-surface) 96%, var(--theme-border));
+  }
+
+  .plan-alert-row:hover {
+    border-color: color-mix(in srgb, var(--theme-primary) 35%, var(--theme-border));
+    background: color-mix(in srgb, var(--theme-surface) 92%, var(--theme-primary));
+  }
+
+  .plan-alert-row--schedule {
+    border-color: color-mix(in srgb, var(--theme-accent) 30%, var(--theme-border));
+    background: color-mix(in srgb, var(--theme-surface) 94%, var(--theme-accent));
+  }
+
+  .plan-alert-row--schedule:hover {
+    border-color: color-mix(in srgb, var(--theme-accent) 50%, var(--theme-border));
+  }
+
+  .plan-alert-row--complementary {
+    border-color: color-mix(in srgb, var(--theme-warning) 30%, var(--theme-border));
+    background: color-mix(in srgb, var(--theme-surface) 94%, var(--theme-warning));
+  }
+
+  .plan-alert-row__badge {
+    @apply mt-0.5 inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-[11px] font-bold;
+  }
+
+  .plan-alert-row--schedule .plan-alert-row__badge {
+    background: color-mix(in srgb, var(--theme-accent) 90%, #000);
+    color: #1a1208;
+  }
+
+  .plan-alert-row--complementary .plan-alert-row__badge {
+    background: color-mix(in srgb, var(--theme-warning) 90%, #000);
+    color: #1a1208;
+  }
+
+  .plan-alert-row__content {
+    @apply min-w-0 flex-1;
+  }
+
+  .plan-alert-row__title {
+    @apply flex flex-wrap items-baseline gap-x-2 gap-y-0.5;
+  }
+
+  .plan-alert-row__code {
+    @apply text-sm font-semibold text-york-black dark:text-white;
+  }
+
+  .plan-alert-row__meta {
+    @apply text-[11px] font-medium uppercase tracking-wide text-york-muted;
+  }
+
+  .plan-alert-row__detail {
+    @apply mt-1 block text-xs leading-relaxed text-stone-600 dark:text-stone-300;
+  }
+
+  .plan-trash-zone {
+    @apply pointer-events-none fixed bottom-6 right-6 z-[70] flex flex-col items-center justify-center gap-1 rounded-2xl border px-5 py-4 text-center opacity-0 shadow-lg transition-all;
+    border-color: color-mix(in srgb, var(--theme-border) 80%, transparent);
+    background: color-mix(in srgb, var(--theme-surface) 94%, var(--theme-primary));
+    transform: translateY(12px) scale(0.92);
+  }
+
+  .plan-trash-zone--visible {
+    @apply pointer-events-auto opacity-100;
+    transform: translateY(0) scale(1);
+  }
+
+  .plan-trash-zone--active {
+    border-color: var(--theme-primary);
+    background: color-mix(in srgb, var(--theme-primary) 14%, var(--theme-surface));
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--theme-primary) 22%, transparent);
+    animation: plan-trash-bounce 0.55s ease-in-out infinite alternate;
+  }
+
+  .plan-trash-zone__icon {
+    @apply text-york-muted transition-colors;
+    color: var(--theme-muted);
+  }
+
+  .plan-trash-zone--active .plan-trash-zone__icon,
+  .plan-trash-zone--visible:hover .plan-trash-zone__icon {
+    color: var(--theme-primary);
+  }
+
+  .plan-trash-zone__label {
+    @apply text-xs font-semibold uppercase tracking-wide;
+    color: var(--theme-muted);
+  }
+
+  .plan-trash-zone--active .plan-trash-zone__label {
+    color: var(--theme-primary);
+  }
+
+  @keyframes plan-trash-bounce {
+    from {
+      transform: translateY(0) scale(1);
+    }
+    to {
+      transform: translateY(-4px) scale(1.04);
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .plan-trash-zone--active {
+      animation: none;
+    }
+  }
+
   .plan-complementary-toolbar {
     @apply flex flex-wrap items-center gap-3;
   }
@@ -2372,44 +2660,6 @@
 
   .plan-find-complementary {
     @apply rounded-lg border border-york-stone/70 px-3 py-2 text-xs font-medium text-york-black transition-colors hover:border-york-red hover:text-york-red disabled:cursor-not-allowed disabled:opacity-50 dark:border-white/20 dark:text-white;
-  }
-
-  .plan-complementary-warnings {
-    @apply mb-4 rounded-xl border px-4 py-3 text-sm;
-    border-color: color-mix(in srgb, var(--theme-warning) 45%, var(--theme-border));
-    background: color-mix(in srgb, var(--theme-warning) 8%, var(--theme-surface));
-  }
-
-  .plan-complementary-warnings__title {
-    @apply font-semibold text-york-black dark:text-white;
-  }
-
-  .plan-complementary-warnings__hint {
-    @apply mt-1;
-  }
-
-  .plan-complementary-warnings__list {
-    @apply mt-3 space-y-2;
-  }
-
-  .plan-complementary-warnings__item {
-    @apply w-full rounded-lg border px-3 py-2 text-left transition-colors;
-    border-color: color-mix(in srgb, var(--theme-warning) 35%, var(--theme-border));
-    background: color-mix(in srgb, var(--theme-surface) 92%, var(--theme-warning));
-  }
-
-  .plan-complementary-warnings__item:hover {
-    border-color: color-mix(in srgb, var(--theme-warning) 55%, var(--theme-border));
-    background: color-mix(in srgb, var(--theme-surface) 88%, var(--theme-warning));
-  }
-
-  .plan-complementary-warnings__item--info {
-    border-color: color-mix(in srgb, var(--theme-border) 80%, var(--theme-surface));
-    background: color-mix(in srgb, var(--theme-surface) 96%, var(--theme-border));
-  }
-
-  .plan-complementary-warnings__message {
-    @apply text-xs text-stone-600 dark:text-stone-300;
   }
 
   .plan-editor-canvas {
@@ -2913,47 +3163,6 @@
     top: 1.35rem;
   }
 
-  .plan-schedule-warnings {
-    @apply mb-4 rounded-xl border px-4 py-3 text-sm;
-    border-color: color-mix(in srgb, var(--theme-accent) 45%, var(--theme-border));
-    background: color-mix(in srgb, var(--theme-accent) 8%, var(--theme-surface));
-  }
-
-  .plan-schedule-warnings__title {
-    @apply font-semibold text-york-black dark:text-white;
-  }
-
-  .plan-schedule-warnings__hint {
-    @apply mt-1;
-  }
-
-  .plan-schedule-warnings__list {
-    @apply mt-3 space-y-2;
-  }
-
-  .plan-schedule-warnings__item {
-    @apply w-full rounded-lg border px-3 py-2 text-left transition-colors;
-    border-color: color-mix(in srgb, var(--theme-accent) 35%, var(--theme-border));
-    background: color-mix(in srgb, var(--theme-surface) 92%, var(--theme-accent));
-  }
-
-  .plan-schedule-warnings__item:hover {
-    border-color: color-mix(in srgb, var(--theme-accent) 55%, var(--theme-border));
-    background: color-mix(in srgb, var(--theme-surface) 88%, var(--theme-accent));
-  }
-
-  .plan-schedule-warnings__course {
-    @apply mr-2 font-semibold text-york-black dark:text-white;
-  }
-
-  .plan-schedule-warnings__term {
-    @apply mr-2 text-xs font-medium uppercase tracking-wide text-york-muted;
-  }
-
-  .plan-schedule-warnings__message {
-    @apply block mt-1 text-xs text-stone-600 dark:text-stone-300;
-  }
-
   .plan-term-schedule-warn {
     @apply ml-auto inline-flex h-5 min-w-5 items-center justify-center rounded-full px-1 text-[10px] font-bold;
     background: color-mix(in srgb, var(--theme-accent) 92%, #000);
@@ -2965,7 +3174,7 @@
   }
 
   .plan-course-card {
-    @apply relative flex items-stretch gap-0 overflow-hidden;
+    @apply relative flex items-stretch gap-0 overflow-hidden cursor-grab active:cursor-grabbing;
     border-radius: max(0.375rem, calc(var(--theme-radius) * 0.5));
     border: 1px solid var(--theme-border);
     background: color-mix(in srgb, var(--theme-surface-muted) 85%, var(--theme-surface));
@@ -2984,6 +3193,7 @@
   }
 
   .plan-course-card--stub {
+    @apply cursor-default;
     border-style: dashed;
     border-color: color-mix(in srgb, var(--theme-accent) 60%, transparent);
     background: color-mix(in srgb, var(--theme-accent) 10%, transparent);
@@ -3006,7 +3216,7 @@
   }
 
   .plan-course-handle {
-    @apply flex w-5 shrink-0 cursor-grab items-center justify-center border-r text-[10px] transition-colors active:cursor-grabbing sm:w-7 sm:text-xs;
+    @apply flex w-5 shrink-0 cursor-grab select-none items-center justify-center border-r text-[10px] transition-colors active:cursor-grabbing sm:w-7 sm:text-xs;
     border-color: var(--theme-border);
     background: color-mix(in srgb, var(--theme-border) 35%, transparent);
     color: var(--theme-muted);

@@ -21,8 +21,11 @@ import {
   getComplementaryCatalog,
   saveComplementaryCatalog,
 } from "../services/complementaryCatalog.js";
-import { searchComplementaryCatalog } from "../services/complementaryStudies.js";
-import { addComplementaryCourseToPlan } from "../services/complementaryPlanCourses.js";
+import {
+  countComplementaryCatalogMatches,
+  searchComplementaryCatalog,
+} from "../services/complementaryStudies.js";
+import { addComplementaryCourseToPlan, reconcileComplementaryCoursesAfterCatalogUpload } from "../services/complementaryPlanCourses.js";
 import { inferChecklistMetadata } from "../services/inferChecklistMetadata.js";
 import { addCourseToPlan, removeCourseFromPlan } from "../services/planCourses.js";
 import { applyPlanLayoutMoves, buildPlanGraph, setPlanCourseCompletion } from "../services/planGraph.js";
@@ -230,7 +233,7 @@ plansRouter.get("/:planId/complementary/search", async (req, res) => {
     const courses = searchComplementaryCatalog(catalog, query, limit);
     res.json({
       courses,
-      total: courses.length,
+      total: countComplementaryCatalogMatches(catalog, query),
     });
   } catch (error) {
     res.status(500).json({
@@ -274,8 +277,15 @@ plansRouter.post("/:planId/complementary", complementaryUpload.single("complemen
       return;
     }
 
-    const graph = await buildPlanGraph(pool, plan);
-    res.status(201).json({ plan, catalog: parsed, graph });
+    await reconcileComplementaryCoursesAfterCatalogUpload(pool, planId, parsed);
+    const refreshedPlan = await getPlanById(pool, planId);
+    if (!refreshedPlan) {
+      res.status(404).json({ error: "Plan not found" });
+      return;
+    }
+
+    const graph = await buildPlanGraph(pool, refreshedPlan);
+    res.status(201).json({ plan: refreshedPlan, catalog: parsed, graph });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Failed to import complementary PDF";
     const needsMigration = message.includes("supabase:push");
@@ -318,14 +328,18 @@ plansRouter.patch("/:planId/courses/:courseId", async (req, res) => {
 plansRouter.delete("/:planId/courses/:courseId", async (req, res) => {
   try {
     const pool = getPool();
-    const plan = await removeCourseFromPlan(pool, req.params.planId, req.params.courseId);
-    if (!plan) {
+    const result = await removeCourseFromPlan(pool, req.params.planId, req.params.courseId);
+    if (!result) {
       res.status(404).json({ error: "Plan or course not found" });
       return;
     }
 
-    const graph = await buildPlanGraph(pool, plan);
-    res.json({ plan, graph });
+    const graph = await buildPlanGraph(pool, result.plan);
+    res.json({
+      plan: result.plan,
+      graph,
+      removed_required_course: result.removedRequiredCourse,
+    });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Failed to remove course";
     const status = message.includes("Cannot remove checklist placeholder") ? 400 : 500;

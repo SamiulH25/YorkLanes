@@ -80,7 +80,14 @@ export async function saveScheduleWeek(payload: ScheduleWeekPayload): Promise<Sc
   });
   if (response.status === 401) return null;
   if (!response.ok) {
-    throw new Error(`Save schedule error: ${response.status}`);
+    let detail = `Save schedule error: ${response.status}`;
+    try {
+      const data = (await response.json()) as { error?: string };
+      if (data.error) detail = data.error;
+    } catch {
+      // ignore parse errors
+    }
+    throw new Error(detail);
   }
   return response.json() as Promise<ScheduleWeekResponse>;
 }

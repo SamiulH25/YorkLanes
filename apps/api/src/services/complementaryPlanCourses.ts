@@ -1,13 +1,16 @@
 import type { Pool } from "pg";
 import { planCoursesHaveConsumedStubColumn } from "../db/planCourseSchema.js";
+import { stripFacultyCourseCodePrefix } from "./courseSearch.js";
 import { getCourseByCode } from "./courses.js";
 import { getComplementaryCatalog } from "./complementaryCatalog.js";
 import {
   classifyComplementaryCourse,
   pickComplementaryStubToConsume,
+  planComplementaryReconciliation,
   planComplementaryStubRestoration,
   type ComplementaryStubCandidate,
 } from "./complementaryStudies.js";
+import type { ComplementaryCatalog } from "./complementaryParser.js";
 import type { DegreePlanRow } from "./planGenerator.js";
 
 const COMPLEMENTARY_STUB_FILTER = `
@@ -56,16 +59,16 @@ export async function consumeComplementaryStubSlot(
     ? await planCoursesHaveConsumedStubColumn(pool)
     : false;
 
-  if (consumption.action === "delete") {
-    await pool.query(`DELETE FROM plan_courses WHERE id = $1`, [consumption.id]);
-    return;
-  }
-
-  if (hasConsumedStubColumn) {
+  if (hasConsumedStubColumn && courseId) {
     await pool.query(`UPDATE plan_courses SET consumed_stub_id = $2 WHERE id = $1`, [
       courseId,
       consumption.id,
     ]);
+  }
+
+  if (consumption.action === "delete") {
+    await pool.query(`DELETE FROM plan_courses WHERE id = $1`, [consumption.id]);
+    return;
   }
 
   await pool.query(`UPDATE plan_courses SET credits = $2 WHERE id = $1`, [
@@ -152,7 +155,7 @@ export async function addComplementaryCourseToPlan(
     throw new Error("Upload a complementary studies PDF before adding complementary courses");
   }
 
-  const normalized = input.courseCode.trim().toUpperCase().replace(/\s+/g, " ");
+  const normalized = stripFacultyCourseCodePrefix(input.courseCode);
   const classification = classifyComplementaryCourse(normalized, catalog);
   if (!classification.valid) {
     throw new Error(`${normalized} is not on the approved complementary list`);
@@ -212,4 +215,59 @@ export async function addComplementaryCourseToPlan(
 
   const { getPlanById } = await import("./planGenerator.js");
   return getPlanById(pool, planId);
+}
+
+export async function reconcileComplementaryCoursesAfterCatalogUpload(
+  pool: Pool,
+  planId: string,
+  catalog: ComplementaryCatalog,
+): Promise<void> {
+  const { getPlanById } = await import("./planGenerator.js");
+  const plan = await getPlanById(pool, planId);
+  if (!plan) {
+    return;
+  }
+
+  const hasConsumedStubColumn = await planCoursesHaveConsumedStubColumn(pool);
+  const consumedStubByCourseId = new Map<string, string | null>();
+
+  if (hasConsumedStubColumn) {
+    const result = await pool.query<{ id: string; consumed_stub_id: string | null }>(
+      `SELECT pc.id, pc.consumed_stub_id
+       FROM plan_courses pc
+       INNER JOIN plan_terms pt ON pt.id = pc.term_id
+       WHERE pt.plan_id = $1
+         AND pc.entry_kind = 'course'`,
+      [planId],
+    );
+    for (const row of result.rows) {
+      consumedStubByCourseId.set(row.id, row.consumed_stub_id);
+    }
+  }
+
+  const actions = planComplementaryReconciliation(plan.terms, catalog, consumedStubByCourseId);
+  if (actions.length === 0) {
+    return;
+  }
+
+  for (const action of actions) {
+    if (action.setSectionLabel) {
+      await pool.query(`UPDATE plan_courses SET section_label = $2 WHERE id = $1`, [
+        action.courseId,
+        "Complementary Studies",
+      ]);
+    }
+    if (action.consumeStub) {
+      await consumeComplementaryStubSlot(
+        pool,
+        planId,
+        action.termId,
+        action.checklistYear,
+        action.credits,
+        action.courseId,
+      );
+    }
+  }
+
+  await pool.query(`UPDATE degree_plans SET updated_at = NOW() WHERE id = $1`, [planId]);
 }

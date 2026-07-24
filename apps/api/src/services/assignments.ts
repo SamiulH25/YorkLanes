@@ -148,6 +148,19 @@ export async function listUpcomingAssignments(
   }));
 }
 
+/** Matches apps/web/src/lib/assignment-dates.ts ASSIGNMENT_DUE_TIMEZONE. */
+const ASSIGNMENT_DUE_TIMEZONE = "America/Toronto";
+
+/** Calendar-date bounds for dashboard "due this week" queries (matches web due-date helpers). */
+export function assignmentDueThisWeekUtcBounds(
+  now = new Date(),
+): { todayUtc: string; weekEndUtc: string } {
+  const todayUtc = now.toLocaleDateString("en-CA", { timeZone: ASSIGNMENT_DUE_TIMEZONE });
+  const todayMs = Date.parse(`${todayUtc}T00:00:00Z`);
+  const weekEndUtc = new Date(todayMs + 7 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+  return { todayUtc, weekEndUtc };
+}
+
 /** Assignments due within the next 7 days (inclusive of today). */
 export async function listAssignmentsDueThisWeek(
   pool: pg.Pool,
@@ -155,15 +168,16 @@ export async function listAssignmentsDueThisWeek(
   limit = 6,
 ): Promise<UpcomingAssignment[]> {
   const scope = userId ? "user_id = $1" : "user_id is null";
-  const values: unknown[] = userId ? [userId, limit] : [limit];
-  const limitParam = userId ? "$2" : "$1";
+  const { todayUtc, weekEndUtc } = assignmentDueThisWeekUtcBounds();
+  const values: unknown[] = userId ? [userId, todayUtc, weekEndUtc, limit] : [todayUtc, weekEndUtc, limit];
+  const limitParam = userId ? "$4" : "$3";
   const result = await pool.query<{ id: string; title: string; course_code: string; due_at: string }>(
     `select id, title, course_code, due_at::text as due_at
        from public.assignments
        where ${scope}
          and done = false
-         and due_at >= current_date
-         and due_at < current_date + interval '7 days'
+         and (due_at at time zone 'UTC')::date >= $${userId ? 2 : 1}::date
+         and (due_at at time zone 'UTC')::date < $${userId ? 3 : 2}::date
        order by due_at asc
        limit ${limitParam}`,
     values,
@@ -342,14 +356,13 @@ export async function listAssignmentsDueThisWeekViaRest(
   limit = 6,
 ): Promise<UpcomingAssignment[]> {
   const config = requireSupabaseRestConfig();
-  const today = new Date().toISOString().slice(0, 10);
-  const weekEnd = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+  const { todayUtc: today, weekEndUtc: weekEnd } = assignmentDueThisWeekUtcBounds();
   const url = new URL(`${config.url}/rest/v1/assignments`);
   url.searchParams.set("select", "id,title,course_code,due_at");
   url.searchParams.set("user_id", restUserFilter(userId));
   url.searchParams.set("done", "eq.false");
-  url.searchParams.set("due_at", `gte.${today}`);
-  url.searchParams.append("due_at", `lt.${weekEnd}`);
+  url.searchParams.set("due_at", `gte.${today}T00:00:00Z`);
+  url.searchParams.append("due_at", `lt.${weekEnd}T00:00:00Z`);
   url.searchParams.set("order", "due_at.asc");
   url.searchParams.set("limit", String(limit));
 

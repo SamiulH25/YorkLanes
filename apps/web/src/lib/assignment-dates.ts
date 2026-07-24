@@ -63,3 +63,25 @@ export function isAssignmentDueUrgent(iso: string, now = new Date()): boolean {
   const diffDays = daysUntilDue(iso, now);
   return diffDays !== null && diffDays <= 1;
 }
+
+/** Inclusive today through exclusive today+7 (matches API listAssignmentsDueThisWeek). */
+export function assignmentDueThisWeekBounds(
+  now = new Date(),
+  timeZone = ASSIGNMENT_DUE_TIMEZONE,
+): { today: string; weekEnd: string } {
+  const today = todayCalendarDate(now, timeZone);
+  const todayMs = Date.parse(`${today}T00:00:00Z`);
+  const weekEnd = new Date(todayMs + 7 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+  return { today, weekEnd };
+}
+
+export function isAssignmentDueInNextWeek(
+  iso: string,
+  now = new Date(),
+  timeZone = ASSIGNMENT_DUE_TIMEZONE,
+): boolean {
+  const due = dueCalendarDate(iso);
+  if (!due) return false;
+  const { today, weekEnd } = assignmentDueThisWeekBounds(now, timeZone);
+  return due >= today && due < weekEnd;
+}

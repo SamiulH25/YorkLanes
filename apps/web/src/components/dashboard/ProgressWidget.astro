@@ -11,7 +11,7 @@ const radius = 64;
 const circumference = 2 * Math.PI * radius;
 const segments = progress.segments || [];
 const hasPlan = Boolean(progress.planId);
-const planHref = progress.planId ? `/plan?id=` : "/plan";
+const planHref = progress.planId ? `/plan?id=${progress.planId}` : "/plan";
 
 // colors for each type on the ring
 const strokeById: Record<string, string> = {
@@ -76,7 +76,7 @@ if (ringSegments.length === 0 && progress.percentComplete > 0) {
       <h2 class="heading-widget mt-1">Progress</h2>
     </div>
     <div class="flex shrink-0 flex-wrap items-center justify-end gap-2">
-      <a href={planHref} class="btn-ghost px-3 py-2 text-xs sm:text-sm">
+      <a href={planHref} class="btn-ghost px-3 py-2 text-xs sm:text-sm" data-progress-plan-link>
         {hasPlan ? "Open plan" : "Get started"}
       </a>
       <a href="/progress" class="badge bg-brand-subtle text-brand" data-plan-aware-nav="progress">
@@ -230,6 +230,18 @@ if (ringSegments.length === 0 && progress.percentComplete > 0) {
       if (labelEl && label) {
         labelEl.textContent = label;
       }
+
+      var planLink = root.querySelector("[data-progress-plan-link]");
+      var planId = data.planId;
+      if (!planId) {
+        try {
+          planId = sessionStorage.getItem("yorklanes-plan-id");
+        } catch (e) {}
+      }
+      if (planLink && planId) {
+        planLink.setAttribute("href", "/plan?id=" + encodeURIComponent(planId));
+      }
+
       buildSegments(root, data.segments, percent);
     }
 

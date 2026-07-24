@@ -17,6 +17,8 @@ Google sign-in is wired through the Express API. The web app never sees client s
    GOOGLE_CLIENT_SECRET=...
    GOOGLE_CALLBACK_URL=http://localhost:4321/api/auth/google/callback
    SESSION_SECRET=<random string, e.g. openssl rand -hex 32>
+   # Optional: persistent sign-in duration in days (default 30)
+   SESSION_MAX_AGE_DAYS=30
    ```
 5. Set `PUBLIC_API_URL=http://localhost:4321` in `apps/web/.env.local`.
 6. Restart `npm run dev`.
@@ -46,7 +48,7 @@ Google sign-in is wired through the Express API. The web app never sees client s
 
 ## Behaviour
 
-- Session cookie: `yorklanes.sid` on the web origin in dev (`localhost:4321` via proxy).
+- Session cookie: `yorklanes.sid` on the web origin in dev (`localhost:4321` via proxy). Default lifetime is 30 days with sliding expiration (`rolling: true`). Users can uncheck **Keep me signed in** on the login page for a browser-session cookie (cleared when the browser closes).
 - SSR page loads call the API on `localhost:3001` directly; browser OAuth uses `localhost:4321/api` (proxied by `src/middleware.ts`).
 - Signed-in users get a `users` row (`google_id`, `email`, `display_name`). New degree plans store `user_id` when imported while logged in.
 - Guests can still use the app without signing in; `requireAuth` is available for routes that should be locked down later.

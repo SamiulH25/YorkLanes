@@ -76,4 +76,5 @@ export interface TodayClassPreview {
   endTime: string;
   room?: string | null;
   campus?: string | null;
+  status?: "upcoming" | "in_progress" | "past";
 }

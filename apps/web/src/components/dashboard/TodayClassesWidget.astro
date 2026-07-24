@@ -25,8 +25,8 @@ function formatTimeRange(start: string, end: string): string {
 
 const emptyCta =
   !schedule.hasPrimary && schedule.savedCount > 0
-    ? { label: "Set primary schedule", href: "/schedule" }
-    : { label: "Build schedule", href: "/schedule" };
+    ? { label: "Use on dashboard", href: "/schedule" }
+    : { label: "Open schedule", href: "/schedule" };
 ---
 
 <section class="dashboard-widget surface p-6">
@@ -38,7 +38,7 @@ const emptyCta =
         primary && (
           <p class="mt-1 text-xs text-muted">
             {seasonLabel(primary.planSeason)} {primary.cdmTerm}
-            {schedule.hasPrimary && <span class="dashboard-primary-badge">Primary</span>}
+            {schedule.hasPrimary && <span class="dashboard-primary-badge">Dashboard</span>}
           </p>
         )
       }
@@ -64,13 +64,24 @@ const emptyCta =
             <li>
               <a
                 href="/schedule?view=timetable"
-                class="dashboard-list-item flex gap-3 rounded-xl surface-muted px-4 py-3 transition-colors hover:bg-york-red/[0.04]"
+                class:list={[
+                  "dashboard-list-item flex gap-3 rounded-xl px-4 py-3 transition-colors hover:bg-york-red/[0.04]",
+                  item.status === "past" ? "surface-muted opacity-60" : "surface-muted",
+                ]}
               >
-                <div class="mt-1 h-full w-1 shrink-0 rounded-full bg-york-red" aria-hidden="true" />
+                <div
+                  class:list={[
+                    "mt-1 h-full w-1 shrink-0 rounded-full",
+                    item.status === "past" ? "bg-york-muted" : "bg-york-red",
+                  ]}
+                  aria-hidden="true"
+                />
                 <div class="min-w-0 flex-1">
                   <p class="text-sm font-semibold text-york-black dark:text-white">{item.courseCode}</p>
                   <p class="text-xs text-york-muted">
                     {componentTypeLabel(item.componentType)} · {item.sectionCode}
+                    {item.status === "past" && <span> · Ended</span>}
+                    {item.status === "in_progress" && <span> · Now</span>}
                   </p>
                   {place && <p class="mt-0.5 text-xs text-muted">{place}</p>}
                 </div>

@@ -6,9 +6,21 @@ import {
   restoreComplementaryStubSlot,
 } from "./complementaryPlanCourses.js";
 import { classifyComplementaryCourse } from "./complementaryStudies.js";
+import { stripFacultyCourseCodePrefix } from "./courseSearch.js";
 import { getCourseByCode } from "./courses.js";
 import type { DegreePlanRow } from "./planGenerator.js";
+import { isRequiredPlanCourse } from "./planRequiredCourses.js";
 import { planCoursesHaveConsumedStubColumn } from "../db/planCourseSchema.js";
+
+export interface RemovedRequiredCourse {
+  code: string;
+  title: string | null;
+}
+
+export interface RemoveCourseFromPlanResult {
+  plan: DegreePlanRow;
+  removedRequiredCourse: RemovedRequiredCourse | null;
+}
 
 export interface AddPlanCourseInput {
   termId: string;
@@ -29,7 +41,7 @@ export async function addCourseToPlan(
     return null;
   }
 
-  const catalogue = await getCourseByCode(input.courseCode);
+  const catalogue = await getCourseByCode(stripFacultyCourseCodePrefix(input.courseCode));
   if (!catalogue) {
     throw new Error(`Course ${input.courseCode.trim().toUpperCase()} not found in catalogue`);
   }
@@ -115,11 +127,13 @@ export async function removeCourseFromPlan(
   pool: Pool,
   planId: string,
   courseId: string,
-): Promise<DegreePlanRow | null> {
+): Promise<RemoveCourseFromPlanResult | null> {
   const hasConsumedStubColumn = await planCoursesHaveConsumedStubColumn(pool);
   const courseResult = await pool.query<{
     id: string;
     term_id: string;
+    course_code: string;
+    title: string | null;
     sort_order: number;
     credits: number | null;
     checklist_year: number | null;
@@ -128,13 +142,13 @@ export async function removeCourseFromPlan(
     consumed_stub_id: string | null;
   }>(
     hasConsumedStubColumn
-      ? `SELECT pc.id, pc.term_id, pc.sort_order, pc.credits, pc.checklist_year,
-                pc.section_label, pc.entry_kind, pc.consumed_stub_id
+      ? `SELECT pc.id, pc.term_id, pc.course_code, pc.title, pc.sort_order, pc.credits,
+                pc.checklist_year, pc.section_label, pc.entry_kind, pc.consumed_stub_id
          FROM plan_courses pc
          INNER JOIN plan_terms pt ON pt.id = pc.term_id
          WHERE pc.id = $1 AND pt.plan_id = $2`
-      : `SELECT pc.id, pc.term_id, pc.sort_order, pc.credits, pc.checklist_year,
-                pc.section_label, pc.entry_kind, NULL::uuid AS consumed_stub_id
+      : `SELECT pc.id, pc.term_id, pc.course_code, pc.title, pc.sort_order, pc.credits,
+                pc.checklist_year, pc.section_label, pc.entry_kind, NULL::uuid AS consumed_stub_id
          FROM plan_courses pc
          INNER JOIN plan_terms pt ON pt.id = pc.term_id
          WHERE pc.id = $1 AND pt.plan_id = $2`,
@@ -150,10 +164,22 @@ export async function removeCourseFromPlan(
     throw new Error("Cannot remove checklist placeholder slots");
   }
 
+  const removedRequiredCourse = isRequiredPlanCourse(course)
+    ? {
+        code: course.course_code.trim().toUpperCase(),
+        title: course.title,
+      }
+    : null;
+
   await restoreComplementaryStubSlot(pool, course);
   await pool.query(`DELETE FROM plan_courses WHERE id = $1`, [courseId]);
   await pool.query(`UPDATE degree_plans SET updated_at = NOW() WHERE id = $1`, [planId]);
 
   const { getPlanById } = await import("./planGenerator.js");
-  return getPlanById(pool, planId);
+  const plan = await getPlanById(pool, planId);
+  if (!plan) {
+    return null;
+  }
+
+  return { plan, removedRequiredCourse };
 }

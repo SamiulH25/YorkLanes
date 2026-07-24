@@ -33,6 +33,25 @@ import {
 } from "../lib/plans";
 import { fetchCourses } from "../lib/courses";
 import { planExpectsComplementaryStudies } from "../lib/plan-complementary";
+import {
+  formatComplementaryStubDisplay,
+  formatStubDragLabel,
+  isComplementaryStub,
+  isComplementaryStubDraggable,
+} from "../lib/complementary-stub";
+import {
+  isRequiredPlanCourse,
+  readMissingRequiredCourses,
+  reconcileMissingRequiredCourses,
+  writeMissingRequiredCourses,
+  type MissingRequiredCourse,
+} from "../lib/plan-required-courses";
+import {
+  formatScheduleAlertsHint,
+  formatScheduleWarningDetail,
+  progressPercent,
+  summarizeComplementaryWarnings,
+} from "../lib/plan-alerts";
 import { readThemeColor } from "./theme.ts";
 import type { DegreePlan, PlanCourse, PlanTerm } from "../types/plan";
 
@@ -41,6 +60,7 @@ interface EditorState {
   graph: PlanGraphSnapshot | null;
   selectedCourseId: string | null;
   draggingCourseId: string | null;
+  missingRequiredCourses: MissingRequiredCourse[];
   saving: boolean;
   addCourseTermId: string | null;
   addCourseTermLabel: string | null;
@@ -282,6 +302,40 @@ function updateCreditDisplays(state: EditorState): void {
   }
 }
 
+function appendStubCardBody(body: HTMLElement, course: PlanCourse): void {
+  if (isComplementaryStub(course)) {
+    const display = formatComplementaryStubDisplay(course);
+    const codeEl = document.createElement("p");
+    codeEl.className = "plan-course-code";
+    codeEl.textContent = display.header;
+    body.appendChild(codeEl);
+
+    const subtitleEl = document.createElement("p");
+    subtitleEl.className = "plan-stub-options text-xs text-york-muted";
+    subtitleEl.textContent = display.subtitle;
+    body.appendChild(subtitleEl);
+    return;
+  }
+
+  const displayLabel = course.section_label ?? course.title ?? course.course_code;
+  const codeEl = document.createElement("p");
+  codeEl.className = "plan-course-code";
+  codeEl.textContent = displayLabel;
+  body.appendChild(codeEl);
+
+  if (course.title && course.title !== displayLabel) {
+    const optionsEl = document.createElement("p");
+    optionsEl.className = "plan-stub-options";
+    optionsEl.textContent = course.title;
+    body.appendChild(optionsEl);
+  } else if (!course.title) {
+    const hintEl = document.createElement("p");
+    hintEl.className = "text-xs text-york-muted";
+    hintEl.textContent = "Pick from checklist options";
+    body.appendChild(hintEl);
+  }
+}
+
 function createCourseCardElement(course: PlanCourse): HTMLLIElement {
   const card = document.createElement("li");
   card.className = "plan-course-card";
@@ -293,6 +347,9 @@ function createCourseCardElement(course: PlanCourse): HTMLLIElement {
   card.dataset.entryKind = course.entry_kind ?? "course";
   if (course.section_label) {
     card.dataset.sectionLabel = course.section_label;
+  }
+  if (isComplementaryStub(course)) {
+    card.dataset.complementaryStub = "true";
   }
 
   if (course.entry_kind !== "stub") {
@@ -332,27 +389,37 @@ function createCourseCardElement(course: PlanCourse): HTMLLIElement {
   scheduleWarn.textContent = "S";
   card.appendChild(scheduleWarn);
 
-  const handle = document.createElement("button");
-  handle.type = "button";
+  const handle = document.createElement("span");
   handle.className = "plan-course-handle";
-  handle.draggable = true;
-  handle.setAttribute("aria-label", `Drag ${course.course_code} to another term`);
+  handle.setAttribute("role", "button");
+  handle.tabIndex = 0;
+  if (course.entry_kind !== "stub" || isComplementaryStubDraggable(course)) {
+    handle.draggable = true;
+  }
+  handle.setAttribute(
+    "aria-label",
+    `Drag ${formatStubDragLabel(course)} to another term or trash`,
+  );
   handle.textContent = "⋮⋮";
   card.appendChild(handle);
 
   const body = document.createElement("div");
   body.className = "plan-course-body";
 
-  const codeEl = document.createElement("p");
-  codeEl.className = "plan-course-code";
-  codeEl.textContent = course.course_code;
-  body.appendChild(codeEl);
+  if (course.entry_kind === "stub") {
+    appendStubCardBody(body, course);
+  } else {
+    const codeEl = document.createElement("p");
+    codeEl.className = "plan-course-code";
+    codeEl.textContent = course.course_code;
+    body.appendChild(codeEl);
 
-  if (course.title && course.entry_kind !== "stub") {
-    const titleEl = document.createElement("p");
-    titleEl.className = "text-xs text-york-muted";
-    titleEl.textContent = course.title;
-    body.appendChild(titleEl);
+    if (course.title) {
+      const titleEl = document.createElement("p");
+      titleEl.className = "text-xs text-york-muted";
+      titleEl.textContent = course.title;
+      body.appendChild(titleEl);
+    }
   }
 
   if (course.credits != null) {
@@ -412,6 +479,137 @@ function findAddedCourse(
 
 function isComplementaryPlacement(course: PlanCourse): boolean {
   return course.section_label === "Complementary Studies";
+}
+
+function persistMissingRequiredCourses(state: EditorState): void {
+  writeMissingRequiredCourses(state.plan.id, state.missingRequiredCourses);
+}
+
+function syncMissingRequiredCourses(state: EditorState): void {
+  const planned = listPlannedCourseCodes(state.plan);
+  state.missingRequiredCourses = reconcileMissingRequiredCourses(
+    state.missingRequiredCourses,
+    planned,
+  );
+  persistMissingRequiredCourses(state);
+}
+
+function recordRemovedRequiredCourse(
+  state: EditorState,
+  entry: { code: string; title: string | null },
+  formerTermId: string | null,
+): void {
+  const normalized = entry.code.trim().toUpperCase();
+  const existing = state.missingRequiredCourses.find(
+    (course) => course.code.trim().toUpperCase() === normalized,
+  );
+  if (existing) {
+    existing.title = entry.title ?? existing.title;
+    if (formerTermId) {
+      existing.formerTermId = formerTermId;
+    }
+  } else {
+    state.missingRequiredCourses.push({
+      code: normalized,
+      title: entry.title,
+      formerTermId,
+    });
+  }
+  persistMissingRequiredCourses(state);
+}
+
+function clearMissingRequiredCourse(state: EditorState, courseCode: string): void {
+  const normalized = courseCode.trim().toUpperCase();
+  const next = state.missingRequiredCourses.filter(
+    (course) => course.code.trim().toUpperCase() !== normalized,
+  );
+  if (next.length === state.missingRequiredCourses.length) {
+    return;
+  }
+  state.missingRequiredCourses = next;
+  persistMissingRequiredCourses(state);
+}
+
+function updateMissingRequiredBanner(state: EditorState): void {
+  const panel = document.getElementById("plan-missing-required");
+  const list = document.getElementById("plan-missing-required-list");
+  if (!panel || !list) return;
+
+  list.replaceChildren();
+  if (state.missingRequiredCourses.length === 0) {
+    panel.classList.add("hidden");
+    panel.setAttribute("aria-hidden", "true");
+    return;
+  }
+
+  panel.classList.remove("hidden");
+  panel.setAttribute("aria-hidden", "false");
+
+  const title = panel.querySelector<HTMLElement>(".plan-alert-panel__title");
+  if (title) {
+    title.textContent =
+      state.missingRequiredCourses.length === 1
+        ? "Missing required course"
+        : "Missing required courses";
+  }
+
+  for (const missing of state.missingRequiredCourses) {
+    const item = document.createElement("li");
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "plan-missing-required__item";
+    button.dataset.formerTermId = missing.formerTermId ?? "";
+    const label = missing.title ? `${missing.code} — ${missing.title}` : missing.code;
+    button.innerHTML = `<span class="plan-missing-required__code">${missing.code}</span>${
+      missing.title
+        ? `<span class="plan-missing-required__title-text">${missing.title}</span>`
+        : ""
+    }`;
+    button.title = missing.formerTermId
+      ? `Scroll to ${missing.code}'s former term`
+      : `Removed required course: ${label}`;
+    item.appendChild(button);
+    list.appendChild(item);
+  }
+}
+
+function scrollToFormerTerm(formerTermId: string): void {
+  const bubble = document.querySelector<HTMLElement>(
+    `.plan-term-bubble[data-term-id="${CSS.escape(formerTermId)}"]`,
+  );
+  bubble?.scrollIntoView({ behavior: "smooth", block: "nearest", inline: "nearest" });
+}
+
+function setTrashZoneVisible(visible: boolean): void {
+  const trash = document.getElementById("plan-trash-zone");
+  if (!trash) return;
+  trash.classList.toggle("plan-trash-zone--visible", visible);
+  trash.toggleAttribute("hidden", !visible);
+  trash.setAttribute("aria-hidden", visible ? "false" : "true");
+}
+
+function setTrashZoneActive(active: boolean): void {
+  document.getElementById("plan-trash-zone")?.classList.toggle("plan-trash-zone--active", active);
+}
+
+function findDraggedCourseCard(courseId: string): HTMLElement | null {
+  return document.querySelector<HTMLElement>(
+    `.plan-course-card[data-course-id="${CSS.escape(courseId)}"]`,
+  );
+}
+
+function findCourseTermId(courseId: string): string | null {
+  const card = findDraggedCourseCard(courseId);
+  const list = card?.closest<HTMLElement>(".plan-course-list");
+  return list?.dataset.termId ?? null;
+}
+
+function findPlanCourse(state: EditorState, courseId: string): PlanCourse | null {
+  for (const term of state.plan.terms) {
+    const course = term.courses.find((entry) => entry.id === courseId);
+    if (course) return course;
+  }
+  return null;
 }
 
 function findAddedStubsInTerm(previous: DegreePlan, next: DegreePlan, termId: string): PlanCourse[] {
@@ -479,12 +677,53 @@ function updateStubCreditsOnCard(stub: PlanCourse): void {
 }
 
 function termHasComplementaryStub(term: { courses: PlanCourse[] }): boolean {
-  return term.courses.some(
-    (course) =>
-      course.entry_kind === "stub" &&
-      (/complementar/i.test(course.section_label ?? "") ||
-        course.course_code.toUpperCase() === "COMPLEMENTARY"),
+  return term.courses.some((course) => isComplementaryStub(course));
+}
+
+function syncComplementaryTermMarker(termId: string, hasStub: boolean): void {
+  const bubble = document.querySelector<HTMLElement>(
+    `.plan-term-bubble[data-term-id="${CSS.escape(termId)}"]`,
   );
+  if (!bubble) {
+    return;
+  }
+  if (hasStub) {
+    bubble.dataset.complementaryTerm = "true";
+  } else {
+    delete bubble.dataset.complementaryTerm;
+  }
+}
+
+function syncComplementaryTermMarkers(plan: DegreePlan): void {
+  for (const term of plan.terms) {
+    syncComplementaryTermMarker(term.id, termHasComplementaryStub(term));
+  }
+}
+
+function syncComplementaryTermMarkersAfterMove(courseId: string): void {
+  const card = document.querySelector<HTMLElement>(
+    `.plan-course-card[data-course-id="${CSS.escape(courseId)}"]`,
+  );
+  const destinationList = card?.closest<HTMLElement>(".plan-course-list[data-term-id]");
+  const destinationTermId = destinationList?.dataset.termId;
+  if (destinationTermId) {
+    const hasStub = Boolean(
+      destinationList?.querySelector('.plan-course-card[data-complementary-stub="true"]'),
+    );
+    syncComplementaryTermMarker(destinationTermId, hasStub);
+  }
+
+  document.querySelectorAll<HTMLElement>(".plan-term-bubble[data-term-id]").forEach((bubble) => {
+    const termId = bubble.dataset.termId;
+    if (!termId || termId === destinationTermId) {
+      return;
+    }
+    const list = bubble.querySelector<HTMLElement>(`.plan-course-list[data-term-id="${CSS.escape(termId)}"]`);
+    const hasStub = Boolean(
+      list?.querySelector('.plan-course-card[data-complementary-stub="true"]'),
+    );
+    syncComplementaryTermMarker(termId, hasStub);
+  });
 }
 
 function syncTermCourseDom(previous: DegreePlan, next: DegreePlan, termId: string): void {
@@ -497,18 +736,65 @@ function syncTermCourseDom(previous: DegreePlan, next: DegreePlan, termId: strin
   }
 
   const nextTerm = next.terms.find((entry) => entry.id === termId);
-  const bubble = document.querySelector<HTMLElement>(
-    `.plan-term-bubble[data-term-id="${CSS.escape(termId)}"]`,
-  );
-  if (!bubble || !nextTerm) {
-    return;
+  if (nextTerm) {
+    syncComplementaryTermMarker(termId, termHasComplementaryStub(nextTerm));
   }
+}
 
-  if (termHasComplementaryStub(nextTerm)) {
-    bubble.dataset.complementaryTerm = "true";
-  } else {
-    delete bubble.dataset.complementaryTerm;
+function syncComplementaryCourseLabels(previous: DegreePlan, next: DegreePlan): void {
+  const previousById = new Map(
+    previous.terms.flatMap((term) => term.courses.map((course) => [course.id, course] as const)),
+  );
+
+  for (const term of next.terms) {
+    for (const course of term.courses) {
+      if (course.entry_kind === "stub") {
+        continue;
+      }
+
+      const previousCourse = previousById.get(course.id);
+      if (!previousCourse || previousCourse.section_label === course.section_label) {
+        continue;
+      }
+      if (course.section_label !== "Complementary Studies") {
+        continue;
+      }
+
+      const card = document.querySelector<HTMLElement>(
+        `.plan-course-card[data-course-id="${CSS.escape(course.id)}"]`,
+      );
+      if (!card) {
+        continue;
+      }
+
+      card.dataset.sectionLabel = course.section_label;
+      if (!card.querySelector(".plan-course-remove")) {
+        const removeBtn = document.createElement("button");
+        removeBtn.type = "button";
+        removeBtn.className = "plan-course-remove";
+        removeBtn.title = `Remove ${course.course_code} from plan`;
+        removeBtn.setAttribute("aria-label", `Remove ${course.course_code} from plan`);
+        removeBtn.textContent = "×";
+        const handle = card.querySelector(".plan-course-handle");
+        if (handle) {
+          card.insertBefore(removeBtn, handle);
+        } else {
+          card.appendChild(removeBtn);
+        }
+      }
+    }
   }
+}
+
+function syncPlanCourseDom(previous: DegreePlan, next: DegreePlan): void {
+  const termIds = new Set([
+    ...previous.terms.map((term) => term.id),
+    ...next.terms.map((term) => term.id),
+  ]);
+  for (const termId of termIds) {
+    syncTermCourseDom(previous, next, termId);
+  }
+  syncComplementaryCourseLabels(previous, next);
 }
 
 function updateDependencySummary(state: EditorState): void {
@@ -596,6 +882,7 @@ function updateSelectionLegend(state: EditorState): void {
 function updateScheduleWarningsPanel(state: EditorState): void {
   const panel = document.getElementById("plan-schedule-warnings");
   const list = document.getElementById("plan-schedule-warnings-list");
+  const hint = document.getElementById("plan-schedule-warnings-hint");
   if (!panel || !list) return;
 
   const warnings = state.graph ? listScheduleWarnings(state.graph) : [];
@@ -607,15 +894,25 @@ function updateScheduleWarningsPanel(state: EditorState): void {
   }
 
   panel.classList.remove("hidden");
+  if (hint) {
+    hint.textContent = formatScheduleAlertsHint(warnings);
+  }
+
   for (const warning of warnings) {
     const item = document.createElement("li");
     const button = document.createElement("button");
     button.type = "button";
-    button.className = "plan-schedule-warnings__item";
+    button.className = "plan-alert-row plan-alert-row--schedule";
     button.dataset.courseId = warning.course_id;
-    button.innerHTML = `<span class="plan-schedule-warnings__course">${warning.course_code}</span>
-      <span class="plan-schedule-warnings__term">${warning.term_label}</span>
-      <span class="plan-schedule-warnings__message">${warning.message}</span>`;
+    button.innerHTML = `
+      <span class="plan-alert-row__badge" aria-hidden="true">S</span>
+      <span class="plan-alert-row__content">
+        <span class="plan-alert-row__title">
+          <strong class="plan-alert-row__code">${warning.course_code}</strong>
+          <span class="plan-alert-row__meta">${warning.term_label}</span>
+        </span>
+        <span class="plan-alert-row__detail">${formatScheduleWarningDetail(warning)}</span>
+      </span>`;
     button.title = "Show this course on the plan";
     item.appendChild(button);
     list.appendChild(item);
@@ -764,6 +1061,28 @@ function highlightSelection(state: EditorState): void {
   selectedEl.textContent = label;
 }
 
+function appendProgressBlock(
+  parent: HTMLElement,
+  label: string,
+  planned: number,
+  required: number,
+  tone: "warning" | "accent" = "warning",
+): void {
+  const remaining = Math.max(0, required - planned);
+  const percent = progressPercent(planned, required);
+  const block = document.createElement("li");
+  block.className = "plan-alert-progress";
+  block.innerHTML = `
+    <div class="plan-alert-progress__header">
+      <span class="plan-alert-progress__label">${label}</span>
+      <span class="plan-alert-progress__value">${planned} / ${required} cr${remaining > 0 ? ` · ${remaining} short` : ""}</span>
+    </div>
+    <div class="plan-alert-progress__track plan-alert-progress__track--${tone}" role="presentation">
+      <span class="plan-alert-progress__fill" style="width: ${percent}%"></span>
+    </div>`;
+  parent.appendChild(block);
+}
+
 function updateComplementaryWarningsPanel(state: EditorState): void {
   if (!state.expectsComplementaryStudies) return;
 
@@ -780,20 +1099,82 @@ function updateComplementaryWarningsPanel(state: EditorState): void {
   }
 
   panel.classList.remove("hidden");
-  for (const warning of warnings) {
+  const summary = summarizeComplementaryWarnings(warnings, state.plan);
+
+  if (summary.infoMessage) {
+    const item = document.createElement("li");
+    item.className = "plan-alert-info";
+    item.textContent = summary.infoMessage;
+    list.appendChild(item);
+    return;
+  }
+
+  if (summary.creditProgress) {
+    appendProgressBlock(
+      list,
+      "Complementary credits",
+      summary.creditProgress.planned,
+      summary.creditProgress.required,
+      "warning",
+    );
+  }
+
+  if (summary.subjectProgress) {
+    appendProgressBlock(
+      list,
+      "Humanities / social science",
+      summary.subjectProgress.planned,
+      summary.subjectProgress.required,
+      "accent",
+    );
+  }
+
+  if (summary.openStubs.length > 0) {
+    const group = document.createElement("li");
+    group.className = "plan-alert-stub-group";
+    const heading = document.createElement("p");
+    heading.className = "plan-alert-stub-group__title";
+    heading.textContent = `Open slots (${summary.openStubs.length})`;
+    group.appendChild(heading);
+
+    const chips = document.createElement("div");
+    chips.className = "plan-alert-stub-group__chips";
+    for (const stub of summary.openStubs) {
+      const chip = document.createElement("button");
+      chip.type = "button";
+      chip.className = "plan-alert-chip";
+      chip.dataset.courseId = stub.courseId;
+      chip.title = `Show ${stub.termLabel} slot on the plan`;
+      chip.innerHTML = `<span class="plan-alert-chip__credits">${stub.credits || "?"} cr</span><span class="plan-alert-chip__term">${stub.termLabel}</span>`;
+      chips.appendChild(chip);
+    }
+    group.appendChild(chips);
+    list.appendChild(group);
+  }
+
+  if (summary.noCoursesYet) {
+    const item = document.createElement("li");
+    item.className = "plan-alert-note";
+    item.textContent = "No complementary courses added yet — fill open slots or use Find complementary.";
+    list.appendChild(item);
+  }
+
+  for (const invalid of summary.invalidCourses) {
     const item = document.createElement("li");
     const button = document.createElement("button");
     button.type = "button";
-    button.className = `plan-complementary-warnings__item${
-      warning.severity === "info" ? " plan-complementary-warnings__item--info" : ""
-    }`;
-    if (warning.course_id) {
-      button.dataset.courseId = warning.course_id;
-    }
-    button.innerHTML = `<span class="plan-complementary-warnings__message">${warning.message}</span>`;
-    if (warning.course_id) {
-      button.title = "Show this course on the plan";
-    }
+    button.className = "plan-alert-row plan-alert-row--complementary";
+    button.dataset.courseId = invalid.courseId;
+    button.innerHTML = `
+      <span class="plan-alert-row__badge" aria-hidden="true">!</span>
+      <span class="plan-alert-row__content">
+        <span class="plan-alert-row__title">
+          <strong class="plan-alert-row__code">${invalid.courseCode}</strong>
+          <span class="plan-alert-row__meta">Not approved</span>
+        </span>
+        <span class="plan-alert-row__detail">Not on your uploaded complementary list or subject areas</span>
+      </span>`;
+    button.title = "Show this course on the plan";
     item.appendChild(button);
     list.appendChild(item);
   }
@@ -1102,6 +1483,7 @@ async function persistLayout(state: EditorState): Promise<void> {
     cachePlanGraphSnapshot(state.graph);
     updateDependencySummary(state);
     updateCreditDisplays(state);
+    syncComplementaryTermMarkers(state.plan);
     setStatus("Layout saved");
     scheduleRedraw(state, { chrome: true, animate: false });
   } catch (error) {
@@ -1150,6 +1532,7 @@ async function dropCourseToNewSummerTerm(
 
     const insertIndex = computeInsertIndex(newList, clientY);
     moveCourseInDom(courseId, newList, insertIndex);
+    syncComplementaryTermMarkersAfterMove(courseId);
     updateDependencySummary(state);
     updateCreditDisplays(state);
     scheduleRedraw(state, { chrome: true, animate: false });
@@ -1173,15 +1556,27 @@ function bindDragAndDrop(state: EditorState): void {
       return;
     }
 
+    // Avoid focus ring / stray keyboard focus on the drag affordance.
+    if (handle instanceof HTMLElement) {
+      handle.blur();
+    }
+
     const card = handle.closest<HTMLElement>(".plan-course-card");
     const courseId = card?.dataset.courseId;
-    if (!courseId) {
+    if (!card || !courseId) {
+      event.preventDefault();
+      return;
+    }
+
+    const course = findPlanCourse(state, courseId);
+    if (!course || (course.entry_kind === "stub" && !isComplementaryStubDraggable(course))) {
       event.preventDefault();
       return;
     }
 
     state.draggingCourseId = courseId;
-    card?.classList.add("plan-course-card--dragging");
+    card.classList.add("plan-course-card--dragging");
+    setTrashZoneVisible(true);
     event.dataTransfer?.setData("text/plain", courseId);
     if (event.dataTransfer) {
       event.dataTransfer.effectAllowed = "move";
@@ -1196,9 +1591,21 @@ function bindDragAndDrop(state: EditorState): void {
     document.querySelectorAll(".plan-course-list--active").forEach((el) => {
       el.classList.remove("plan-course-list--active");
     });
+    setTrashZoneActive(false);
+    setTrashZoneVisible(false);
   });
 
   root.addEventListener("dragover", (event) => {
+    if (state.draggingCourseId && (event.target as HTMLElement).closest("#plan-trash-zone")) {
+      event.preventDefault();
+      if (event.dataTransfer) {
+        event.dataTransfer.dropEffect = "move";
+      }
+      setTrashZoneActive(true);
+      return;
+    }
+
+    setTrashZoneActive(false);
     const list = findDropList(event.target as HTMLElement);
     if (!list || !state.draggingCourseId) return;
     event.preventDefault();
@@ -1209,9 +1616,14 @@ function bindDragAndDrop(state: EditorState): void {
   });
 
   root.addEventListener("dragleave", (event) => {
+    const trash = document.getElementById("plan-trash-zone");
+    const related = event.relatedTarget as Node | null;
+    if (trash && related && !trash.contains(related)) {
+      setTrashZoneActive(false);
+    }
+
     const list = findDropList(event.target as HTMLElement);
     if (!list) return;
-    const related = event.relatedTarget as Node | null;
     if (related && list.contains(related)) return;
     const emptySummer = list.closest<HTMLElement>(
       ".plan-term-bubble--empty.plan-term-bubble--summer",
@@ -1221,8 +1633,28 @@ function bindDragAndDrop(state: EditorState): void {
   });
 
   root.addEventListener("drop", (event) => {
+    if (!state.draggingCourseId || state.saving) return;
+
+    if ((event.target as HTMLElement).closest("#plan-trash-zone")) {
+      event.preventDefault();
+      setTrashZoneActive(false);
+
+      const courseId = state.draggingCourseId;
+      const course = findPlanCourse(state, courseId);
+      if (!course || course.entry_kind === "stub") {
+        setStatus("Checklist placeholders cannot be removed", true);
+        return;
+      }
+
+      const termId = findCourseTermId(courseId);
+      if (!termId) return;
+
+      void submitRemoveCourse(state, termId, courseId, course.course_code);
+      return;
+    }
+
     const list = findDropList(event.target as HTMLElement);
-    if (!list || !state.draggingCourseId || state.saving) return;
+    if (!list) return;
     event.preventDefault();
     list.classList.remove("plan-course-list--active");
 
@@ -1241,8 +1673,23 @@ function bindDragAndDrop(state: EditorState): void {
 
     const insertIndex = computeInsertIndex(list, event.clientY);
     moveCourseInDom(courseId, list, insertIndex);
+    syncComplementaryTermMarkersAfterMove(courseId);
     scheduleRedraw(state, { chrome: true, animate: false });
     void persistLayout(state);
+  });
+}
+
+function bindMissingRequiredBanner(): void {
+  const list = document.getElementById("plan-missing-required-list");
+  if (!list) return;
+
+  list.addEventListener("click", (event) => {
+    const button = (event.target as HTMLElement).closest<HTMLButtonElement>(
+      ".plan-missing-required__item",
+    );
+    const formerTermId = button?.dataset.formerTermId;
+    if (!formerTermId) return;
+    scrollToFormerTerm(formerTermId);
   });
 }
 
@@ -1252,7 +1699,7 @@ function bindScheduleWarningPanel(state: EditorState): void {
 
   list.addEventListener("click", (event) => {
     const button = (event.target as HTMLElement).closest<HTMLButtonElement>(
-      ".plan-schedule-warnings__item",
+      ".plan-alert-row--schedule",
     );
     const courseId = button?.dataset.courseId;
     if (!courseId) return;
@@ -1270,7 +1717,7 @@ function bindScheduleWarningPanel(state: EditorState): void {
   const complementaryList = document.getElementById("plan-complementary-warnings-list");
   complementaryList?.addEventListener("click", (event) => {
     const button = (event.target as HTMLElement).closest<HTMLButtonElement>(
-      ".plan-complementary-warnings__item",
+      ".plan-alert-row--complementary, .plan-alert-chip",
     );
     const courseId = button?.dataset.courseId;
     if (!courseId) return;
@@ -1288,13 +1735,7 @@ function bindScheduleWarningPanel(state: EditorState): void {
 
 function findDefaultComplementaryTermId(plan: DegreePlan): { termId: string; label: string } | null {
   for (const term of plan.terms) {
-    const hasStub = term.courses.some(
-      (course) =>
-        course.entry_kind === "stub" &&
-        (/complementar/i.test(course.section_label ?? "") ||
-          course.course_code.toUpperCase() === "COMPLEMENTARY"),
-    );
-    if (hasStub) {
+    if (termHasComplementaryStub(term)) {
       return { termId: term.id, label: term.label };
     }
   }
@@ -1427,6 +1868,10 @@ function replaceEmptySummerSlot(term: PlanTerm): void {
   const addButton = bubble.querySelector<HTMLButtonElement>(".plan-term-add-course");
   if (addButton) addButton.dataset.termLabel = term.label;
 
+  if (termHasComplementaryStub(term)) {
+    bubble.dataset.complementaryTerm = "true";
+  }
+
   emptyBubble.replaceWith(bubble);
 }
 
@@ -1497,6 +1942,7 @@ function bindAddCourse(state: EditorState): void {
   const searchStatus = document.getElementById("plan-add-course-status");
   const errorEl = document.getElementById("plan-add-course-error");
   const findComplementaryBtn = document.getElementById("plan-find-complementary");
+  const searchForm = dialog?.querySelector<HTMLFormElement>(".plan-add-course-form");
   if (!root || !dialog || !searchInput || !resultsList) return;
 
   let searchTimer = 0;
@@ -1746,10 +2192,18 @@ function bindAddCourse(state: EditorState): void {
 
   searchInput.addEventListener("input", () => {
     window.clearTimeout(searchTimer);
+    resultsList.replaceChildren();
+    if (searchStatus) searchStatus.textContent = "Searching…";
     const query = searchInput.value;
     searchTimer = window.setTimeout(() => {
       void runSearch(query);
     }, 250);
+  });
+
+  searchForm?.addEventListener("submit", (event) => {
+    event.preventDefault();
+    window.clearTimeout(searchTimer);
+    void runSearch(searchInput.value);
   });
 
   dialog.addEventListener("close", () => {
@@ -1771,6 +2225,8 @@ async function submitRemoveCourse(
   courseCode: string,
 ): Promise<void> {
   const previousPlan = state.plan;
+  const course = findPlanCourse(state, courseId);
+  const wasRequired = course ? isRequiredPlanCourse(course) : false;
   state.saving = true;
   setStatus(`Removing ${courseCode}…`);
 
@@ -1778,6 +2234,17 @@ async function submitRemoveCourse(
     const response = await removePlanCourse(state.plan.id, courseId);
     applyGraphResponse(state, response);
     syncTermCourseDom(previousPlan, response.plan, termId);
+    if (response.removed_required_course) {
+      recordRemovedRequiredCourse(state, response.removed_required_course, termId);
+    } else if (wasRequired) {
+      recordRemovedRequiredCourse(
+        state,
+        { code: courseCode, title: course?.title ?? null },
+        termId,
+      );
+    }
+    syncMissingRequiredCourses(state);
+    updateMissingRequiredBanner(state);
     if (state.selectedCourseId === courseId) {
       clearSelection(state);
     }
@@ -1820,6 +2287,9 @@ async function submitAddCourse(
       appendCourseCardToTerm(termId, added);
       state.selectedCourseId = added.id;
     }
+    clearMissingRequiredCourse(state, courseCode);
+    syncMissingRequiredCourses(state);
+    updateMissingRequiredBanner(state);
     updateDependencySummary(state);
     updateCreditDisplays(state);
     updateSelectionLegend(state);
@@ -1878,10 +2348,13 @@ function bindComplementaryUpload(state: EditorState): void {
 
     state.saving = true;
     setUploadStatus("Parsing complementary PDF…");
+    const previousPlan = state.plan;
     try {
       const response = await uploadComplementaryPdf(state.plan.id, file);
       state.plan = response.plan;
       applyGraphResponse(state, response);
+      syncPlanCourseDom(previousPlan, response.plan);
+      updateCreditDisplays(state);
       state.hasComplementaryCatalog = true;
       syncComplementaryToolbar(state);
       updateDependencySummary(state);
@@ -2078,11 +2551,22 @@ export function initPlanEditor(plan: DegreePlan): void {
   const root = document.getElementById("plan-editor");
   if (!root) return;
 
+  if (redrawRaf) {
+    cancelAnimationFrame(redrawRaf);
+    redrawRaf = 0;
+    pendingChrome = false;
+    pendingAnimate = false;
+  }
+
   const state: EditorState = {
     plan,
     graph: null,
     selectedCourseId: null,
     draggingCourseId: null,
+    missingRequiredCourses: reconcileMissingRequiredCourses(
+      readMissingRequiredCourses(plan.id),
+      listPlannedCourseCodes(plan),
+    ),
     saving: false,
     addCourseTermId: null,
     addCourseTermLabel: null,
@@ -2098,7 +2582,10 @@ export function initPlanEditor(plan: DegreePlan): void {
   });
 
   syncComplementaryToolbar(state);
+  persistMissingRequiredCourses(state);
+  updateMissingRequiredBanner(state);
   bindDragAndDrop(state);
+  bindMissingRequiredBanner();
   bindAddCourse(state);
   bindComplementaryUpload(state);
   bindScheduleWarningPanel(state);
@@ -2119,3 +2606,22 @@ export function readPlanFromPage(): DegreePlan | null {
     return null;
   }
 }
+
+export function bootPlanEditor(): void {
+  const root = document.getElementById("plan-editor");
+  if (!root || root.dataset.planEditorReady === "true") return;
+  root.dataset.planEditorReady = "true";
+
+  const planData = readPlanFromPage();
+  if (planData) {
+    initPlanEditor(planData);
+  }
+}
+
+document.addEventListener("astro:page-load", () => {
+  const root = document.getElementById("plan-editor");
+  if (root) {
+    delete root.dataset.planEditorReady;
+  }
+  bootPlanEditor();
+});

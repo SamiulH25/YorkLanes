@@ -51,7 +51,7 @@ app.use("/api/courses", coursesRouter);
 app.use("/api/course-sections", courseSectionsRouter);
 app.use("/api/schedules", requireAuth, schedulesRouter);
 app.use("/api/progress", requireAuth, progressRouter);
-app.use("/api/finance", requireAuth, financeRouter);
+app.use("/api/finance", financeRouter);
 app.use("/api/assignments", requireAuth, assignmentsRouter);
 
 app.listen(port, host, () => {

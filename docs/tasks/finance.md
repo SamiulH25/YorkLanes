@@ -46,12 +46,32 @@ The API uses `SUPABASE_DB_URL` when available. For this module only, it can also
 - [x] Edit support for existing entries (`PATCH` + Edit button on the list)
 - [x] Student-specific categories (OSAP, tuition, textbooks, rent, personal, …)
 - [x] Recurring income or expenses (one-time, weekly, monthly, yearly; log-next action)
-- [ ] Enforce auth and scope finance rows to the signed-in user
 
 Before using recurring entries against the remote database, the maintainer must run `supabase push` to apply `20250710000000_finance_entry_recurrence.sql`. Until then, the web app keeps API-backed entries one-time while local drafts can use recurrence.
 
+## Check-in 3 progress
+
+- [x] Enforce signed-in access on finance entry/budget/summary routes with `requireAuth` (categories stay public)
+- [x] Send credentials on all finance client API calls
+- [x] Guest UX: sign-in prompt + local draft only (no shared guest `user_id is null` cloud pool)
+- [x] Keep dashboard reachable for demos when Google OAuth is not configured (redirect only once OAuth is enabled)
+- [x] Income-by-category breakdown beside the expense chart
+- [x] Due-this-month strip for recurring entries with Log next
+- [x] Richer dashboard Finance widget (income, expenses, month budget, link to `/finance`)
+- [x] Entry search and kind filters, plus budget overspend / on-track alert
+- [ ] Tighter Supabase RLS with the maintainer once OAuth is configured for demos
+
+Signed-in users read and write only their own `finance_entries` and `finance_monthly_budgets` rows via `req.session.userId`. Guests see a sign-in banner and keep drafts in localStorage so demos still work without Google OAuth.
+
+The Due this month strip lists recurring entries whose next date falls in the selected budget month and has not already been logged.
+
+The dashboard Finance widget shows live income, expenses, balance, and current-month budget progress when the user is signed in. Guests get a clear CTA to `/finance` instead of shared cloud totals.
+
+Entry list search matches label, category, or date. Kind filters (All / Expense / Income) compose with the selected-month checkbox. Budget vs spent shows an overspend or on-track alert when a budget is set.
+
 ## After that
 
-- Per-user auth scoping
+- Maintainer RLS coordination
+- Recurrence migration re-test after `supabase push`
 
 Keep amounts in cents (integer) to avoid float bugs.

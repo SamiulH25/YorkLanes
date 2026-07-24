@@ -1,6 +1,7 @@
 /** Finance module — Taziz. Guide: docs/tasks/finance.md */
 import { Router } from "express";
 import { getPool } from "../db/index.js";
+import { requireAuth } from "../middleware/auth.js";
 import {
   canUseFinanceRest,
   createFinanceEntry,
@@ -92,6 +93,10 @@ financeRouter.get("/categories", (_req, res) => {
     ...categories,
   });
 });
+
+// Entries, budgets, and summaries require a signed-in session.
+// Categories stay public so guests can still see the student category lists.
+financeRouter.use(requireAuth);
 
 financeRouter.get("/", async (req, res) => {
   try {

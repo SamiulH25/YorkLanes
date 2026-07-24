@@ -20,7 +20,16 @@ export interface DashboardSummary {
   };
   finance: {
     balance: number;
+    income: number;
+    expenses: number;
     currency: string;
+    /** Selected budget month as YYYY-MM */
+    month: string;
+    monthSpent: number;
+    monthBudget: number;
+    monthRemaining: number;
+    /** True when totals came from the signed-in user's finance rows */
+    linked: boolean;
     message?: string;
   };
   quickLinks: QuickLink[];

@@ -40,6 +40,7 @@ interface MonthlyTotal {
 
 const STORAGE_KEY = "yorklanes.finance.entries";
 const BUDGET_STORAGE_KEY = "yorklanes.finance.budgets";
+const API_CREDENTIALS: RequestInit = { credentials: "include" };
 const currency = new Intl.NumberFormat("en-CA", {
   style: "currency",
   currency: "CAD",
@@ -197,21 +198,39 @@ function normalizeEntry(entry: FinanceEntry): FinanceEntry {
   };
 }
 
+async function fetchSignedIn(): Promise<boolean> {
+  try {
+    const response = await fetch("/api/auth/me", API_CREDENTIALS);
+    if (!response.ok) return false;
+    const data = (await response.json()) as { user?: { id?: string } | null };
+    return Boolean(data.user?.id);
+  } catch {
+    return false;
+  }
+}
+
+function setSignInPrompt(root: HTMLElement, show: boolean): void {
+  const banner = root.querySelector<HTMLElement>("[data-finance-signin]");
+  if (!banner) return;
+  banner.hidden = !show;
+}
+
 async function fetchApiEntries(): Promise<FinanceEntry[]> {
-  const response = await fetch("/api/finance/entries");
+  const response = await fetch("/api/finance/entries", API_CREDENTIALS);
   if (!response.ok) throw new Error(`Finance API error: ${response.status}`);
   const data = (await response.json()) as FinanceEntriesResponse;
   return data.entries.map(normalizeEntry);
 }
 
 async function fetchApiFinance(): Promise<FinanceResponse> {
-  const response = await fetch("/api/finance");
+  const response = await fetch("/api/finance", API_CREDENTIALS);
   if (!response.ok) throw new Error(`Finance API error: ${response.status}`);
   return response.json() as Promise<FinanceResponse>;
 }
 
 async function postApiEntry(entry: Omit<FinanceEntry, "id" | "createdAt">): Promise<FinanceEntry> {
   const response = await fetch("/api/finance/entries", {
+    ...API_CREDENTIALS,
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
@@ -229,7 +248,10 @@ async function postApiEntry(entry: Omit<FinanceEntry, "id" | "createdAt">): Prom
 }
 
 async function deleteApiEntry(entryId: string): Promise<void> {
-  const response = await fetch(`/api/finance/entries/${entryId}`, { method: "DELETE" });
+  const response = await fetch(`/api/finance/entries/${entryId}`, {
+    ...API_CREDENTIALS,
+    method: "DELETE",
+  });
   if (!response.ok) throw new Error(`Finance delete API error: ${response.status}`);
 }
 
@@ -238,6 +260,7 @@ async function patchApiEntry(
   entry: Omit<FinanceEntry, "id" | "createdAt">,
 ): Promise<FinanceEntry> {
   const response = await fetch(`/api/finance/entries/${entryId}`, {
+    ...API_CREDENTIALS,
     method: "PATCH",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
@@ -255,14 +278,17 @@ async function patchApiEntry(
 }
 
 async function postApiNextOccurrence(entryId: string): Promise<FinanceEntry> {
-  const response = await fetch(`/api/finance/entries/${entryId}/next`, { method: "POST" });
+  const response = await fetch(`/api/finance/entries/${entryId}/next`, {
+    ...API_CREDENTIALS,
+    method: "POST",
+  });
   if (!response.ok) throw new Error(`Finance next occurrence API error: ${response.status}`);
   const data = (await response.json()) as { entry: FinanceEntry };
   return normalizeEntry(data.entry);
 }
 
 async function fetchApiBudget(month: string): Promise<FinanceBudget> {
-  const response = await fetch(`/api/finance/budget/${month}`);
+  const response = await fetch(`/api/finance/budget/${month}`, API_CREDENTIALS);
   if (!response.ok) throw new Error(`Finance budget API error: ${response.status}`);
   const data = (await response.json()) as { budget: FinanceBudget };
   return data.budget;
@@ -270,6 +296,7 @@ async function fetchApiBudget(month: string): Promise<FinanceBudget> {
 
 async function putApiBudget(month: string, amountCents: number): Promise<FinanceBudget> {
   const response = await fetch(`/api/finance/budget/${month}`, {
+    ...API_CREDENTIALS,
     method: "PUT",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ amount: amountCents / 100 }),
@@ -287,6 +314,29 @@ function parseAmountCents(value: FormDataEntryValue | null): number {
 
 function getVisibleEntries(entries: FinanceEntry[], selectedMonth: string, monthOnly: boolean): FinanceEntry[] {
   return monthOnly ? entries.filter((entry) => entry.occurredOn.startsWith(selectedMonth)) : entries;
+}
+
+type ListKindFilter = "all" | FinanceKind;
+
+function filterListEntries(
+  entries: FinanceEntry[],
+  selectedMonth: string,
+  monthOnly: boolean,
+  kindFilter: ListKindFilter,
+  query: string,
+): FinanceEntry[] {
+  let list = getVisibleEntries(entries, selectedMonth, monthOnly);
+  if (kindFilter !== "all") {
+    list = list.filter((entry) => entry.kind === kindFilter);
+  }
+  const normalized = query.trim().toLowerCase();
+  if (!normalized) return list;
+  return list.filter(
+    (entry) =>
+      entry.label.toLowerCase().includes(normalized) ||
+      entry.category.toLowerCase().includes(normalized) ||
+      entry.occurredOn.includes(normalized),
+  );
 }
 
 function getMonthlyTotals(entries: FinanceEntry[]): MonthlyTotal[] {
@@ -344,8 +394,11 @@ function render(
   selectedMonth: string,
   monthOnly: boolean,
   editingId: string | null = null,
+  listKind: ListKindFilter = "all",
+  listQuery = "",
 ): void {
   const visibleEntries = getVisibleEntries(entries, selectedMonth, monthOnly);
+  const listEntries = filterListEntries(entries, selectedMonth, monthOnly, listKind, listQuery);
   const incomeCents = visibleEntries
     .filter((entry) => entry.kind === "income")
     .reduce((total, entry) => total + entry.amountCents, 0);
@@ -360,8 +413,23 @@ function render(
   if (income) income.textContent = formatCents(incomeCents);
   if (expenses) expenses.textContent = formatCents(expenseCents);
 
-  renderList(root, visibleEntries, editingId);
-  renderChart(root, visibleEntries);
+  renderList(root, listEntries, editingId, {
+    hasAnyEntries: visibleEntries.length > 0,
+    filtersActive: listKind !== "all" || listQuery.trim().length > 0 || monthOnly,
+  });
+  renderCategoryChart(root, visibleEntries, {
+    kind: "expense",
+    chartSelector: "[data-finance-chart]",
+    emptySelector: "[data-finance-chart-empty]",
+    barClass: "h-full rounded-full bg-york-red",
+  });
+  renderCategoryChart(root, visibleEntries, {
+    kind: "income",
+    chartSelector: "[data-finance-income-chart]",
+    emptySelector: "[data-finance-income-chart-empty]",
+    barClass: "h-full rounded-full bg-emerald-600",
+  });
+  renderDue(root, entries, selectedMonth);
   renderBudget(root, entries, budgetCents, selectedMonth);
   renderTrend(root, entries);
 }
@@ -409,7 +477,12 @@ function setEditMode(root: HTMLElement, entry: FinanceEntry | null): void {
   labelInput?.focus();
 }
 
-function renderList(root: HTMLElement, entries: FinanceEntry[], editingId: string | null): void {
+function renderList(
+  root: HTMLElement,
+  entries: FinanceEntry[],
+  editingId: string | null,
+  emptyState: { hasAnyEntries: boolean; filtersActive: boolean },
+): void {
   const list = root.querySelector<HTMLUListElement>("[data-finance-list]");
   const empty = root.querySelector<HTMLElement>("[data-finance-empty]");
   if (!list || !empty) return;
@@ -417,6 +490,11 @@ function renderList(root: HTMLElement, entries: FinanceEntry[], editingId: strin
   list.replaceChildren();
   empty.hidden = entries.length > 0;
   list.hidden = entries.length === 0;
+  if (entries.length === 0) {
+    empty.textContent = emptyState.hasAnyEntries || emptyState.filtersActive
+      ? "No entries match your filters."
+      : "No entries yet.";
+  }
 
   for (const entry of entries) {
     const row = document.createElement("li");
@@ -490,14 +568,118 @@ function renderList(root: HTMLElement, entries: FinanceEntry[], editingId: strin
   }
 }
 
-function renderChart(root: HTMLElement, entries: FinanceEntry[]): void {
-  const chart = root.querySelector<HTMLElement>("[data-finance-chart]");
-  const empty = root.querySelector<HTMLElement>("[data-finance-chart-empty]");
+function seriesKey(entry: FinanceEntry): string {
+  return [entry.kind, entry.label, entry.category, entry.recurrence, String(entry.amountCents)].join("\0");
+}
+
+/** Recurring rows whose next date falls in selectedMonth and is not already logged. */
+function getDueRecurring(
+  entries: FinanceEntry[],
+  selectedMonth: string,
+): Array<{ entry: FinanceEntry; nextDate: string }> {
+  const candidates: Array<{ entry: FinanceEntry; nextDate: string }> = [];
+
+  for (const entry of entries) {
+    if (entry.recurrence === "none") continue;
+    const nextDate = nextOccurredOn(entry.occurredOn, entry.recurrence);
+    if (!nextDate || !nextDate.startsWith(selectedMonth)) continue;
+
+    const alreadyLogged = entries.some(
+      (other) =>
+        other.occurredOn === nextDate &&
+        other.label === entry.label &&
+        other.category === entry.category &&
+        other.kind === entry.kind &&
+        other.recurrence === entry.recurrence &&
+        other.amountCents === entry.amountCents,
+    );
+    if (alreadyLogged) continue;
+    candidates.push({ entry, nextDate });
+  }
+
+  const bestBySeries = new Map<string, { entry: FinanceEntry; nextDate: string }>();
+  for (const item of candidates) {
+    const key = `${seriesKey(item.entry)}\0${item.nextDate}`;
+    const existing = bestBySeries.get(key);
+    if (!existing || item.entry.occurredOn > existing.entry.occurredOn) {
+      bestBySeries.set(key, item);
+    }
+  }
+
+  return [...bestBySeries.values()].sort((a, b) => a.nextDate.localeCompare(b.nextDate));
+}
+
+function renderDue(root: HTMLElement, entries: FinanceEntry[], selectedMonth: string): void {
+  const list = root.querySelector<HTMLElement>("[data-finance-due]");
+  const empty = root.querySelector<HTMLElement>("[data-finance-due-empty]");
+  const monthLabel = root.querySelector<HTMLElement>("[data-finance-due-month]");
+  if (!list || !empty) return;
+
+  if (monthLabel) monthLabel.textContent = formatMonth(selectedMonth);
+
+  const due = getDueRecurring(entries, selectedMonth);
+  list.replaceChildren();
+  list.hidden = due.length === 0;
+  empty.hidden = due.length > 0;
+
+  for (const { entry, nextDate } of due) {
+    const row = document.createElement("div");
+    row.className =
+      "flex flex-wrap items-center justify-between gap-3 rounded-xl border border-york-stone/50 bg-york-cream/40 px-3 py-3 dark:border-white/10 dark:bg-york-graphite/60";
+
+    const meta = document.createElement("div");
+    meta.className = "min-w-0";
+
+    const label = document.createElement("p");
+    label.className = "truncate text-sm font-semibold text-york-black dark:text-white";
+    label.textContent = entry.label;
+
+    const detail = document.createElement("p");
+    detail.className = "mt-0.5 text-xs text-york-muted";
+    detail.textContent = `${entry.category} · ${recurrenceLabel(entry.recurrence)} · Due ${nextDate}`;
+
+    meta.append(label, detail);
+
+    const amount = document.createElement("p");
+    amount.className =
+      entry.kind === "income"
+        ? "shrink-0 text-sm font-semibold text-emerald-700 dark:text-emerald-300"
+        : "shrink-0 text-sm font-semibold text-york-red";
+    amount.textContent = `${entry.kind === "income" ? "+" : "-"}${formatCents(entry.amountCents)}`;
+
+    const next = document.createElement("button");
+    next.type = "button";
+    next.dataset.financeNext = entry.id;
+    next.className =
+      "rounded-lg border border-york-stone/60 px-3 py-1.5 text-xs font-semibold text-york-muted transition hover:border-york-red/30 hover:text-york-red dark:border-white/10";
+    next.textContent = "Log next";
+
+    const actions = document.createElement("div");
+    actions.className = "flex shrink-0 items-center gap-3";
+    actions.append(amount, next);
+
+    row.append(meta, actions);
+    list.append(row);
+  }
+}
+
+function renderCategoryChart(
+  root: HTMLElement,
+  entries: FinanceEntry[],
+  options: {
+    kind: FinanceKind;
+    chartSelector: string;
+    emptySelector: string;
+    barClass: string;
+  },
+): void {
+  const chart = root.querySelector<HTMLElement>(options.chartSelector);
+  const empty = root.querySelector<HTMLElement>(options.emptySelector);
   if (!chart || !empty) return;
 
   const totals = new Map<string, number>();
   for (const entry of entries) {
-    if (entry.kind !== "expense") continue;
+    if (entry.kind !== options.kind) continue;
     totals.set(entry.category, (totals.get(entry.category) ?? 0) + entry.amountCents);
   }
 
@@ -527,8 +709,8 @@ function renderChart(root: HTMLElement, entries: FinanceEntry[]): void {
     track.className = "h-2 overflow-hidden rounded-full bg-york-cream dark:bg-york-graphite";
 
     const bar = document.createElement("div");
-    bar.className = "h-full rounded-full bg-york-red";
-    bar.style.width = `${Math.max(8, Math.round((total / max) * 100))}%`;
+    bar.className = options.barClass;
+    bar.style.width = max > 0 ? `${Math.max(8, Math.round((total / max) * 100))}%` : "0%";
 
     top.append(name, amount);
     track.append(bar);
@@ -543,6 +725,7 @@ function renderBudget(root: HTMLElement, entries: FinanceEntry[], budgetCents: n
   const remainingValue = root.querySelector<HTMLElement>("[data-finance-budget-remaining]");
   const bar = root.querySelector<HTMLElement>("[data-finance-budget-bar]");
   const status = root.querySelector<HTMLElement>("[data-finance-budget-status]");
+  const alert = root.querySelector<HTMLElement>("[data-finance-budget-alert]");
   const budgetInput = root.querySelector<HTMLInputElement>("[data-finance-budget-input]");
 
   const spentCents = entries
@@ -550,6 +733,7 @@ function renderBudget(root: HTMLElement, entries: FinanceEntry[], budgetCents: n
     .reduce((total, entry) => total + entry.amountCents, 0);
   const remainingCents = budgetCents - spentCents;
   const percent = budgetCents > 0 ? Math.min(100, Math.round((spentCents / budgetCents) * 100)) : 0;
+  const overspent = budgetCents > 0 && spentCents > budgetCents;
 
   if (budgetValue) budgetValue.textContent = formatCents(budgetCents);
   if (spentValue) spentValue.textContent = formatCents(spentCents);
@@ -562,16 +746,31 @@ function renderBudget(root: HTMLElement, entries: FinanceEntry[], budgetCents: n
   }
   if (bar) {
     bar.style.width = `${percent}%`;
-    bar.className =
-      spentCents > budgetCents && budgetCents > 0
-        ? "h-full rounded-full bg-york-red transition-[width] duration-200"
-        : "h-full rounded-full bg-emerald-600 transition-[width] duration-200";
+    bar.className = overspent
+      ? "h-full rounded-full bg-york-red transition-[width] duration-200"
+      : "h-full rounded-full bg-emerald-600 transition-[width] duration-200";
   }
   if (status) {
     status.textContent =
       budgetCents > 0
         ? `${percent}% of ${selectedMonth} budget spent.`
         : `Set a budget for ${selectedMonth} to track spending.`;
+  }
+  if (alert) {
+    if (budgetCents <= 0) {
+      alert.hidden = true;
+      alert.textContent = "";
+    } else if (overspent) {
+      alert.hidden = false;
+      alert.textContent = `Over budget by ${formatCents(spentCents - budgetCents)} for ${formatMonth(selectedMonth)}.`;
+      alert.className =
+        "mt-3 rounded-xl border border-york-red/40 bg-york-red/10 px-3 py-2 text-xs font-semibold leading-relaxed text-york-red";
+    } else {
+      alert.hidden = false;
+      alert.textContent = `On track. ${formatCents(remainingCents)} remaining for ${formatMonth(selectedMonth)}.`;
+      alert.className =
+        "mt-3 rounded-xl border border-emerald-600/30 bg-emerald-500/10 px-3 py-2 text-xs font-semibold leading-relaxed text-emerald-800 dark:text-emerald-300";
+    }
   }
   if (budgetInput && document.activeElement !== budgetInput) {
     budgetInput.value = budgetCents ? String((budgetCents / 100).toFixed(2)) : "";
@@ -666,6 +865,7 @@ async function initFinance(root: HTMLElement): Promise<void> {
   const budgetForm = root.querySelector<HTMLFormElement>("[data-finance-budget-form]");
   const monthInput = root.querySelector<HTMLInputElement>("[data-finance-month]");
   const monthFilter = root.querySelector<HTMLInputElement>("[data-finance-month-filter]");
+  const searchInput = root.querySelector<HTMLInputElement>("[data-finance-search]");
   const exportButton = root.querySelector<HTMLButtonElement>("[data-finance-export]");
   const clear = root.querySelector<HTMLButtonElement>("[data-finance-clear]");
   const cancelEdit = root.querySelector<HTMLButtonElement>("[data-finance-cancel-edit]");
@@ -673,30 +873,47 @@ async function initFinance(root: HTMLElement): Promise<void> {
   let selectedMonth = currentMonth();
   let budgetCents = readBudgets()[selectedMonth] ?? 0;
   let monthOnly = false;
+  let listKind: ListKindFilter = "all";
+  let listQuery = "";
   let apiAvailable = false;
   let recurrenceSupported = true;
   let editingId: string | null = null;
 
+  const paint = (): void => {
+    render(root, entries, budgetCents, selectedMonth, monthOnly, editingId, listKind, listQuery);
+  };
+
   if (monthInput) monthInput.value = selectedMonth;
   syncKindUi(root, "expense");
-  render(root, entries, budgetCents, selectedMonth, monthOnly, editingId);
+  paint();
   setMode(root, apiAvailable);
   setRecurrenceAvailability(root, apiAvailable, recurrenceSupported);
+  setSignInPrompt(root, false);
 
-  try {
-    const [apiEntries, apiBudget, apiFinance] = await Promise.all([
-      fetchApiEntries(),
-      fetchApiBudget(selectedMonth),
-      fetchApiFinance(),
-    ]);
-    entries = apiEntries;
-    budgetCents = apiBudget.amountCents;
-    apiAvailable = true;
-    recurrenceSupported = apiFinance.recurrenceSupported === true;
-    render(root, entries, budgetCents, selectedMonth, monthOnly, editingId);
-    setMode(root, apiAvailable);
-    setRecurrenceAvailability(root, apiAvailable, recurrenceSupported);
-  } catch {
+  const signedIn = await fetchSignedIn();
+  setSignInPrompt(root, !signedIn);
+
+  if (signedIn) {
+    try {
+      const [apiEntries, apiBudget, apiFinance] = await Promise.all([
+        fetchApiEntries(),
+        fetchApiBudget(selectedMonth),
+        fetchApiFinance(),
+      ]);
+      entries = apiEntries;
+      budgetCents = apiBudget.amountCents;
+      apiAvailable = true;
+      recurrenceSupported = apiFinance.recurrenceSupported === true;
+      paint();
+      setMode(root, apiAvailable);
+      setRecurrenceAvailability(root, apiAvailable, recurrenceSupported);
+    } catch {
+      apiAvailable = false;
+      recurrenceSupported = true;
+      setMode(root, apiAvailable);
+      setRecurrenceAvailability(root, apiAvailable, recurrenceSupported);
+    }
+  } else {
     apiAvailable = false;
     recurrenceSupported = true;
     setMode(root, apiAvailable);
@@ -706,11 +923,24 @@ async function initFinance(root: HTMLElement): Promise<void> {
   const clearEditMode = (): void => {
     editingId = null;
     setEditMode(root, null);
-    render(root, entries, budgetCents, selectedMonth, monthOnly, editingId);
+    paint();
   };
 
   cancelEdit?.addEventListener("click", () => {
     clearEditMode();
+  });
+
+  searchInput?.addEventListener("input", () => {
+    listQuery = searchInput.value;
+    paint();
+  });
+
+  root.querySelectorAll<HTMLInputElement>("[data-finance-kind-filter]").forEach((radio) => {
+    radio.addEventListener("change", () => {
+      if (!radio.checked) return;
+      listKind = radio.value === "income" || radio.value === "expense" ? radio.value : "all";
+      paint();
+    });
   });
 
   form?.querySelectorAll<HTMLInputElement>('input[name="kind"]').forEach((radio) => {
@@ -783,7 +1013,7 @@ async function initFinance(root: HTMLElement): Promise<void> {
         const recurrenceSelect = form.querySelector<HTMLSelectElement>("[data-finance-recurrence]");
         if (recurrenceSelect) recurrenceSelect.value = "none";
         syncKindUi(root, "expense");
-        render(root, entries, budgetCents, selectedMonth, monthOnly, editingId);
+        paint();
         return;
       } catch {
         apiAvailable = false;
@@ -808,7 +1038,7 @@ async function initFinance(root: HTMLElement): Promise<void> {
     const recurrenceSelect = form.querySelector<HTMLSelectElement>("[data-finance-recurrence]");
     if (recurrenceSelect) recurrenceSelect.value = "none";
     syncKindUi(root, "expense");
-    render(root, entries, budgetCents, selectedMonth, monthOnly, editingId);
+    paint();
   });
 
   budgetForm?.addEventListener("submit", async (event) => {
@@ -824,7 +1054,7 @@ async function initFinance(root: HTMLElement): Promise<void> {
       try {
         const saved = await putApiBudget(month, amountCents);
         budgetCents = saved.amountCents;
-        render(root, entries, budgetCents, selectedMonth, monthOnly, editingId);
+        paint();
         return;
       } catch {
         apiAvailable = false;
@@ -836,7 +1066,7 @@ async function initFinance(root: HTMLElement): Promise<void> {
 
     budgetCents = amountCents;
     writeBudget(month, budgetCents);
-    render(root, entries, budgetCents, selectedMonth, monthOnly, editingId);
+    paint();
   });
 
   monthInput?.addEventListener("change", async () => {
@@ -848,7 +1078,7 @@ async function initFinance(root: HTMLElement): Promise<void> {
       try {
         const saved = await fetchApiBudget(month);
         budgetCents = saved.amountCents;
-        render(root, entries, budgetCents, selectedMonth, monthOnly, editingId);
+        paint();
         return;
       } catch {
         apiAvailable = false;
@@ -859,12 +1089,12 @@ async function initFinance(root: HTMLElement): Promise<void> {
     }
 
     budgetCents = readBudgets()[selectedMonth] ?? 0;
-    render(root, entries, budgetCents, selectedMonth, monthOnly, editingId);
+    paint();
   });
 
   monthFilter?.addEventListener("change", () => {
     monthOnly = monthFilter.checked;
-    render(root, entries, budgetCents, selectedMonth, monthOnly, editingId);
+    paint();
   });
 
   exportButton?.addEventListener("click", () => {
@@ -890,7 +1120,7 @@ async function initFinance(root: HTMLElement): Promise<void> {
       if (!entry) return;
       editingId = entry.id;
       setEditMode(root, entry);
-      render(root, entries, budgetCents, selectedMonth, monthOnly, editingId);
+      paint();
       return;
     }
 
@@ -904,7 +1134,7 @@ async function initFinance(root: HTMLElement): Promise<void> {
         try {
           const saved = await postApiNextOccurrence(entry.id);
           entries = [saved, ...entries];
-          render(root, entries, budgetCents, selectedMonth, monthOnly, editingId);
+          paint();
           return;
         } catch {
           apiAvailable = false;
@@ -926,7 +1156,7 @@ async function initFinance(root: HTMLElement): Promise<void> {
         ...entries,
       ];
       writeEntries(entries);
-      render(root, entries, budgetCents, selectedMonth, monthOnly, editingId);
+      paint();
       return;
     }
 
@@ -943,7 +1173,7 @@ async function initFinance(root: HTMLElement): Promise<void> {
           clearEditMode();
           return;
         }
-        render(root, entries, budgetCents, selectedMonth, monthOnly, editingId);
+        paint();
         return;
       } catch {
         apiAvailable = false;
@@ -959,7 +1189,7 @@ async function initFinance(root: HTMLElement): Promise<void> {
       clearEditMode();
       return;
     }
-    render(root, entries, budgetCents, selectedMonth, monthOnly, editingId);
+    paint();
   });
 }
 

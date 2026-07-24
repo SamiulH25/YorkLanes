@@ -316,6 +316,29 @@ function getVisibleEntries(entries: FinanceEntry[], selectedMonth: string, month
   return monthOnly ? entries.filter((entry) => entry.occurredOn.startsWith(selectedMonth)) : entries;
 }
 
+type ListKindFilter = "all" | FinanceKind;
+
+function filterListEntries(
+  entries: FinanceEntry[],
+  selectedMonth: string,
+  monthOnly: boolean,
+  kindFilter: ListKindFilter,
+  query: string,
+): FinanceEntry[] {
+  let list = getVisibleEntries(entries, selectedMonth, monthOnly);
+  if (kindFilter !== "all") {
+    list = list.filter((entry) => entry.kind === kindFilter);
+  }
+  const normalized = query.trim().toLowerCase();
+  if (!normalized) return list;
+  return list.filter(
+    (entry) =>
+      entry.label.toLowerCase().includes(normalized) ||
+      entry.category.toLowerCase().includes(normalized) ||
+      entry.occurredOn.includes(normalized),
+  );
+}
+
 function getMonthlyTotals(entries: FinanceEntry[]): MonthlyTotal[] {
   const totals = new Map<string, MonthlyTotal>();
   for (const entry of entries) {
@@ -371,8 +394,11 @@ function render(
   selectedMonth: string,
   monthOnly: boolean,
   editingId: string | null = null,
+  listKind: ListKindFilter = "all",
+  listQuery = "",
 ): void {
   const visibleEntries = getVisibleEntries(entries, selectedMonth, monthOnly);
+  const listEntries = filterListEntries(entries, selectedMonth, monthOnly, listKind, listQuery);
   const incomeCents = visibleEntries
     .filter((entry) => entry.kind === "income")
     .reduce((total, entry) => total + entry.amountCents, 0);
@@ -387,7 +413,10 @@ function render(
   if (income) income.textContent = formatCents(incomeCents);
   if (expenses) expenses.textContent = formatCents(expenseCents);
 
-  renderList(root, visibleEntries, editingId);
+  renderList(root, listEntries, editingId, {
+    hasAnyEntries: visibleEntries.length > 0,
+    filtersActive: listKind !== "all" || listQuery.trim().length > 0 || monthOnly,
+  });
   renderCategoryChart(root, visibleEntries, {
     kind: "expense",
     chartSelector: "[data-finance-chart]",
@@ -448,7 +477,12 @@ function setEditMode(root: HTMLElement, entry: FinanceEntry | null): void {
   labelInput?.focus();
 }
 
-function renderList(root: HTMLElement, entries: FinanceEntry[], editingId: string | null): void {
+function renderList(
+  root: HTMLElement,
+  entries: FinanceEntry[],
+  editingId: string | null,
+  emptyState: { hasAnyEntries: boolean; filtersActive: boolean },
+): void {
   const list = root.querySelector<HTMLUListElement>("[data-finance-list]");
   const empty = root.querySelector<HTMLElement>("[data-finance-empty]");
   if (!list || !empty) return;
@@ -456,6 +490,11 @@ function renderList(root: HTMLElement, entries: FinanceEntry[], editingId: strin
   list.replaceChildren();
   empty.hidden = entries.length > 0;
   list.hidden = entries.length === 0;
+  if (entries.length === 0) {
+    empty.textContent = emptyState.hasAnyEntries || emptyState.filtersActive
+      ? "No entries match your filters."
+      : "No entries yet.";
+  }
 
   for (const entry of entries) {
     const row = document.createElement("li");
@@ -686,6 +725,7 @@ function renderBudget(root: HTMLElement, entries: FinanceEntry[], budgetCents: n
   const remainingValue = root.querySelector<HTMLElement>("[data-finance-budget-remaining]");
   const bar = root.querySelector<HTMLElement>("[data-finance-budget-bar]");
   const status = root.querySelector<HTMLElement>("[data-finance-budget-status]");
+  const alert = root.querySelector<HTMLElement>("[data-finance-budget-alert]");
   const budgetInput = root.querySelector<HTMLInputElement>("[data-finance-budget-input]");
 
   const spentCents = entries
@@ -693,6 +733,7 @@ function renderBudget(root: HTMLElement, entries: FinanceEntry[], budgetCents: n
     .reduce((total, entry) => total + entry.amountCents, 0);
   const remainingCents = budgetCents - spentCents;
   const percent = budgetCents > 0 ? Math.min(100, Math.round((spentCents / budgetCents) * 100)) : 0;
+  const overspent = budgetCents > 0 && spentCents > budgetCents;
 
   if (budgetValue) budgetValue.textContent = formatCents(budgetCents);
   if (spentValue) spentValue.textContent = formatCents(spentCents);
@@ -705,16 +746,31 @@ function renderBudget(root: HTMLElement, entries: FinanceEntry[], budgetCents: n
   }
   if (bar) {
     bar.style.width = `${percent}%`;
-    bar.className =
-      spentCents > budgetCents && budgetCents > 0
-        ? "h-full rounded-full bg-york-red transition-[width] duration-200"
-        : "h-full rounded-full bg-emerald-600 transition-[width] duration-200";
+    bar.className = overspent
+      ? "h-full rounded-full bg-york-red transition-[width] duration-200"
+      : "h-full rounded-full bg-emerald-600 transition-[width] duration-200";
   }
   if (status) {
     status.textContent =
       budgetCents > 0
         ? `${percent}% of ${selectedMonth} budget spent.`
         : `Set a budget for ${selectedMonth} to track spending.`;
+  }
+  if (alert) {
+    if (budgetCents <= 0) {
+      alert.hidden = true;
+      alert.textContent = "";
+    } else if (overspent) {
+      alert.hidden = false;
+      alert.textContent = `Over budget by ${formatCents(spentCents - budgetCents)} for ${formatMonth(selectedMonth)}.`;
+      alert.className =
+        "mt-3 rounded-xl border border-york-red/40 bg-york-red/10 px-3 py-2 text-xs font-semibold leading-relaxed text-york-red";
+    } else {
+      alert.hidden = false;
+      alert.textContent = `On track. ${formatCents(remainingCents)} remaining for ${formatMonth(selectedMonth)}.`;
+      alert.className =
+        "mt-3 rounded-xl border border-emerald-600/30 bg-emerald-500/10 px-3 py-2 text-xs font-semibold leading-relaxed text-emerald-800 dark:text-emerald-300";
+    }
   }
   if (budgetInput && document.activeElement !== budgetInput) {
     budgetInput.value = budgetCents ? String((budgetCents / 100).toFixed(2)) : "";
@@ -809,6 +865,7 @@ async function initFinance(root: HTMLElement): Promise<void> {
   const budgetForm = root.querySelector<HTMLFormElement>("[data-finance-budget-form]");
   const monthInput = root.querySelector<HTMLInputElement>("[data-finance-month]");
   const monthFilter = root.querySelector<HTMLInputElement>("[data-finance-month-filter]");
+  const searchInput = root.querySelector<HTMLInputElement>("[data-finance-search]");
   const exportButton = root.querySelector<HTMLButtonElement>("[data-finance-export]");
   const clear = root.querySelector<HTMLButtonElement>("[data-finance-clear]");
   const cancelEdit = root.querySelector<HTMLButtonElement>("[data-finance-cancel-edit]");
@@ -816,13 +873,19 @@ async function initFinance(root: HTMLElement): Promise<void> {
   let selectedMonth = currentMonth();
   let budgetCents = readBudgets()[selectedMonth] ?? 0;
   let monthOnly = false;
+  let listKind: ListKindFilter = "all";
+  let listQuery = "";
   let apiAvailable = false;
   let recurrenceSupported = true;
   let editingId: string | null = null;
 
+  const paint = (): void => {
+    render(root, entries, budgetCents, selectedMonth, monthOnly, editingId, listKind, listQuery);
+  };
+
   if (monthInput) monthInput.value = selectedMonth;
   syncKindUi(root, "expense");
-  render(root, entries, budgetCents, selectedMonth, monthOnly, editingId);
+  paint();
   setMode(root, apiAvailable);
   setRecurrenceAvailability(root, apiAvailable, recurrenceSupported);
   setSignInPrompt(root, false);
@@ -841,7 +904,7 @@ async function initFinance(root: HTMLElement): Promise<void> {
       budgetCents = apiBudget.amountCents;
       apiAvailable = true;
       recurrenceSupported = apiFinance.recurrenceSupported === true;
-      render(root, entries, budgetCents, selectedMonth, monthOnly, editingId);
+      paint();
       setMode(root, apiAvailable);
       setRecurrenceAvailability(root, apiAvailable, recurrenceSupported);
     } catch {
@@ -860,11 +923,24 @@ async function initFinance(root: HTMLElement): Promise<void> {
   const clearEditMode = (): void => {
     editingId = null;
     setEditMode(root, null);
-    render(root, entries, budgetCents, selectedMonth, monthOnly, editingId);
+    paint();
   };
 
   cancelEdit?.addEventListener("click", () => {
     clearEditMode();
+  });
+
+  searchInput?.addEventListener("input", () => {
+    listQuery = searchInput.value;
+    paint();
+  });
+
+  root.querySelectorAll<HTMLInputElement>("[data-finance-kind-filter]").forEach((radio) => {
+    radio.addEventListener("change", () => {
+      if (!radio.checked) return;
+      listKind = radio.value === "income" || radio.value === "expense" ? radio.value : "all";
+      paint();
+    });
   });
 
   form?.querySelectorAll<HTMLInputElement>('input[name="kind"]').forEach((radio) => {
@@ -937,7 +1013,7 @@ async function initFinance(root: HTMLElement): Promise<void> {
         const recurrenceSelect = form.querySelector<HTMLSelectElement>("[data-finance-recurrence]");
         if (recurrenceSelect) recurrenceSelect.value = "none";
         syncKindUi(root, "expense");
-        render(root, entries, budgetCents, selectedMonth, monthOnly, editingId);
+        paint();
         return;
       } catch {
         apiAvailable = false;
@@ -962,7 +1038,7 @@ async function initFinance(root: HTMLElement): Promise<void> {
     const recurrenceSelect = form.querySelector<HTMLSelectElement>("[data-finance-recurrence]");
     if (recurrenceSelect) recurrenceSelect.value = "none";
     syncKindUi(root, "expense");
-    render(root, entries, budgetCents, selectedMonth, monthOnly, editingId);
+    paint();
   });
 
   budgetForm?.addEventListener("submit", async (event) => {
@@ -978,7 +1054,7 @@ async function initFinance(root: HTMLElement): Promise<void> {
       try {
         const saved = await putApiBudget(month, amountCents);
         budgetCents = saved.amountCents;
-        render(root, entries, budgetCents, selectedMonth, monthOnly, editingId);
+        paint();
         return;
       } catch {
         apiAvailable = false;
@@ -990,7 +1066,7 @@ async function initFinance(root: HTMLElement): Promise<void> {
 
     budgetCents = amountCents;
     writeBudget(month, budgetCents);
-    render(root, entries, budgetCents, selectedMonth, monthOnly, editingId);
+    paint();
   });
 
   monthInput?.addEventListener("change", async () => {
@@ -1002,7 +1078,7 @@ async function initFinance(root: HTMLElement): Promise<void> {
       try {
         const saved = await fetchApiBudget(month);
         budgetCents = saved.amountCents;
-        render(root, entries, budgetCents, selectedMonth, monthOnly, editingId);
+        paint();
         return;
       } catch {
         apiAvailable = false;
@@ -1013,12 +1089,12 @@ async function initFinance(root: HTMLElement): Promise<void> {
     }
 
     budgetCents = readBudgets()[selectedMonth] ?? 0;
-    render(root, entries, budgetCents, selectedMonth, monthOnly, editingId);
+    paint();
   });
 
   monthFilter?.addEventListener("change", () => {
     monthOnly = monthFilter.checked;
-    render(root, entries, budgetCents, selectedMonth, monthOnly, editingId);
+    paint();
   });
 
   exportButton?.addEventListener("click", () => {
@@ -1044,7 +1120,7 @@ async function initFinance(root: HTMLElement): Promise<void> {
       if (!entry) return;
       editingId = entry.id;
       setEditMode(root, entry);
-      render(root, entries, budgetCents, selectedMonth, monthOnly, editingId);
+      paint();
       return;
     }
 
@@ -1058,7 +1134,7 @@ async function initFinance(root: HTMLElement): Promise<void> {
         try {
           const saved = await postApiNextOccurrence(entry.id);
           entries = [saved, ...entries];
-          render(root, entries, budgetCents, selectedMonth, monthOnly, editingId);
+          paint();
           return;
         } catch {
           apiAvailable = false;
@@ -1080,7 +1156,7 @@ async function initFinance(root: HTMLElement): Promise<void> {
         ...entries,
       ];
       writeEntries(entries);
-      render(root, entries, budgetCents, selectedMonth, monthOnly, editingId);
+      paint();
       return;
     }
 
@@ -1097,7 +1173,7 @@ async function initFinance(root: HTMLElement): Promise<void> {
           clearEditMode();
           return;
         }
-        render(root, entries, budgetCents, selectedMonth, monthOnly, editingId);
+        paint();
         return;
       } catch {
         apiAvailable = false;
@@ -1113,7 +1189,7 @@ async function initFinance(root: HTMLElement): Promise<void> {
       clearEditMode();
       return;
     }
-    render(root, entries, budgetCents, selectedMonth, monthOnly, editingId);
+    paint();
   });
 }
 

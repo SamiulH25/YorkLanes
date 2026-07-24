@@ -58,6 +58,7 @@ Before using recurring entries against the remote database, the maintainer must 
 - [x] Income-by-category breakdown beside the expense chart
 - [x] Due-this-month strip for recurring entries with Log next
 - [x] Richer dashboard Finance widget (income, expenses, month budget, link to `/finance`)
+- [x] Entry search and kind filters, plus budget overspend / on-track alert
 - [ ] Tighter Supabase RLS with the maintainer once OAuth is configured for demos
 
 Signed-in users read and write only their own `finance_entries` and `finance_monthly_budgets` rows via `req.session.userId`. Guests see a sign-in banner and keep drafts in localStorage so demos still work without Google OAuth.
@@ -65,6 +66,8 @@ Signed-in users read and write only their own `finance_entries` and `finance_mon
 The Due this month strip lists recurring entries whose next date falls in the selected budget month and has not already been logged.
 
 The dashboard Finance widget shows live income, expenses, balance, and current-month budget progress when the user is signed in. Guests get a clear CTA to `/finance` instead of shared cloud totals.
+
+Entry list search matches label, category, or date. Kind filters (All / Expense / Income) compose with the selected-month checkbox. Budget vs spent shows an overspend or on-track alert when a budget is set.
 
 ## After that
 

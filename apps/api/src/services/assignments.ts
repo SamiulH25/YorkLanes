@@ -116,6 +116,38 @@ export async function listAssignments(
   return result.rows.map(mapAssignment);
 }
 
+export interface UpcomingAssignment {
+  id: string;
+  title: string;
+  courseCode: string;
+  dueAt: string;
+}
+
+// Soonest pending deadlines for the dashboard widget (overdue-but-open sort first).
+export async function listUpcomingAssignments(
+  pool: pg.Pool,
+  userId: string | null | undefined,
+  limit = 5,
+): Promise<UpcomingAssignment[]> {
+  const scope = userId ? "user_id = $1" : "user_id is null";
+  const values: unknown[] = userId ? [userId, limit] : [limit];
+  const limitParam = userId ? "$2" : "$1";
+  const result = await pool.query<{ id: string; title: string; course_code: string; due_at: string }>(
+    `select id, title, course_code, due_at::text as due_at
+       from public.assignments
+       where ${scope} and done = false
+       order by due_at asc
+       limit ${limitParam}`,
+    values,
+  );
+  return result.rows.map((row) => ({
+    id: row.id,
+    title: row.title,
+    courseCode: row.course_code,
+    dueAt: row.due_at,
+  }));
+}
+
 export async function createAssignment(
   pool: pg.Pool,
   input: CreateAssignmentInput,
@@ -244,6 +276,37 @@ export async function listAssignmentsViaRest(userId?: string | null): Promise<As
 
   const rows = (await response.json()) as AssignmentRow[];
   return rows.map(mapAssignment);
+}
+
+export async function listUpcomingAssignmentsViaRest(
+  userId: string | null | undefined,
+  limit = 5,
+): Promise<UpcomingAssignment[]> {
+  const config = requireSupabaseRestConfig();
+  const url = new URL(`${config.url}/rest/v1/assignments`);
+  url.searchParams.set("select", "id,title,course_code,due_at");
+  url.searchParams.set("user_id", restUserFilter(userId));
+  url.searchParams.set("done", "eq.false");
+  url.searchParams.set("order", "due_at.asc");
+  url.searchParams.set("limit", String(limit));
+
+  const response = await fetch(url, { headers: assignmentsRestHeaders() });
+  if (!response.ok) {
+    throw new Error(`Assignments REST query failed: ${response.status} ${await response.text()}`);
+  }
+
+  const rows = (await response.json()) as Array<{
+    id: string;
+    title: string;
+    course_code: string;
+    due_at: string;
+  }>;
+  return rows.map((row) => ({
+    id: row.id,
+    title: row.title,
+    courseCode: row.course_code,
+    dueAt: row.due_at,
+  }));
 }
 
 export async function createAssignmentViaRest(input: CreateAssignmentInput): Promise<Assignment> {

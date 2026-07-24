@@ -13,6 +13,11 @@
  */
 import { Router } from "express";
 import { getPool } from "../db/index.js";
+import {
+  canUseAssignmentsRest,
+  listUpcomingAssignments,
+  listUpcomingAssignmentsViaRest,
+} from "../services/assignments.js";
 import { canUseFinanceRest, getFinanceSummary, getFinanceSummaryViaRest } from "../services/finance.js";
 import { findUserById } from "../services/users.js";
 import type { DashboardSummary } from "../types/dashboard.js";
@@ -54,6 +59,29 @@ dashboardRouter.get("/summary", async (req, res) => {
     // Keep the dashboard available when local env does not include SUPABASE_DB_URL.
   }
 
+  let assignments: DashboardSummary["assignments"] = {
+    upcoming: [],
+    message: "No upcoming assignments.",
+  };
+  try {
+    const upcoming = usePostgres
+      ? await listUpcomingAssignments(getPool(), req.session.userId)
+      : canUseAssignmentsRest()
+        ? await listUpcomingAssignmentsViaRest(req.session.userId)
+        : [];
+    assignments = {
+      upcoming: upcoming.map((item) => ({
+        id: item.id,
+        title: item.title,
+        dueAt: item.dueAt,
+        courseCode: item.courseCode,
+      })),
+      message: upcoming.length === 0 ? "No upcoming assignments." : undefined,
+    };
+  } catch {
+    // Keep the dashboard available when assignments cannot be loaded.
+  }
+
   const summary: DashboardSummary = {
     user: {
       displayName,
@@ -64,10 +92,7 @@ dashboardRouter.get("/summary", async (req, res) => {
       percentComplete: 0,
       label: "Degree progress not configured",
     },
-    assignments: {
-      upcoming: [],
-      message: "Assignment calendar not connected. Sarah: implement in apps/web and wire here.",
-    },
+    assignments,
     finance,
     quickLinks: [
       { label: "Degree Plan", href: "/plan", featureOwner: "Samiul", status: "ready" },

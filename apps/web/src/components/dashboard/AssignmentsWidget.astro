@@ -7,6 +7,16 @@ interface Props {
 
 const { assignments } = Astro.props;
 const hasUpcoming = assignments.upcoming.length > 0;
+
+function formatDue(iso: string): string {
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) return iso;
+  return date.toLocaleDateString("en-CA", {
+    month: "short",
+    day: "numeric",
+    timeZone: "UTC",
+  });
+}
 ---
 
 <section class="surface p-6">
@@ -41,7 +51,7 @@ const hasUpcoming = assignments.upcoming.length > 0;
                 <p class="text-sm font-semibold text-york-black dark:text-white">{item.title}</p>
                 {item.courseCode && <p class="text-xs text-york-muted">{item.courseCode}</p>}
               </div>
-              <time class="shrink-0 text-xs font-semibold text-york-red">{item.dueAt}</time>
+              <time class="shrink-0 text-xs font-semibold text-york-red" datetime={item.dueAt}>{formatDue(item.dueAt)}</time>
             </a>
           </li>
         ))}

@@ -5,29 +5,77 @@ import AssignmentsWidget from "../../components/dashboard/AssignmentsWidget.astr
 import FinanceWidget from "../../components/dashboard/FinanceWidget.astro";
 import QuickLinksWidget from "../../components/dashboard/QuickLinksWidget.astro";
 import { fetchDashboardSummary } from "../../lib/api";
+import { fetchSessionUser } from "../../lib/auth";
 import { fetchOnboardingStatus } from "../../lib/onboarding";
+import type { DashboardSummary } from "../../types/dashboard";
 
 export const prerender = false;
 
 const cookie = Astro.request.headers.get("cookie");
 
-let summary;
+function guestFinanceSummary(message: string): DashboardSummary["finance"] {
+  return {
+    balance: 0,
+    income: 0,
+    expenses: 0,
+    currency: "CAD",
+    month: new Date().toISOString().slice(0, 7),
+    monthSpent: 0,
+    monthBudget: 0,
+    monthRemaining: 0,
+    linked: false,
+    message,
+  };
+}
+
+function guestDashboardSummary(financeMessage: string): DashboardSummary {
+  return {
+    user: { displayName: "Guest", programme: null, startingYear: null },
+    progress: { percentComplete: 0, label: "Sign in to sync degree progress" },
+    assignments: { upcoming: [], message: "Sign in to sync assignments, or open Assignments to continue." },
+    finance: guestFinanceSummary(financeMessage),
+    quickLinks: [
+      { label: "Degree Plan", href: "/plan", featureOwner: "Samiul", status: "ready" },
+      { label: "Progress Tracker", href: "/progress", featureOwner: "Thor", status: "in-progress" },
+      { label: "Course Explorer", href: "/courses", featureOwner: "Jericho", status: "ready" },
+      { label: "Schedule Builder", href: "/schedule", featureOwner: "Nabeela", status: "in-progress" },
+      { label: "Assignments", href: "/assignments", featureOwner: "Sarah", status: "in-progress" },
+      { label: "Finance", href: "/finance", featureOwner: "Taziz", status: "ready" },
+    ],
+  };
+}
+
+let summary: DashboardSummary;
 let loadError: string | null = null;
 let showOnboardingBanner = false;
 
+const sessionUser = await fetchSessionUser(cookie);
+
 try {
-  summary = await fetchDashboardSummary(cookie);
-  const onboardingStatus = await fetchOnboardingStatus(cookie);
-  showOnboardingBanner = onboardingStatus.signedIn && !onboardingStatus.completed;
+  if (!sessionUser) {
+    summary = guestDashboardSummary(
+      "Open Finances to track a local draft on this device. Sign in later to sync cloud totals here.",
+    );
+  } else {
+    summary = await fetchDashboardSummary(cookie);
+    const onboardingStatus = await fetchOnboardingStatus(cookie);
+    showOnboardingBanner = onboardingStatus.signedIn && !onboardingStatus.completed;
+  }
 } catch (error) {
   loadError = error instanceof Error ? error.message : "Failed to load dashboard";
-  summary = {
-    user: { displayName: "Student", programme: null, startingYear: null },
-    progress: { percentComplete: 0, label: "API unavailable" },
-    assignments: { upcoming: [], message: "Start the API server to load data." },
-    finance: { balance: 0, currency: "CAD", message: "Start the API server to load data." },
-    quickLinks: [],
-  };
+  summary = guestDashboardSummary(
+    "Open Finances to track a local draft, or start the API and sign in to sync.",
+  );
+  if (sessionUser) {
+    summary = {
+      ...summary,
+      user: {
+        displayName: sessionUser.displayName,
+        programme: null,
+        startingYear: null,
+      },
+    };
+  }
 }
 
 const today = new Date().toLocaleDateString("en-CA", {

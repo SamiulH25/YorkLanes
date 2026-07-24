@@ -3,7 +3,7 @@
 import BaseLayout from "./BaseLayout.astro";
 import YorkMark from "../components/YorkMark.astro";
 import SettingsMenu from "../components/SettingsMenu.astro";
-import { fetchSessionUser, signOutUrl } from "../lib/auth";
+import { fetchAuthStatus, fetchSessionUser, signOutUrl } from "../lib/auth";
 
 export const prerender = false;
 
@@ -26,12 +26,17 @@ const { title = "Dashboard | YorkLanes", activeNav = "dashboard", collapseSideba
 
 const cookie = Astro.request.headers.get("cookie");
 const sessionUser = await fetchSessionUser(cookie);
+// Keep demos working when Google OAuth is not configured yet.
+// Once OAuth is enabled, require a signed-in session for dashboard pages.
 if (!sessionUser) {
-  const returnTo = `${Astro.url.pathname}${Astro.url.search}`;
-  return Astro.redirect(`/login?returnTo=${encodeURIComponent(returnTo)}`);
+  const { oauthEnabled } = await fetchAuthStatus();
+  if (oauthEnabled) {
+    const returnTo = `${Astro.url.pathname}${Astro.url.search}`;
+    return Astro.redirect(`/login?returnTo=${encodeURIComponent(returnTo)}`);
+  }
 }
 
-const displayName = sessionUser.displayName;
+const displayName = sessionUser?.displayName ?? "Guest";
 const userInitial = displayName.charAt(0).toUpperCase();
 const logoutUrl = signOutUrl();
 
@@ -203,9 +208,17 @@ const icons: Record<string, string> = {
           </div>
           <div class="sidebar-user-text min-w-0 flex-1">
             <p class="sidebar-user-name">{displayName}</p>
-            <a href={logoutUrl} data-astro-reload class="sidebar-user-action">
-              Sign out
-            </a>
+            {
+              sessionUser ? (
+                <a href={logoutUrl} data-astro-reload class="sidebar-user-action">
+                  Sign out
+                </a>
+              ) : (
+                <a href={`/login?returnTo=${encodeURIComponent(Astro.url.pathname)}`} class="sidebar-user-action">
+                  Sign in
+                </a>
+              )
+            }
           </div>
         </div>
       </div>
@@ -221,7 +234,7 @@ const icons: Record<string, string> = {
             <div class="shrink-0">
               <SettingsMenu
                 showAccount
-                signedIn
+                signedIn={Boolean(sessionUser)}
                 displayName={displayName}
                 signOutUrl={logoutUrl}
               />

@@ -16,7 +16,10 @@ export async function fetchDashboardSummary(cookieHeader?: string | null): Promi
     headers.cookie = cookieHeader;
   }
 
-  const response = await fetch(`${API_URL}/api/dashboard/summary`, { headers });
+  const response = await fetch(`${API_URL}/api/dashboard/summary`, {
+    headers,
+    credentials: "include",
+  });
 
   if (!response.ok) {
     throw new Error(`Dashboard API error: ${response.status}`);

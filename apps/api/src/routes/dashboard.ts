@@ -2,8 +2,6 @@
  * Dashboard API route.
  *
  * Returns the data shape the dashboard widgets expect.
- * Currently returns placeholder values. Replace each section when the
- * corresponding feature is implemented.
  *
  * EXPAND HERE:
  * - progress      -> Thor (Progress Tracker) writes query logic, expose via this route
@@ -13,20 +11,45 @@
  */
 import { Router } from "express";
 import { getPool } from "../db/index.js";
-import { canUseFinanceRest, getFinanceSummary, getFinanceSummaryViaRest } from "../services/finance.js";
+import {
+  canUseFinanceRest,
+  getFinanceBudget,
+  getFinanceBudgetViaRest,
+  getFinanceSummary,
+  getFinanceSummaryViaRest,
+  listFinanceEntries,
+  listFinanceEntriesViaRest,
+} from "../services/finance.js";
 import { findUserById } from "../services/users.js";
 import type { DashboardSummary } from "../types/dashboard.js";
 
 export const dashboardRouter = Router();
 
+function currentMonth(): string {
+  return new Date().toISOString().slice(0, 7);
+}
+
+function emptyFinance(message: string): DashboardSummary["finance"] {
+  const month = currentMonth();
+  return {
+    balance: 0,
+    income: 0,
+    expenses: 0,
+    currency: "CAD",
+    month,
+    monthSpent: 0,
+    monthBudget: 0,
+    monthRemaining: 0,
+    linked: false,
+    message,
+  };
+}
+
 dashboardRouter.get("/summary", async (req, res) => {
   let displayName = "Student";
-  let finance: DashboardSummary["finance"] = {
-    balance: 0,
-    currency: "CAD",
-    message: "Finance module needs database env to load shared entries.",
-  };
+  let finance = emptyFinance("Open Finances to track income, expenses, and budgets.");
   const usePostgres = Boolean(process.env.SUPABASE_DB_URL?.trim() || process.env.DATABASE_URL?.trim());
+  const month = currentMonth();
 
   if (req.session.userId && usePostgres) {
     const user = await findUserById(getPool(), req.session.userId);
@@ -35,23 +58,50 @@ dashboardRouter.get("/summary", async (req, res) => {
     }
   }
 
-  try {
-    const financeSummary = usePostgres
-      ? await getFinanceSummary(getPool(), req.session.userId)
-      : canUseFinanceRest()
-        ? await getFinanceSummaryViaRest(req.session.userId)
-        : null;
-    if (!financeSummary) throw new Error("Finance database is not configured");
-    finance = {
-      balance: financeSummary.balanceCents / 100,
-      currency: financeSummary.currency,
-      message:
-        financeSummary.balanceCents === 0
-          ? "No finance entries logged yet."
-          : `${financeSummary.categoryTotals.length} expense categories tracked.`,
-    };
-  } catch {
-    // Keep the dashboard available when local env does not include SUPABASE_DB_URL.
+  if (req.session.userId) {
+    try {
+      const [financeSummary, budget, entries] = usePostgres
+        ? await (async () => {
+            const pool = getPool();
+            return Promise.all([
+              getFinanceSummary(pool, req.session.userId),
+              getFinanceBudget(pool, month, req.session.userId),
+              listFinanceEntries(pool, req.session.userId),
+            ]);
+          })()
+        : canUseFinanceRest()
+          ? await Promise.all([
+              getFinanceSummaryViaRest(req.session.userId),
+              getFinanceBudgetViaRest(month, req.session.userId),
+              listFinanceEntriesViaRest(req.session.userId),
+            ])
+          : await Promise.reject(new Error("Finance database is not configured"));
+
+      const monthSpentCents = entries
+        .filter((entry) => entry.kind === "expense" && entry.occurredOn.startsWith(month))
+        .reduce((total, entry) => total + entry.amountCents, 0);
+      const monthBudgetCents = budget?.amountCents ?? 0;
+
+      finance = {
+        balance: financeSummary.balanceCents / 100,
+        income: financeSummary.incomeCents / 100,
+        expenses: financeSummary.expenseCents / 100,
+        currency: financeSummary.currency,
+        month,
+        monthSpent: monthSpentCents / 100,
+        monthBudget: monthBudgetCents / 100,
+        monthRemaining: (monthBudgetCents - monthSpentCents) / 100,
+        linked: true,
+        message:
+          financeSummary.balanceCents === 0 && monthBudgetCents === 0
+            ? "No finance entries logged yet. Open Finances to start tracking."
+            : monthBudgetCents > 0
+              ? `${month} budget tracking is live.`
+              : `${financeSummary.categoryTotals.length} expense categories tracked.`,
+      };
+    } catch {
+      finance = emptyFinance("Finance data is unavailable right now. Open Finances to keep a local draft.");
+    }
   }
 
   const summary: DashboardSummary = {
@@ -75,7 +125,7 @@ dashboardRouter.get("/summary", async (req, res) => {
       { label: "Course Explorer", href: "/courses", featureOwner: "Jericho", status: "ready" },
       { label: "Schedule Builder", href: "/schedule", featureOwner: "Nabeela", status: "in-progress" },
       { label: "Assignments", href: "/assignments", featureOwner: "Sarah", status: "in-progress" },
-      { label: "Finance", href: "/finance", featureOwner: "Taziz", status: "in-progress" },
+      { label: "Finance", href: "/finance", featureOwner: "Taziz", status: "ready" },
     ],
   };
 

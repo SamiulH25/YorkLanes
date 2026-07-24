@@ -632,6 +632,10 @@ function dueTone(iso: string, done: boolean): "muted" | "soon" | "overdue" {
 </DashboardLayout>
 
 <script>
+  // BaseLayout uses <ClientRouter/> (View Transitions): the DOM is swapped on
+  // every navigation (including form POSTs) without re-running module scripts,
+  // so all listeners must be (re)bound on each astro:page-load, not once.
+  function initAssignmentsPage() {
   const showBtn = document.getElementById("show-add-assignment-form-btn");
   const hideBtn = document.getElementById("hide-add-assignment-form-btn");
   const form = document.getElementById("add-assignment-form");
@@ -770,4 +774,8 @@ function dueTone(iso: string, done: boolean): "muted" | "soon" | "overdue" {
   if (document.querySelector(".border-emerald-500")) setEditFormOpen(false);
   const editErrorEl = editForm?.closest("section")?.querySelector(".border-york-red\\/30");
   if (editErrorEl) setEditFormOpen(true);
+  }
+
+  // Fires on the initial load and after every View Transitions navigation.
+  document.addEventListener("astro:page-load", initAssignmentsPage);
 </script>

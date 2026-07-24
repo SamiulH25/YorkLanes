@@ -40,7 +40,7 @@ function deptHref(dept: string): string {
 const hasFilters = Boolean(search || department);
 const resultLabel =
   total === 0
-    ? "No courses"
+    ? "no courses"
     : `${total} course${total === 1 ? "" : "s"}`;
 ---
 
@@ -48,20 +48,12 @@ const resultLabel =
   <Fragment slot="header">
     <div class="flex flex-wrap items-end justify-between gap-3">
       <div>
-        <p class="label">York catalogue</p>
+        <p class="text-xs font-medium text-york-muted">York Catalogue</p>
         <h1 class="heading-page">Courses</h1>
         <p class="mt-1 text-sm text-muted">
-          Search by code or title, then open a course for description, prereqs, and sections.
+          Search for a course to read its description, prerequisites, and sections.
         </p>
       </div>
-      {
-        !loadError && (
-          <p class="courses-count" aria-live="polite">
-            <span class="courses-count__value">{total}</span>
-            <span class="courses-count__label">listed</span>
-          </p>
-        )
-      }
     </div>
   </Fragment>
 
@@ -85,7 +77,7 @@ const resultLabel =
           name="search"
           type="search"
           value={search}
-          placeholder="EECS 3311, software design…"
+          placeholder="EECS 3311, Software Design…"
           class="field-input courses-search-input"
           autocomplete="off"
         />
@@ -117,7 +109,7 @@ const resultLabel =
           href={deptHref("")}
           class:list={["dept-chip", !department && "dept-chip--active"]}
         >
-          All
+          ALL
         </a>
         {
           departments.map((dept) => (
@@ -135,11 +127,11 @@ const resultLabel =
 
   <div class="courses-toolbar">
     <p class="text-sm text-muted">
-      <span class="font-semibold text-foreground">{resultLabel}</span>
+      Found <span class="font-semibold text-foreground">{resultLabel}</span>
       {
         search && (
           <>
-            {" "}matching <span class="font-mono text-brand">{search}</span>
+            {" "}matching <span class="font-semibold text-foreground">{search}</span>
           </>
         )
       }
@@ -157,7 +149,7 @@ const resultLabel =
     courses.length === 0 && !loadError ? (
       <div class="courses-empty">
         <div class="courses-empty__mark" aria-hidden="true">∅</div>
-        <h2 class="mt-3 font-display text-lg font-semibold text-foreground">No courses match</h2>
+        <h2 class="mt-3 font-display text-lg font-semibold text-foreground">No Courses Match</h2>
         <p class="mx-auto mt-2 max-w-md text-sm text-muted">
           Try another code, keyword, or department
           {hasFilters ? ", or clear filters to browse everything." : "."}
@@ -165,7 +157,7 @@ const resultLabel =
         {
           hasFilters && (
             <a href="/courses" class="btn-york mt-5 inline-flex px-4 py-2.5 text-sm">
-              Clear filters
+              Clear Filters
             </a>
           )
         }
@@ -184,7 +176,7 @@ const resultLabel =
               href={courseDetailPath(course.code)}
               class="course-ledger__row"
               role="listitem"
-              style={`--row-index: ${Math.min(index, 24)}`}
+              style={`--row-index: ${Math.min(index, 20)}`}
             >
               <span class="course-ledger__code">{course.code}</span>
               <span class="course-ledger__title">{course.title}</span>

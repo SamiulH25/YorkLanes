@@ -99,21 +99,28 @@ function typicalMeetingLine(summary: CourseOfferingSummary): string | null {
 }
 
 const typicalLine = offering ? typicalMeetingLine(offering) : null;
+const returnTo = Astro.url.searchParams.get("return");
 ---
 
-<DashboardLayout title={course ? `${course.code} | Courses` : "Course | YorkLanes"} activeNav="courses">
+<DashboardLayout title={course ? `${course.code} | YorkLanes` : "Course | YorkLanes"} activeNav="courses">
   <Fragment slot="header">
     <div>
-      <a href="/courses" class="courses-back">
-        <span aria-hidden="true">←</span>
-        Catalogue
-      </a>
-      <h1 class="heading-page">{course?.code ?? "Course"}</h1>
-      <p class="mt-0.5 text-sm text-muted">
-        {course?.title ?? "Catalogue entry"}
+      <p class="text-xs font-medium text-york-muted">York Catalogue</p>
+      <h1 class="heading-page">Courses</h1>
+      <p class="mt-1 text-sm text-muted">
+        Search for a course to read its description, prerequisites, and sections.
       </p>
     </div>
   </Fragment>
+
+  <div class="back-to-courses">
+    <a
+      href={returnTo ? `/courses${decodeURIComponent(returnTo)}` : "/courses"}
+      class="btn-york px-4 py-2.5 text-sm"
+    >
+      ← Back to Catalogue
+    </a>
+  </div>
 
   {
     loadError && (
@@ -127,18 +134,11 @@ const typicalLine = offering ? typicalMeetingLine(offering) : null;
     course && (
       <article class="course-sheet">
         <header class="course-hero">
-          <div class="course-hero__glow" aria-hidden="true" />
-          <p class="course-hero__eyebrow">York University catalogue</p>
-          <div class="course-hero__topline">
-            <h2 class="course-hero__code">{course.code}</h2>
-            {
-              course.department && (
-                <span class="course-hero__dept">{course.department}</span>
-              )
-            }
+          <div class="course-panel__heading">
+            <h3 class="course-panel__label">Overview</h3>
           </div>
+          <h2 class="course-hero__code">{course.code}</h2>
           <p class="course-hero__title">{course.title}</p>
-
           <dl class="course-facts">
             <div class="course-fact">
               <dt>{formatCreditsLabel(course.credits)}</dt>
@@ -155,6 +155,10 @@ const typicalLine = offering ? typicalMeetingLine(offering) : null;
             <div class="course-fact">
               <dt>Terms</dt>
               <dd>{availableTerms.length || "—"}</dd>
+            </div>
+            <div class="course-fact">
+              <dt>Department</dt>
+              <dd>{course.department || "—"}</dd>
             </div>
           </dl>
         </header>
@@ -183,7 +187,7 @@ const typicalLine = offering ? typicalMeetingLine(offering) : null;
                   <p class="course-panel__hint">
                     {
                       offering?.has_history
-                        ? `From ${offering.terms_seen.length} scraped term${offering.terms_seen.length === 1 ? "" : "s"}`
+                        ? `From ${offering.terms_seen.length} Scraped Term${offering.terms_seen.length === 1 ? "" : "s"}`
                         : "Built from York CDM section history when available"
                     }
                   </p>
@@ -240,11 +244,11 @@ const typicalLine = offering ? typicalMeetingLine(offering) : null;
             <section class="course-panel">
               <div class="course-panel__heading course-panel__heading--split">
                 <div>
-                  <h3 class="course-panel__label">Sections &amp; timetable</h3>
+                  <h3 class="course-panel__label">Sections & timetable</h3>
                   <p class="course-panel__hint">
                     {
                       sectionGroups.length > 0
-                        ? `${totalSections} section${totalSections === 1 ? "" : "s"} across ${availableTerms.length} term${availableTerms.length === 1 ? "" : "s"}`
+                        ? `${totalSections} Section${totalSections === 1 ? "" : "s"} across ${availableTerms.length} Term${availableTerms.length === 1 ? "" : "s"}`
                         : "No scraped timetable data yet"
                     }
                   </p>
@@ -280,7 +284,7 @@ const typicalLine = offering ? typicalMeetingLine(offering) : null;
                     <div class="course-sections-empty">
                       <p>Section times will show up here after the schedule scraper runs for this course.</p>
                       <a href="/schedule" class="text-brand text-sm font-semibold hover:underline">
-                        Open schedule →
+                        Open Schedule →
                       </a>
                     </div>
                   ) : (
@@ -386,7 +390,7 @@ const typicalLine = offering ? typicalMeetingLine(offering) : null;
                 Slot <span class="course-rail__inline-code">{course.code}</span> into a term and check timing against the graph.
               </p>
               <a href="/plan" class="course-rail__plan-link">
-                Open plan editor
+                Open Plan Editor
                 <span aria-hidden="true">↗</span>
               </a>
             </section>
@@ -404,9 +408,6 @@ const typicalLine = offering ? typicalMeetingLine(offering) : null;
         <p class="mx-auto mt-2 max-w-md text-sm text-muted">
           That code is not in the catalogue. Go back and try another search.
         </p>
-        <a href="/courses" class="btn-york mt-5 inline-flex px-4 py-2.5 text-sm">
-          Back to courses
-        </a>
       </div>
     )
   }

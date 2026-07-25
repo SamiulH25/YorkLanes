@@ -22,8 +22,9 @@ export async function financeRecurrenceSupportedPostgres(pool: pg.Pool): Promise
          and column_name = 'recurrence'
      ) as exists`,
   );
-  postgresSupported = result.rows[0]?.exists ?? false;
-  return postgresSupported;
+  const supported = result.rows[0]?.exists ?? false;
+  postgresSupported = supported;
+  return supported;
 }
 
 export async function financeRecurrenceSupportedRest(): Promise<boolean> {

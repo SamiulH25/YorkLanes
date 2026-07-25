@@ -284,7 +284,9 @@ export async function buildPlanGraph(pool: Pool, plan: DegreePlanRow): Promise<P
     `SELECT code, description FROM courses WHERE code = ANY($1::text[])`,
     [courseCodes],
   );
-  const descriptions = new Map(catalogResult.rows.map((row) => [row.code, row.description]));
+  const descriptions = new Map<string, string | null>(
+    catalogResult.rows.map((row) => [row.code, row.description]),
+  );
 
   const prereqResult = await pool.query<{ code: string; prerequisite_code: string }>(
     `SELECT c.code, cp.prerequisite_code

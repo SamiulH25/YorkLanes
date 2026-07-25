@@ -9,7 +9,7 @@ services:
     plan: free
     region: ohio
     buildCommand: >-
-      npm ci &&
+      npm ci --include=dev &&
       npm run build -w apps/api &&
       pip3 install --user -r services/checklist-parser/requirements.txt
     startCommand: node apps/api/dist/index.js
@@ -44,7 +44,7 @@ services:
     runtime: node
     plan: free
     region: ohio
-    buildCommand: npm ci && npm run build:prod -w apps/web
+    buildCommand: npm ci --include=dev && npm run build:prod -w apps/web
     startCommand: HOST=0.0.0.0 PORT=$PORT node apps/web/dist/server/entry.mjs
     envVars:
       - key: NODE_VERSION

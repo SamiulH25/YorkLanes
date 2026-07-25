@@ -11,7 +11,7 @@ services:
     buildCommand: >-
       npm ci --include=dev &&
       npm run build -w apps/api &&
-      pip3 install --user -r services/checklist-parser/requirements.txt
+      pip3 install -r services/checklist-parser/requirements.txt
     startCommand: node apps/api/dist/index.js
     healthCheckPath: /health
     envVars:

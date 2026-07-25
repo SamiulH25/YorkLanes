@@ -41,7 +41,7 @@ Cookies and OAuth stay on the **web origin**: set `PUBLIC_API_URL` to the web se
 
 | Service | Build | Start |
 |---------|-------|-------|
-| **yorklanes-api** | `npm ci --include=dev && npm run build -w apps/api && pip3 install --user -r services/checklist-parser/requirements.txt` | `node apps/api/dist/index.js` |
+| **yorklanes-api** | `npm ci --include=dev && npm run build -w apps/api && pip3 install -r services/checklist-parser/requirements.txt` | `node apps/api/dist/index.js` |
 | **yorklanes-web** | `npm ci --include=dev && npm run build:prod -w apps/web` | `HOST=0.0.0.0 PORT=$PORT node apps/web/dist/server/entry.mjs` |
 
 Render sets `NODE_ENV=production`, so plain `npm ci` omits devDependencies (`typescript`, `@types/*`). Use `--include=dev` on build commands.

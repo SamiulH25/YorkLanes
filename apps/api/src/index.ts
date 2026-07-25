@@ -40,9 +40,19 @@ if (authConfig.configured && !process.env.SESSION_SECRET?.trim()) {
   console.warn("[auth] SESSION_SECRET is not set — using an insecure dev default");
 }
 
-app.use(cors({ origin: process.env.WEB_ORIGIN ?? "http://localhost:4321", credentials: true }));
+app.use(cors({ origin: authConfig.webOrigin, credentials: true }));
 app.use(express.json());
 app.use(createSessionMiddleware());
+
+app.get("/", (_req, res) => {
+  res.json({
+    service: "yorklanes-api",
+    message: "YorkLanes API — use the web app in your browser, not this URL.",
+    webApp: authConfig.webOrigin,
+    health: "/health",
+    ready: "/health/ready",
+  });
+});
 
 app.use("/health", healthRouter);
 app.use("/api/auth", authRouter);
@@ -55,6 +65,10 @@ app.use("/api/schedules", requireAuth, schedulesRouter);
 app.use("/api/progress", requireAuth, progressRouter);
 app.use("/api/finance", financeRouter);
 app.use("/api/assignments", requireAuth, assignmentsRouter);
+
+app.use((_req, res) => {
+  res.status(404).json({ error: "Not Found", service: "yorklanes-api" });
+});
 
 app.listen(port, host, () => {
   console.log(`YorkLanes API listening on http://${host}:${port}`);

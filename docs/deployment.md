@@ -67,8 +67,22 @@ API listens on `0.0.0.0` in production (`API_BIND` in blueprint, or default when
 
 `PORT` is injected by Render on both services. The API reads `PORT` (falls back to `API_PORT` / 3001).
 
+### API vs web URL (common confusion)
+
+| URL | What it is | Open in browser? |
+|-----|------------|------------------|
+| `https://yorklanes-web.onrender.com` | Astro frontend (login, plan, dashboard) | **Yes** — this is the app |
+| `https://yorklanes-api.onrender.com` | Express JSON API (backend only) | No — not a website |
+
+Visiting the **API** root in a browser previously showed Express’s default HTML 404 (`Cannot GET /`) with a `Content-Security-Policy: default-src 'none'` header. That CSP comes from **Express’s built-in error page**, not from YorkLanes middleware (the API does not use Helmet). It is harmless noise when you hit a missing route in a browser; it is not a sign the API is misconfigured.
+
+`GET /` on the API now returns JSON pointing to `WEB_ORIGIN` (the web app). Use `/health` or `/health/ready` to verify the API; use the **web** host for normal use.
+
+If `yorklanes-web.onrender.com` returns Render’s “no-server” page, the web service has not been deployed yet — deploy **yorklanes-web** from the same Blueprint (see deploy order above).
+
 ### Verify after deploy
 
+- `https://<api-host>/` → JSON with `webApp` URL (not an HTML page)
 - `https://<api-host>/health` → instant liveness (`"status": "ok"`)
 - `https://<api-host>/health/ready` → DB + plan tables check (`"status": "ok"` when fully ready)
 - `https://<web-host>/health` → proxied API liveness

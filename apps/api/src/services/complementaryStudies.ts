@@ -371,6 +371,64 @@ export function planComplementaryReconciliation(
   return actions;
 }
 
+export interface ComplementaryStudiesProgress {
+  plannedCredits: number;
+  requiredCredits: number;
+  subjectAreaCredits: number;
+  minSubjectAreaCredits: number;
+  openStubCredits: number;
+}
+
+/** Planned complementary credits vs uploaded PDF rules (for progress electives). */
+export function computeComplementaryStudiesProgress(
+  planTerms: PlanTermRow[],
+  catalog: ComplementaryCatalog,
+): ComplementaryStudiesProgress {
+  const requiredCredits = catalog.rules.total_credits;
+  const minSubjectAreaCredits = catalog.rules.min_subject_area_credits;
+
+  let plannedCredits = 0;
+  let subjectAreaCredits = 0;
+  let openStubCredits = 0;
+
+  for (const term of planTerms) {
+    for (const course of term.courses) {
+      if (course.entry_kind === "stub") {
+        if (isComplementaryStub(course)) {
+          openStubCredits += course.credits ?? 0;
+        }
+        continue;
+      }
+
+      if (!isComplementaryPlacement(course)) {
+        continue;
+      }
+
+      const classification = classifyComplementaryCourse(
+        course.course_code,
+        catalog,
+        course.credits,
+      );
+      if (!classification.valid) {
+        continue;
+      }
+
+      plannedCredits += classification.credits;
+      if (classification.countsAsSubjectArea) {
+        subjectAreaCredits += classification.credits;
+      }
+    }
+  }
+
+  return {
+    plannedCredits,
+    requiredCredits,
+    subjectAreaCredits,
+    minSubjectAreaCredits,
+    openStubCredits,
+  };
+}
+
 export function computeComplementaryWarnings(
   planTerms: PlanTermRow[],
   catalog: ComplementaryCatalog | null,

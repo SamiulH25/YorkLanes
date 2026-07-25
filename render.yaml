@@ -1,0 +1,63 @@
+# Render Blueprint — Path A: two free web services (API + Astro SSR web).
+# Connect this repo in Render Dashboard → New → Blueprint.
+# Set sync: false secrets in the dashboard before the first successful deploy.
+
+services:
+  - type: web
+    name: yorklanes-api
+    runtime: node
+    plan: free
+    region: ohio
+    buildCommand: >-
+      npm ci &&
+      npm run build -w apps/api &&
+      pip3 install --user -r services/checklist-parser/requirements.txt
+    startCommand: node apps/api/dist/index.js
+    healthCheckPath: /health
+    envVars:
+      - key: NODE_VERSION
+        value: "22"
+      - key: NODE_ENV
+        value: production
+      - key: API_BIND
+        value: "0.0.0.0"
+      - key: PYTHON_PATH
+        value: python3
+      - key: SUPABASE_DB_URL
+        sync: false
+      - key: SESSION_SECRET
+        sync: false
+      - key: WEB_ORIGIN
+        fromService:
+          type: web
+          name: yorklanes-web
+          envVarKey: RENDER_EXTERNAL_URL
+      - key: GOOGLE_CLIENT_ID
+        sync: false
+      - key: GOOGLE_CLIENT_SECRET
+        sync: false
+      - key: GOOGLE_CALLBACK_URL
+        sync: false
+
+  - type: web
+    name: yorklanes-web
+    runtime: node
+    plan: free
+    region: ohio
+    buildCommand: npm ci && npm run build:prod -w apps/web
+    startCommand: HOST=0.0.0.0 PORT=$PORT node apps/web/dist/server/entry.mjs
+    envVars:
+      - key: NODE_VERSION
+        value: "22"
+      - key: NODE_ENV
+        value: production
+      - key: PUBLIC_API_URL
+        fromService:
+          type: web
+          name: yorklanes-web
+          envVarKey: RENDER_EXTERNAL_URL
+      - key: API_INTERNAL_URL
+        fromService:
+          type: web
+          name: yorklanes-api
+          envVarKey: RENDER_EXTERNAL_URL

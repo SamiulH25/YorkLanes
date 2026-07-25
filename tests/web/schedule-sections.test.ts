@@ -69,6 +69,11 @@ describe("parseSectionComponent", () => {
       code: "SEM 03",
       suffix: "03",
     });
+    assert.deepEqual(parseSectionComponent("BLEN 01 (A)"), {
+      type: "lec",
+      code: "BLEN 01",
+      suffix: "01",
+    });
   });
 
   it("returns other for unrecognized prefixes", () => {
@@ -105,6 +110,11 @@ describe("linksToLectureSection", () => {
   it("matches by shared trailing section number when bundles are absent", () => {
     assert.equal(linksToLectureSection("LECT 01", "TUTR 01"), true);
     assert.equal(linksToLectureSection("LECT 01", "TUTR 02"), false);
+  });
+
+  it("matches linked tutorials to blended lecture sections", () => {
+    assert.equal(linksToLectureSection("BLEN 01 (A)", "TUTR 02 (A)", "A", "A"), true);
+    assert.equal(linksToLectureSection("BLEN 01 (A)", "TUTR 02 (B)", "A", "B"), false);
   });
 });
 
@@ -144,6 +154,19 @@ describe("groupSectionsByComponent", () => {
     assert.deepEqual(
       groups[0]?.sections.map((item) => item.section_code),
       ["LECT 01"],
+    );
+  });
+
+  it("treats blended (BLEN) sections as lectures", () => {
+    const groups = groupSectionsByComponent([
+      section("TUTR 02 (A)", "A"),
+      section("BLEN 01 (A)", "A"),
+      section("LECT 02 (B)", "B"),
+    ]);
+
+    assert.deepEqual(
+      groups.find((group) => group.type === "lec")?.sections.map((item) => item.section_code),
+      ["BLEN 01 (A)", "LECT 02 (B)"],
     );
   });
 });

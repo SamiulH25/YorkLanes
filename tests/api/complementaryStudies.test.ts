@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import {
   classifyComplementaryCourse,
+  computeComplementaryStudiesProgress,
   computeComplementaryWarnings,
   extractComplementaryStubOptionCodes,
   isComplementaryReconciliationCandidate,
@@ -54,6 +55,27 @@ function term(id: string, courses: PlanCourseRow[]): PlanTermRow {
     courses,
   };
 }
+
+describe("computeComplementaryStudiesProgress", () => {
+  it("tracks subject-area credits separately from total planned credits", () => {
+    const progress = computeComplementaryStudiesProgress(
+      [
+        term("t1", [
+          course({
+            id: "c1",
+            course_code: "HUMA 3226",
+            section_label: "Complementary Studies",
+          }),
+        ]),
+      ],
+      catalog,
+    );
+
+    assert.equal(progress.plannedCredits, 3);
+    assert.equal(progress.subjectAreaCredits, 3);
+    assert.equal(progress.requiredCredits, 12);
+  });
+});
 
 describe("classifyComplementaryCourse", () => {
   it("recognizes listed courses and subject-area prefixes", () => {

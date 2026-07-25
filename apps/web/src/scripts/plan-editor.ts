@@ -52,6 +52,7 @@ import {
   progressPercent,
   summarizeComplementaryWarnings,
 } from "../lib/plan-alerts";
+import { progressElectivesHref } from "../lib/progress";
 import { readThemeColor } from "./theme.ts";
 import type { DegreePlan, PlanCourse, PlanTerm } from "../types/plan";
 
@@ -1083,8 +1084,38 @@ function appendProgressBlock(
   parent.appendChild(block);
 }
 
+function syncComplementaryProgressLink(state: EditorState): void {
+  if (!state.expectsComplementaryStudies) return;
+
+  const link = document.getElementById("plan-complementary-progress-link") as HTMLAnchorElement | null;
+  if (!link) return;
+
+  if (state.hasComplementaryCatalog) {
+    link.href = progressElectivesHref(state.plan.id);
+    link.classList.remove("hidden");
+  } else {
+    link.classList.add("hidden");
+  }
+}
+
+function focusComplementaryFromUrl(state: EditorState): void {
+  if (!state.expectsComplementaryStudies) return;
+
+  const params = new URLSearchParams(window.location.search);
+  if (params.get("focus") !== "complementary") return;
+
+  const panel = document.getElementById("plan-complementary-warnings");
+  const toolbar = document.querySelector(".plan-complementary-toolbar");
+  const target = panel && !panel.classList.contains("hidden") ? panel : toolbar;
+  target?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+  panel?.classList.add("plan-alert-panel--focused");
+  window.setTimeout(() => panel?.classList.remove("plan-alert-panel--focused"), 1800);
+}
+
 function updateComplementaryWarningsPanel(state: EditorState): void {
   if (!state.expectsComplementaryStudies) return;
+
+  syncComplementaryProgressLink(state);
 
   const panel = document.getElementById("plan-complementary-warnings");
   const list = document.getElementById("plan-complementary-warnings-list");
@@ -1192,6 +1223,7 @@ function syncComplementaryToolbar(state: EditorState): void {
     const filename = state.plan.complementary_filename;
     label.textContent = filename ? `Complementary: ${filename}` : "Upload complementary PDF";
   }
+  syncComplementaryProgressLink(state);
 }
 
 function syncCardChrome(state: EditorState): void {
@@ -2523,6 +2555,7 @@ async function loadGraph(state: EditorState): Promise<void> {
     setStatus("Click a course to see prereqs · season alerts use scraped F/W/S history");
     scheduleRedraw(state, { chrome: true, animate: false });
     updateSelectionLegend(state);
+    focusComplementaryFromUrl(state);
   } catch (error) {
     if (!state.graph) {
       setStatus(
@@ -2593,7 +2626,9 @@ export function initPlanEditor(plan: DegreePlan): void {
   bindCompletionToggles(state);
   bindCourseRemoval(state);
   bindRedrawOnLayoutChange(state);
-  void loadComplementarySummary(state);
+  void loadComplementarySummary(state).then(() => {
+    focusComplementaryFromUrl(state);
+  });
   void loadGraph(state);
 }
 

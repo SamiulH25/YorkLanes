@@ -27,7 +27,9 @@ import { schedulesRouter } from "./routes/schedules.js";
 
 const app = express();
 const port = Number(process.env.PORT ?? process.env.API_PORT) || 3001;
-const host = process.env.API_BIND?.trim() || "127.0.0.1";
+const host =
+  process.env.API_BIND?.trim() ||
+  (process.env.NODE_ENV === "production" ? "0.0.0.0" : "127.0.0.1");
 
 if (process.env.NODE_ENV === "production") {
   app.set("trust proxy", 1);

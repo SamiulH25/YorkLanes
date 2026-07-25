@@ -28,6 +28,11 @@ export default defineConfig({
         access: "public",
         default: "http://localhost:4321",
       }),
+      API_INTERNAL_URL: envField.string({
+        context: "server",
+        access: "secret",
+        optional: true,
+      }),
     },
   },
 });

@@ -33,7 +33,9 @@ export function sectionBundleKey(sectionCode: string, sectionGroup?: string | nu
 
 export function parseSectionComponent(sectionCode: string): ParsedSectionComponent {
   const trimmed = baseSectionCode(sectionCode);
-  const match = trimmed.match(/^(LEC|LECT|Lecture|TUT|TUTR|Tutorial|LAB|Laboratory|SEM|Seminar|PRA|TST|ENG)\s*(.*)$/iu);
+  const match = trimmed.match(
+    /^(LEC|LECT|Lecture|BLEN|Blended|TUT|TUTR|Tutorial|LAB|Laboratory|SEM|Seminar|PRA|TST|ENG)\s*(.*)$/iu,
+  );
   if (!match) {
     return { type: "other", code: trimmed, suffix: trimmed };
   }
@@ -41,7 +43,7 @@ export function parseSectionComponent(sectionCode: string): ParsedSectionCompone
   const token = match[1].toUpperCase();
   const suffix = (match[2] || "").trim();
   let type: SectionComponentType = "other";
-  if (token.startsWith("LEC")) type = "lec";
+  if (token.startsWith("LEC") || token === "BLEN") type = "lec";
   else if (token.startsWith("TUT")) type = "tut";
   else if (token.startsWith("LAB") || token === "PRA") type = "lab";
   else if (token.startsWith("SEM")) type = "sem";

@@ -2,8 +2,6 @@
 import type { DegreePlan, PlanCourse } from "../types/plan";
 import { getApiUrl } from "./api-url";
 
-const API_URL = getApiUrl();
-
 export interface PlanProgressStats {
   percentComplete: number;
   completed: number;
@@ -16,6 +14,17 @@ export type RequirementCategory = "major" | "generalEducation" | "electives";
 export interface RequirementCategoryStats extends PlanProgressStats {
   id: RequirementCategory;
   label: string;
+}
+
+export interface ComplementaryElectivesProgress {
+  mode: "complementary";
+  label: string;
+  plannedCredits: number;
+  requiredCredits: number;
+  subjectAreaCredits: number;
+  minSubjectAreaCredits: number;
+  openStubCredits: number;
+  catalogFilename: string | null;
 }
 
 export interface ProgressResponse {
@@ -38,6 +47,8 @@ export interface ProgressResponse {
     completed: number;
     percentOfTotal: number;
   }>;
+  expectsComplementaryStudies?: boolean;
+  complementaryElectives?: ComplementaryElectivesProgress | null;
 }
 
 // labels for the 3 buckets we show
@@ -168,7 +179,24 @@ export function progressLabel(stats: PlanProgressStats): string {
   return stats.completed + " of " + stats.total + " courses marked complete.";
 }
 
-export function categoryProgressLabel(stats: RequirementCategoryStats): string {
+export function categoryProgressLabel(
+  stats: RequirementCategoryStats,
+  complementary?: ComplementaryElectivesProgress | null,
+): string {
+  if (complementary && stats.id === "electives") {
+    const subjectNote =
+      complementary.subjectAreaCredits < complementary.minSubjectAreaCredits
+        ? ` · ${complementary.subjectAreaCredits} of ${complementary.minSubjectAreaCredits} cr humanities/social science`
+        : "";
+    if (stats.total === 0) {
+      return "No complementary rules loaded";
+    }
+    if (stats.remaining === 0) {
+      return `${stats.completed} of ${stats.total} credits planned${subjectNote}`;
+    }
+    return `${stats.completed} of ${stats.total} credits planned${subjectNote}`;
+  }
+
   if (stats.total === 0) {
     return "None on this plan";
   }
@@ -176,6 +204,57 @@ export function categoryProgressLabel(stats: RequirementCategoryStats): string {
     return "All complete";
   }
   return stats.completed + " of " + stats.total + " complete";
+}
+
+export function planComplementaryFocusHref(planId: string): string {
+  return `/plan?id=${encodeURIComponent(planId)}&focus=complementary`;
+}
+
+export function progressElectivesHref(planId: string): string {
+  return `/progress?planId=${encodeURIComponent(planId)}#progress-electives`;
+}
+
+export function segmentsFromProgressResponse(
+  response: Pick<ProgressResponse, "segments">,
+  plan: DegreePlan,
+  radius: number,
+): ProgressRingSegment[] {
+  if (response.segments && response.segments.length > 0) {
+    return ringSegmentsFromShares(response.segments, radius);
+  }
+  return computeProgressRingSegments(plan, radius);
+}
+
+function ringSegmentsFromShares(
+  segments: NonNullable<ProgressResponse["segments"]>,
+  radius: number,
+): ProgressRingSegment[] {
+  const circumference = 2 * Math.PI * radius;
+  let cursor = 0;
+  const out: ProgressRingSegment[] = [];
+
+  for (let i = 0; i < segments.length; i++) {
+    const segment = segments[i];
+    if (segment.percentOfTotal <= 0) {
+      continue;
+    }
+
+    const fraction = segment.percentOfTotal / 100;
+    const length = fraction * circumference;
+    out.push({
+      id: segment.id,
+      label: segment.label,
+      completed: segment.completed,
+      strokeClass: RING_STROKE[segment.id],
+      barClass: RING_BAR[segment.id],
+      dasharray: length + " " + circumference,
+      dashoffset: -cursor * circumference,
+      percentOfTotal: segment.percentOfTotal,
+    });
+    cursor += fraction;
+  }
+
+  return out;
 }
 
 export interface ProgressRingSegment {
@@ -316,7 +395,7 @@ export async function fetchProgress(
   }
 
   const response = await fetch(
-    API_URL + "/api/progress?planId=" + encodeURIComponent(planId),
+    getApiUrl() + "/api/progress?planId=" + encodeURIComponent(planId),
     {
       headers: headers,
       credentials: "include",

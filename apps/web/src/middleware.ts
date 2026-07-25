@@ -2,6 +2,11 @@ import type { MiddlewareHandler } from "astro";
 
 const API_ORIGIN = import.meta.env.API_INTERNAL_URL ?? "http://localhost:3001";
 
+function shouldProxyApi(): boolean {
+  if (import.meta.env.DEV) return true;
+  return Boolean(import.meta.env.API_INTERNAL_URL?.trim());
+}
+
 const PROTECTED_PATHS = [
   "/dashboard",
   "/plan",
@@ -43,7 +48,7 @@ async function proxyApiRequest(context: Parameters<MiddlewareHandler>[0]): Promi
       headers: response.headers,
     });
   } catch {
-    return new Response(JSON.stringify({ error: "API unreachable. Is npm run start:dev running?" }), {
+    return new Response(JSON.stringify({ error: "API unreachable." }), {
       status: 503,
       headers: { "Content-Type": "application/json" },
     });
@@ -74,7 +79,7 @@ export const onRequest: MiddlewareHandler = async (context, next) => {
   const { pathname, search } = context.url;
 
   if (pathname.startsWith("/api") || pathname === "/health") {
-    if (import.meta.env.DEV) {
+    if (shouldProxyApi()) {
       return proxyApiRequest(context);
     }
     return next();

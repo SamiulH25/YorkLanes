@@ -1,7 +1,13 @@
 // progress math from a degree plan
 // used by /api/progress and the dashboard
 import type { Pool } from "pg";
+import { parseCatalogFromDb } from "./complementaryCatalog.js";
+import {
+  computeComplementaryStudiesProgress,
+  type ComplementaryStudiesProgress,
+} from "./complementaryStudies.js";
 import type { DegreePlanRow } from "./planGenerator.js";
+import { planExpectsComplementaryStudies } from "./planComplementaryEligibility.js";
 
 export interface PlanProgressStats {
   percentComplete: number;
@@ -25,6 +31,17 @@ export interface ProgressSegmentShare {
   percentOfTotal: number;
 }
 
+export interface ComplementaryElectivesProgress {
+  mode: "complementary";
+  label: string;
+  plannedCredits: number;
+  requiredCredits: number;
+  subjectAreaCredits: number;
+  minSubjectAreaCredits: number;
+  openStubCredits: number;
+  catalogFilename: string | null;
+}
+
 export interface PlanProgressResult extends PlanProgressStats {
   planId: string;
   programmeName: string | null;
@@ -34,6 +51,8 @@ export interface PlanProgressResult extends PlanProgressStats {
   // like EECS 1028 -> Discrete Math
   courseTitles: Record<string, string>;
   segments: ProgressSegmentShare[];
+  expectsComplementaryStudies: boolean;
+  complementaryElectives: ComplementaryElectivesProgress | null;
 }
 
 type PlanEntry = DegreePlanRow["terms"][number]["courses"][number];
@@ -211,6 +230,72 @@ export function computeProgressSegmentShares(plan: DegreePlanRow): ProgressSegme
   return out;
 }
 
+function complementaryElectivesCategoryStats(
+  complementary: ComplementaryStudiesProgress,
+): RequirementCategoryStats {
+  const total = complementary.requiredCredits;
+  const completed = complementary.plannedCredits;
+  let percentComplete = 0;
+  if (total > 0) {
+    percentComplete = Math.min(100, Math.round((completed / total) * 100));
+  }
+
+  return {
+    id: "electives",
+    label: "Complementary studies",
+    percentComplete,
+    completed,
+    total,
+    remaining: Math.max(0, total - completed),
+  };
+}
+
+export function applyComplementaryElectivesCategory(
+  categories: RequirementCategoryStats[],
+  complementary: ComplementaryStudiesProgress,
+): RequirementCategoryStats[] {
+  const electives = complementaryElectivesCategoryStats(complementary);
+  return categories.map((category) => (category.id === "electives" ? electives : category));
+}
+
+function applyComplementaryElectivesSegment(
+  segments: ProgressSegmentShare[],
+  complementary: ComplementaryStudiesProgress,
+): ProgressSegmentShare[] {
+  const withoutElectives = segments.filter((segment) => segment.id !== "electives");
+  const electives = complementaryElectivesCategoryStats(complementary);
+  if (electives.percentComplete <= 0 && electives.completed <= 0) {
+    return withoutElectives;
+  }
+
+  return [
+    ...withoutElectives,
+    {
+      id: "electives",
+      label: electives.label,
+      completed: electives.completed,
+      percentOfTotal: electives.percentComplete,
+    },
+  ];
+}
+
+export function buildComplementaryElectivesProgress(
+  plan: DegreePlanRow,
+  complementary: ComplementaryStudiesProgress,
+  catalogFilename: string | null,
+): ComplementaryElectivesProgress {
+  return {
+    mode: "complementary",
+    label: "Complementary studies",
+    plannedCredits: complementary.plannedCredits,
+    requiredCredits: complementary.requiredCredits,
+    subjectAreaCredits: complementary.subjectAreaCredits,
+    minSubjectAreaCredits: complementary.minSubjectAreaCredits,
+    openStubCredits: complementary.openStubCredits,
+    catalogFilename,
+  };
+}
+
 // grab titles from the courses table in one go
 // (doing it here so i dont have to touch the courses feature)
 export async function lookupCatalogueTitles(
@@ -257,8 +342,24 @@ export async function buildPlanProgressResult(
   plan: DegreePlanRow,
 ): Promise<PlanProgressResult> {
   const stats = computePlanProgress(plan);
-  const categories = computeRequirementCategories(plan);
-  const segments = computeProgressSegmentShares(plan);
+  let categories = computeRequirementCategories(plan);
+  let segments = computeProgressSegmentShares(plan);
+  const expectsComplementaryStudies = planExpectsComplementaryStudies(plan);
+  let complementaryElectives: ComplementaryElectivesProgress | null = null;
+
+  if (expectsComplementaryStudies) {
+    const catalog = parseCatalogFromDb(plan.complementary_catalog);
+    if (catalog) {
+      const complementary = computeComplementaryStudiesProgress(plan.terms, catalog);
+      complementaryElectives = buildComplementaryElectivesProgress(
+        plan,
+        complementary,
+        plan.complementary_filename,
+      );
+      categories = applyComplementaryElectivesCategory(categories, complementary);
+      segments = applyComplementaryElectivesSegment(segments, complementary);
+    }
+  }
 
   const codes: string[] = [];
   for (let t = 0; t < plan.terms.length; t++) {
@@ -288,6 +389,8 @@ export async function buildPlanProgressResult(
     categories: categories,
     segments: segments,
     courseTitles: courseTitles,
+    expectsComplementaryStudies,
+    complementaryElectives,
     percentComplete: stats.percentComplete,
     completed: stats.completed,
     total: stats.total,

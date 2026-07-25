@@ -237,7 +237,16 @@ const showComplementaryStudies = plan ? planExpectsComplementaryStudies(plan) : 
         {
           showComplementaryStudies && (
             <div id="plan-complementary-warnings" class="plan-alert-panel plan-alert-panel--complementary hidden" aria-live="polite">
-              <p class="plan-alert-panel__title">Complementary studies</p>
+              <div class="plan-alert-panel__header-row">
+                <p class="plan-alert-panel__title">Complementary studies</p>
+                <a
+                  id="plan-complementary-progress-link"
+                  class="plan-alert-panel__action hidden"
+                  href={`/progress?planId=${plan.id}#progress-electives`}
+                >
+                  View progress
+                </a>
+              </div>
               <p class="plan-alert-panel__hint">
                 Progress toward your uploaded complementary availability PDF and open checklist slots.
               </p>

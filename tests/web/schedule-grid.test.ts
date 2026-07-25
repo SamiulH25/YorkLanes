@@ -4,14 +4,20 @@ import {
   computeEventLayout,
   convertTimeToMinutes,
   courseBundleKey,
+  courseHasConflicts,
+  entryHasConflict,
   entryKey,
+  findCrossBundleConflicts,
+  findScheduleConflicts,
   formatTimeRange,
   gridHours,
   meetingsOverlap,
   ROW_HEIGHT,
   SCHEDULE_START_HOUR,
   sectionSelectionKey,
+  summarizeScheduleConflicts,
   weekStorageKey,
+  type ScheduleGridEntry,
 } from "../../apps/web/src/lib/schedule-grid.ts";
 
 describe("weekStorageKey", () => {
@@ -69,6 +75,71 @@ describe("meetingsOverlap", () => {
 
     assert.equal(meetingsOverlap(a, b), true);
     assert.equal(meetingsOverlap(a, c), false);
+  });
+
+  it("treats adjacent meetings as non-overlapping", () => {
+    const a = { day: "Monday", start_time: "10:00", end_time: "11:00" };
+    const b = { day: "Monday", start_time: "11:00", end_time: "12:00" };
+    assert.equal(meetingsOverlap(a, b), false);
+  });
+});
+
+function gridEntry(
+  overrides: Partial<ScheduleGridEntry> & Pick<ScheduleGridEntry, "course_code" | "day" | "start_time" | "end_time">,
+): ScheduleGridEntry {
+  return {
+    id: overrides.id ?? crypto.randomUUID(),
+    section_code: overrides.section_code ?? "LECT 01",
+    component_type: overrides.component_type ?? "lec",
+    ...overrides,
+  };
+}
+
+describe("schedule conflict helpers", () => {
+  it("finds conflicts across the full timetable", () => {
+    const entries = [
+      gridEntry({ id: "a", course_code: "EECS 1011", day: "Monday", start_time: "10:00", end_time: "11:00" }),
+      gridEntry({ id: "b", course_code: "MATH 1013", day: "Monday", start_time: "10:30", end_time: "11:30" }),
+      gridEntry({ id: "c", course_code: "PHYS 1010", day: "Tuesday", start_time: "10:30", end_time: "11:30" }),
+    ];
+
+    const conflicts = findScheduleConflicts(entries);
+    assert.equal(conflicts.length, 1);
+    assert.equal(conflicts[0]?.entryA.course_code, "EECS 1011");
+    assert.equal(conflicts[0]?.entryB.course_code, "MATH 1013");
+  });
+
+  it("detects conflicts between a new bundle and existing entries", () => {
+    const existing = [
+      gridEntry({ id: "a", course_code: "EECS 1011", day: "Monday", start_time: "10:00", end_time: "11:00" }),
+    ];
+    const incoming = [
+      gridEntry({ id: "b", course_code: "MATH 1013", day: "Monday", start_time: "10:30", end_time: "11:30" }),
+    ];
+
+    assert.equal(findCrossBundleConflicts(incoming, existing).length, 1);
+  });
+
+  it("flags courses involved in conflicts", () => {
+    const entries = [
+      gridEntry({ id: "a", course_code: "EECS 1011", day: "Monday", start_time: "10:00", end_time: "11:00" }),
+      gridEntry({ id: "b", course_code: "MATH 1013", day: "Monday", start_time: "10:30", end_time: "11:30" }),
+    ];
+
+    assert.equal(courseHasConflicts("EECS 1011", entries), true);
+    assert.equal(courseHasConflicts("MATH 1013", entries), true);
+    assert.equal(entryHasConflict(entries[0]!, entries), true);
+  });
+
+  it("summarizes conflicts for status messages", () => {
+    const conflicts = findScheduleConflicts([
+      gridEntry({ id: "a", course_code: "EECS 1011", day: "Monday", start_time: "10:00", end_time: "11:00" }),
+      gridEntry({ id: "b", course_code: "MATH 1013", day: "Monday", start_time: "10:30", end_time: "11:30" }),
+    ]);
+
+    const summary = summarizeScheduleConflicts(conflicts);
+    assert.match(summary, /EECS 1011/);
+    assert.match(summary, /MATH 1013/);
   });
 });
 

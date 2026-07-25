@@ -4,14 +4,17 @@ import DashboardLayout from "../../layouts/DashboardLayout.astro";
 import { fetchPlan } from "../../lib/plans";
 import {
   computePlanProgress,
-  computeProgressRingSegments,
   computeRequirementCategories,
   categoryProgressLabel,
   fetchProgress,
   listPlanCourses,
+  planComplementaryFocusHref,
   progressLabel,
   resolveCourseCategoryLabel,
   resolveCourseHeading,
+  segmentsFromProgressResponse,
+  type ComplementaryElectivesProgress,
+  type ProgressResponse,
 } from "../../lib/progress";
 import type { DegreePlan } from "../../types/plan";
 
@@ -23,16 +26,17 @@ const cookie = Astro.request.headers.get("cookie");
 let plan: DegreePlan | null = null;
 let loadError: string | null = null;
 let courseTitles: Record<string, string> = {};
+let progressData: ProgressResponse | null = null;
 
 if (planId) {
   try {
-    // grab plan + titles at the same time
     const [planResult, progressResult] = await Promise.all([
       fetchPlan(planId, cookie),
       fetchProgress(planId, cookie).catch(() => null),
     ]);
     plan = planResult;
-    if (progressResult && progressResult.courseTitles) {
+    progressData = progressResult;
+    if (progressResult?.courseTitles) {
       courseTitles = progressResult.courseTitles;
     }
   } catch (error) {
@@ -44,10 +48,18 @@ if (planId) {
   }
 }
 
-const stats = plan ? computePlanProgress(plan) : null;
-const categories = plan ? computeRequirementCategories(plan) : [];
+const stats = progressData ?? (plan ? computePlanProgress(plan) : null);
+const categories =
+  progressData?.categories ?? (plan ? computeRequirementCategories(plan) : []);
+const complementaryElectives: ComplementaryElectivesProgress | null =
+  progressData?.complementaryElectives ?? null;
 const summaryLabel = stats ? progressLabel(stats) : null;
 const courses = plan ? listPlanCourses(plan) : [];
+
+const radius = 64;
+const ringSegments = plan ? segmentsFromProgressResponse(progressData ?? {}, plan, radius) : [];
+const classYear = plan ? plan.starting_year + 4 : null;
+const electivesCategory = categories.find((category) => category.id === "electives") ?? null;
 
 const completedCourses: typeof courses = [];
 const remainingCourses: typeof courses = [];
@@ -64,10 +76,6 @@ const categoryStyles: Record<string, { dot: string; bar: string }> = {
   generalEducation: { dot: "bg-york-gold", bar: "bg-york-gold" },
   electives: { dot: "bg-stone-400", bar: "bg-stone-400 dark:bg-stone-500" },
 };
-
-const radius = 64;
-const ringSegments = plan ? computeProgressRingSegments(plan, radius) : [];
-const classYear = plan ? plan.starting_year + 4 : null;
 ---
 
 <DashboardLayout title="Progress | YorkLanes" activeNav="progress">
@@ -246,7 +254,11 @@ const classYear = plan ? plan.starting_year + 4 : null;
                 }
               </div>
               <p class="mt-2 text-xs text-york-muted">
-                red = major, gold = gen ed, gray = electives (only the completed ones)
+                {
+                  complementaryElectives
+                    ? "red = major, gold = gen ed, gray = complementary studies credits planned"
+                    : "red = major, gold = gen ed, gray = electives (only the completed ones)"
+                }
               </p>
             </div>
           </div>
@@ -269,22 +281,38 @@ const classYear = plan ? plan.starting_year + 4 : null;
           </article>
         </section>
 
-        <section class="surface p-5 xl:col-span-2">
+        <section class="surface p-5 xl:col-span-2" id="progress-electives">
           <div class="widget-header">
             <div>
               <p class="label">Breakdown</p>
               <h2 class="heading-widget mt-1">Requirement categories</h2>
             </div>
-            <span class="badge bg-york-red/10 text-york-red dark:bg-york-red/20">
-              from checklist sections
-            </span>
+            <div class="flex flex-wrap items-center justify-end gap-2">
+              {
+                complementaryElectives && plan && (
+                  <a href={planComplementaryFocusHref(plan.id)} class="btn-ghost px-3 py-2 text-xs">
+                    Plan complementary
+                  </a>
+                )
+              }
+              <span class="badge bg-york-red/10 text-york-red dark:bg-york-red/20">
+                {complementaryElectives ? "from complementary PDF" : "from checklist sections"}
+              </span>
+            </div>
           </div>
           <div class="mt-5 grid gap-3 sm:grid-cols-3">
             {
               categories.map((category) => {
                 const styles = categoryStyles[category.id] ?? categoryStyles.electives;
+                const isComplementaryElectives =
+                  category.id === "electives" && Boolean(complementaryElectives);
                 return (
-                  <div class="surface-muted flex flex-col gap-3 p-4">
+                  <div
+                    class:list={[
+                      "surface-muted flex flex-col gap-3 p-4",
+                      isComplementaryElectives && "ring-1 ring-stone-300/80 dark:ring-white/10",
+                    ]}
+                  >
                     <div class="flex items-start gap-3">
                       <span class={`mt-1.5 h-2.5 w-2.5 shrink-0 rounded-full ${styles.dot}`}></span>
                       <div class="min-w-0 flex-1">
@@ -294,7 +322,19 @@ const classYear = plan ? plan.starting_year + 4 : null;
                             {category.percentComplete}%
                           </p>
                         </div>
-                        <p class="text-xs text-york-muted">{categoryProgressLabel(category)}</p>
+                        <p class="text-xs text-york-muted">
+                          {categoryProgressLabel(category, complementaryElectives)}
+                        </p>
+                        {
+                          isComplementaryElectives && plan && (
+                            <a
+                              href={planComplementaryFocusHref(plan.id)}
+                              class="mt-2 inline-flex text-xs font-medium text-york-red hover:underline"
+                            >
+                              Open complementary planner
+                            </a>
+                          )
+                        }
                       </div>
                     </div>
                     <div class="h-2 overflow-hidden rounded-full bg-york-cream dark:bg-york-graphite">
@@ -309,7 +349,11 @@ const classYear = plan ? plan.starting_year + 4 : null;
             }
           </div>
           <p class="mt-4 text-xs text-york-muted">
-            based on checklist section labels (and like gen ed / elective placeholders). if its unlabeled i just put it under major
+            {
+              complementaryElectives
+                ? `Electives use your uploaded complementary PDF (${complementaryElectives.catalogFilename ?? "availability list"}) — planned credits vs ${electivesCategory?.total ?? complementaryElectives.requiredCredits} required.`
+                : "based on checklist section labels (and like gen ed / elective placeholders). if its unlabeled i just put it under major"
+            }
           </p>
         </section>
 

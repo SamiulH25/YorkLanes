@@ -167,3 +167,62 @@ export function meetingsOverlap(
   const bEnd = convertTimeToMinutes(b.end_time);
   return aStart < bEnd && bStart < aEnd;
 }
+
+export interface ScheduleConflict {
+  entryA: ScheduleGridEntry;
+  entryB: ScheduleGridEntry;
+}
+
+export function findScheduleConflicts(entries: ScheduleGridEntry[]): ScheduleConflict[] {
+  const conflicts: ScheduleConflict[] = [];
+  for (let i = 0; i < entries.length; i++) {
+    for (let j = i + 1; j < entries.length; j++) {
+      if (meetingsOverlap(entries[i], entries[j])) {
+        conflicts.push({ entryA: entries[i], entryB: entries[j] });
+      }
+    }
+  }
+  return conflicts;
+}
+
+export function findCrossBundleConflicts(
+  incoming: ScheduleGridEntry[],
+  schedule: ScheduleGridEntry[],
+): ScheduleConflict[] {
+  const conflicts: ScheduleConflict[] = [];
+  for (const entryA of incoming) {
+    for (const entryB of schedule) {
+      if (meetingsOverlap(entryA, entryB)) {
+        conflicts.push({ entryA, entryB });
+      }
+    }
+  }
+  return conflicts;
+}
+
+export function entryHasConflict(
+  entry: ScheduleGridEntry,
+  entries: ScheduleGridEntry[],
+): boolean {
+  return entries.some((other) => other.id !== entry.id && meetingsOverlap(entry, other));
+}
+
+export function courseHasConflicts(courseCode: string, entries: ScheduleGridEntry[]): boolean {
+  const normalized = courseCode.trim().toUpperCase();
+  return entries
+    .filter((entry) => entry.course_code.trim().toUpperCase() === normalized)
+    .some((entry) => entryHasConflict(entry, entries));
+}
+
+export function summarizeScheduleConflicts(conflicts: ScheduleConflict[]): string {
+  if (conflicts.length === 0) return "";
+
+  const lines = new Set<string>();
+  for (const { entryA, entryB } of conflicts) {
+    lines.add(
+      `${entryA.course_code} (${entryA.day} ${formatTimeRange(entryA.start_time, entryA.end_time)}) overlaps ${entryB.course_code} (${entryB.day} ${formatTimeRange(entryB.start_time, entryB.end_time)})`,
+    );
+  }
+
+  return [...lines].slice(0, 3).join("; ");
+}

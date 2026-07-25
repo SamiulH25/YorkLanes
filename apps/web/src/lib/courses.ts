@@ -47,7 +47,7 @@ export async function fetchCourses(options: FetchCoursesOptions = {}): Promise<{
 
   return {
     courses: data.courses ?? [],
-    total: data.total ?? data.courses?.length ?? 0,
+    total: data.total ?? 0,
     message: data.message ?? "",
   };
 }

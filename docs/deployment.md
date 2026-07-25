@@ -46,7 +46,7 @@ Cookies and OAuth stay on the **web origin**: set `PUBLIC_API_URL` to the web se
 
 Render sets `NODE_ENV=production`, so plain `npm ci` omits devDependencies (`typescript`, `@types/*`). Use `--include=dev` on build commands.
 
-API listens on `0.0.0.0` in production (`API_BIND` in blueprint, or default when `NODE_ENV=production`). Health check path: `/health`.
+API listens on `0.0.0.0` in production (`API_BIND` in blueprint, or default when `NODE_ENV=production`). Health check path: `/health` (instant liveness; use `/health/ready` for DB readiness).
 
 ### Environment variables (Render)
 
@@ -69,8 +69,9 @@ API listens on `0.0.0.0` in production (`API_BIND` in blueprint, or default when
 
 ### Verify after deploy
 
-- `https://<api-host>/health` → JSON with `"status": "ok"` when DB is reachable
-- `https://<web-host>/health` → proxied API health
+- `https://<api-host>/health` → instant liveness (`"status": "ok"`)
+- `https://<api-host>/health/ready` → DB + plan tables check (`"status": "ok"` when fully ready)
+- `https://<web-host>/health` → proxied API liveness
 - Sign in with Google; session cookie should be on the web host
 - Import a checklist on `/plan/setup` (confirms Python parser on API host)
 

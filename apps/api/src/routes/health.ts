@@ -3,7 +3,13 @@ import { checkDatabaseConnection, checkDegreePlanTables } from "../db/index.js";
 
 export const healthRouter = Router();
 
-healthRouter.get("/", async (_req, res) => {
+/** Fast liveness probe for load balancers (e.g. Render deploy health checks). */
+healthRouter.get("/", (_req, res) => {
+  res.json({ status: "ok", service: "yorklanes-api" });
+});
+
+/** Readiness probe — verifies database connectivity and required tables. */
+healthRouter.get("/ready", async (_req, res) => {
   let dbTarget = "not configured";
   try {
     const { getDatabaseTarget } = await import("../db/index.js");

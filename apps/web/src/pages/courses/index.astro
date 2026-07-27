@@ -187,26 +187,24 @@ const returnTo = Astro.url.search;
     ) : (
       <>
       {
-        pages.length > 1 && (
-          <div class="courses-pages">
-            {
-              pages.map(page =>
-                page === currentPage ? (
-                  <span class="courses-pages__page-active">
-                    {page}
-                  </span>
-                ) : (
-                  <a
-                    href={pageHref(page)}
-                    class="courses-pages__page"
-                  >
-                    {page}
-                  </a>
-                )
+        <div class="courses-pages">
+          {
+            pages.map(page =>
+              page === currentPage ? (
+                <span class="courses-pages__page-active">
+                  {page}
+                </span>
+              ) : (
+                <a
+                  href={pageHref(page)}
+                  class="courses-pages__page"
+                >
+                  {page}
+                </a>
               )
-            }
-          </div>
-        )
+            )
+          }
+        </div>
       }
       </>
       <div class="course-ledger" role="list">

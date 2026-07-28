@@ -4,6 +4,7 @@ import BaseLayout from "../layouts/BaseLayout.astro";
 import YorkMark from "../components/YorkMark.astro";
 import SettingsMenu from "../components/SettingsMenu.astro";
 import { fetchAuthStatus, fetchSessionUser, googleSignInUrl } from "../lib/auth";
+import "../styles/marketing.css";
 
 export const prerender = false;
 
@@ -37,69 +38,116 @@ const errorNote = errorCode ? errorMessages[errorCode] : null;
 ---
 
 <BaseLayout title="Sign In | YorkLanes" fillViewport>
-  <div class="login-shell">
-    <header
-      class="flex shrink-0 items-center justify-between border-b border-york-stone/50 bg-stone-200/70 px-3 py-2 backdrop-blur-xl dark:border-white/[0.06] dark:bg-york-slate/95 sm:px-4 sm:py-2.5"
-    >
-      <a href="/" class="flex min-w-0 items-center gap-2 transition-opacity hover:opacity-90">
-        <div class="rounded-xl bg-york-red/10 p-1 dark:bg-york-red/15">
-          <YorkMark class="h-7 w-7 sm:h-8 sm:w-8" />
+  <div class="login-shell login-shell--split">
+    <aside class="login-brand-panel" aria-label="YorkLanes">
+      <img class="login-brand-panel__bg" src="/login-brand-panel.png" alt="" width="900" height="1200" loading="eager" decoding="async" />
+      <div class="login-brand-panel__content">
+        <div class="login-brand-panel__logo">
+          <div class="login-brand-panel__logo-mark">
+            <YorkMark class="h-7 w-7 text-white" />
+          </div>
+          <div>
+            <p class="login-brand-panel__title">YorkLanes</p>
+            <p class="text-[10px] font-bold uppercase tracking-[0.18em] text-white/80">York University</p>
+          </div>
         </div>
-        <div class="min-w-0">
-          <p class="truncate font-display text-sm font-semibold leading-tight text-york-black dark:text-white sm:text-base">
-            YorkLanes
-          </p>
-          <p class="text-[9px] font-bold uppercase tracking-[0.18em] text-york-red sm:text-[10px]">York University</p>
-        </div>
-      </a>
-      <SettingsMenu />
-    </header>
-
-    <main class="login-main">
-      <div class="login-card">
-        <p class="label">Sign in</p>
-        <h1 class="mt-0.5 font-display text-lg font-semibold text-york-black dark:text-white sm:mt-1 sm:text-xl">
-          Continue to YorkLanes
-        </h1>
-
-        {
-          oauthEnabled ? (
-            <>
-              <label class="mt-4 flex cursor-pointer items-center gap-2.5 text-left text-sm text-york-muted sm:mt-5">
-                <input
-                  type="checkbox"
-                  id="remember-me"
-                  name="remember"
-                  checked
-                  class="h-4 w-4 rounded border-york-stone text-york-red focus:ring-york-red/40 dark:border-white/20"
-                />
-                Keep me signed in
-              </label>
-              <a href={signInUrl} id="google-sign-in" class="btn-york mt-3 w-full sm:mt-4">
-                <svg class="h-4 w-4 shrink-0" viewBox="0 0 24 24" aria-hidden="true">
-                  <path fill="currentColor" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
-                  <path fill="currentColor" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
-                  <path fill="currentColor" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
-                  <path fill="currentColor" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
-                </svg>
-                Continue with Google
-              </a>
-            </>
-          ) : (
-            <button type="button" disabled class="btn-york mt-4 w-full cursor-not-allowed opacity-50 sm:mt-5">
-              Continue with Google
-            </button>
-          )
-        }
-
-        {errorNote && (
-          <p class="mt-3 rounded-lg border border-york-red/30 bg-york-red/5 px-3 py-2 text-center text-xs text-york-red">
-            {errorNote}
-          </p>
-        )}
-        {authNote && <p class="mt-2 text-center text-[11px] leading-snug text-york-muted sm:mt-3 sm:text-xs">{authNote}</p>}
+        <p class="login-brand-panel__tagline">Continue your degree plan</p>
+        <p class="login-brand-panel__desc">
+          Sign in to import your checklist, save your term layout, and keep schedule, assignments, and progress in one place.
+        </p>
       </div>
-    </main>
+      <div class="login-brand-panel__nodes" aria-hidden="true">
+        <svg viewBox="0 0 320 120" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <circle cx="28" cy="60" r="8" stroke="white" stroke-opacity="0.9" stroke-width="2" />
+          <circle cx="108" cy="28" r="8" stroke="white" stroke-opacity="0.75" stroke-width="2" />
+          <circle cx="108" cy="92" r="8" stroke="white" stroke-opacity="0.75" stroke-width="2" />
+          <circle cx="188" cy="60" r="8" stroke="white" stroke-opacity="0.9" stroke-width="2" />
+          <circle cx="268" cy="40" r="8" stroke="white" stroke-opacity="0.65" stroke-width="2" />
+          <circle cx="268" cy="80" r="8" stroke="white" stroke-opacity="0.65" stroke-width="2" />
+          <path d="M36 60H100M116 34L180 54M116 86L180 66M196 60H260" stroke="white" stroke-opacity="0.45" stroke-width="2" stroke-linecap="round" />
+        </svg>
+      </div>
+    </aside>
+
+    <div class="login-split-main">
+      <header class="login-split-main__header">
+        <a href="/" class="flex min-w-0 items-center gap-2 transition-opacity hover:opacity-90">
+          <div class="rounded-xl bg-york-red/10 p-1 dark:bg-york-red/15">
+            <YorkMark class="h-7 w-7 sm:h-8 sm:w-8" />
+          </div>
+          <div class="min-w-0">
+            <p class="truncate font-display text-sm font-semibold leading-tight text-york-black dark:text-white sm:text-base">
+              YorkLanes
+            </p>
+            <p class="text-[9px] font-bold uppercase tracking-[0.18em] text-york-red sm:text-[10px]">York University</p>
+          </div>
+        </a>
+        <SettingsMenu />
+      </header>
+
+      <main class="login-split-main__body">
+        <div class="login-card login-card--split">
+          <div class="login-mobile-brand">
+            <div class="rounded-xl bg-york-red/10 p-1 dark:bg-york-red/15">
+              <YorkMark class="h-7 w-7" />
+            </div>
+            <div>
+              <p class="font-display text-sm font-semibold text-york-black dark:text-white">YorkLanes</p>
+              <p class="text-[10px] font-bold uppercase tracking-[0.18em] text-york-red">Continue your degree plan</p>
+            </div>
+          </div>
+
+          <p class="label">Sign in</p>
+          <h1 class="mt-0.5 font-display text-xl font-semibold text-york-black dark:text-white sm:mt-1 sm:text-2xl">
+            Continue to YorkLanes
+          </h1>
+          <p class="mt-2 text-sm text-york-muted">
+            Use your Google account to access your saved plans and dashboard.
+          </p>
+
+          {
+            oauthEnabled ? (
+              <>
+                <label class="mt-5 flex cursor-pointer items-center gap-2.5 text-left text-sm text-york-muted">
+                  <input
+                    type="checkbox"
+                    id="remember-me"
+                    name="remember"
+                    checked
+                    class="h-4 w-4 rounded border-york-stone text-york-red focus:ring-york-red/40 dark:border-white/20"
+                  />
+                  Keep me signed in
+                </label>
+                <a href={signInUrl} id="google-sign-in" class="btn-york w-full">
+                  <svg class="h-4 w-4 shrink-0" viewBox="0 0 24 24" aria-hidden="true">
+                    <path fill="currentColor" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
+                    <path fill="currentColor" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
+                    <path fill="currentColor" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
+                    <path fill="currentColor" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
+                  </svg>
+                  Continue with Google
+                </a>
+              </>
+            ) : (
+              <button type="button" disabled class="btn-york mt-5 w-full cursor-not-allowed opacity-50">
+                Continue with Google
+              </button>
+            )
+          }
+
+          {errorNote && (
+            <p class="mt-3 rounded-lg border border-york-red/30 bg-york-red/5 px-3 py-2 text-center text-xs text-york-red">
+              {errorNote}
+            </p>
+          )}
+          {authNote && <p class="mt-2 text-center text-[11px] leading-snug text-york-muted sm:text-xs">{authNote}</p>}
+
+          <p class="mt-6 text-center text-xs text-york-muted">
+            <a href="/" class="font-semibold text-york-red hover:underline">Back to home</a>
+          </p>
+        </div>
+      </main>
+    </div>
   </div>
 </BaseLayout>
 
@@ -132,15 +180,3 @@ const errorNote = errorCode ? errorMessages[errorCode] : null;
   bindRememberMe();
   document.addEventListener("astro:page-load", bindRememberMe);
 </script>
-
-<style>
-  @media (max-height: 640px) {
-    .login-card {
-      padding: 0.875rem 1rem;
-    }
-
-    .login-card .btn-york {
-      margin-top: 0.75rem;
-    }
-  }
-</style>

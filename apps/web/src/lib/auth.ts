@@ -1,5 +1,8 @@
 import { getApiUrl } from "./api-url";
 import { dedupeSsrFetch } from "./ssr-request-cache";
+import { googleSignInUrl, signOutUrl } from "./auth-urls";
+
+export { googleSignInUrl, signOutUrl };
 
 export interface SessionUser {
   id: string;
@@ -34,43 +37,28 @@ export async function fetchAuthStatus(): Promise<{
   oauthEnabled: boolean;
   message: string;
 }> {
-  try {
-    const response = await fetch(`${getApiUrl()}/api/auth/status`);
-    if (!response.ok) {
+  return dedupeSsrFetch("auth-status", null, async () => {
+    try {
+      const response = await fetch(`${getApiUrl()}/api/auth/status`);
+      if (!response.ok) {
+        return {
+          oauthEnabled: false,
+          message:
+            response.status === 404
+              ? "API route not found. Restart with npm run start:dev (api and web)."
+              : `Auth API returned ${response.status}. Is the API running on port 3001?`,
+        };
+      }
+      const data = (await response.json()) as { oauthEnabled?: boolean; message?: string };
+      return {
+        oauthEnabled: Boolean(data.oauthEnabled),
+        message: data.message ?? "Auth status unavailable.",
+      };
+    } catch {
       return {
         oauthEnabled: false,
-        message:
-          response.status === 404
-            ? "API route not found. Restart with npm run start:dev (api and web)."
-            : `Auth API returned ${response.status}. Is the API running on port 3001?`,
+        message: "Cannot reach the API. Run npm run start:dev from the repo root.",
       };
     }
-    const data = (await response.json()) as { oauthEnabled?: boolean; message?: string };
-    return {
-      oauthEnabled: Boolean(data.oauthEnabled),
-      message: data.message ?? "Auth status unavailable.",
-    };
-  } catch {
-    return {
-      oauthEnabled: false,
-      message: "Cannot reach the API. Run npm run start:dev from the repo root.",
-    };
-  }
-}
-
-export function googleSignInUrl(returnTo?: string, rememberMe = true): string {
-  const params = new URLSearchParams();
-  if (returnTo?.startsWith("/")) {
-    params.set("returnTo", returnTo);
-  }
-  if (!rememberMe) {
-    params.set("remember", "0");
-  }
-  const query = params.toString();
-  const base = `${getApiUrl()}/api/auth/google`;
-  return query ? `${base}?${query}` : base;
-}
-
-export function signOutUrl(): string {
-  return `${getApiUrl()}/api/auth/logout`;
+  });
 }

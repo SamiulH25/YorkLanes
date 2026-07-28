@@ -204,23 +204,24 @@ export async function getFinanceSummary(
   const scope = scopeClause(userId);
   const values = scope.values;
 
-  const totals = await pool.query<{ income_cents: string; expense_cents: string }>(
-    `select
-       coalesce(sum(amount_cents) filter (where kind = 'income'), 0)::text as income_cents,
-       coalesce(sum(amount_cents) filter (where kind = 'expense'), 0)::text as expense_cents
-     from public.finance_entries
-     ${scope.sql}`,
-    values,
-  );
-
-  const categories = await pool.query<FinanceCategoryRow>(
-    `select category, coalesce(sum(amount_cents), 0)::text as amount_cents
+  const [totals, categories] = await Promise.all([
+    pool.query<{ income_cents: string; expense_cents: string }>(
+      `select
+         coalesce(sum(amount_cents) filter (where kind = 'income'), 0)::text as income_cents,
+         coalesce(sum(amount_cents) filter (where kind = 'expense'), 0)::text as expense_cents
        from public.finance_entries
-       ${scope.sql}${scope.sql ? " and" : " where"} kind = 'expense'
-       group by category
-       order by sum(amount_cents) desc, category asc`,
-    values,
-  );
+       ${scope.sql}`,
+      values,
+    ),
+    pool.query<FinanceCategoryRow>(
+      `select category, coalesce(sum(amount_cents), 0)::text as amount_cents
+         from public.finance_entries
+         ${scope.sql}${scope.sql ? " and" : " where"} kind = 'expense'
+         group by category
+         order by sum(amount_cents) desc, category asc`,
+      values,
+    ),
+  ]);
 
   const incomeCents = Number(totals.rows[0]?.income_cents ?? 0);
   const expenseCents = Number(totals.rows[0]?.expense_cents ?? 0);
@@ -235,6 +236,58 @@ export async function getFinanceSummary(
       amountCents: Number(row.amount_cents),
     })),
   };
+}
+
+function monthDateBounds(month: string): { start: string; end: string } {
+  const [yearText, monthText] = month.split("-");
+  const year = Number(yearText);
+  const monthIndex = Number(monthText) - 1;
+  const start = `${month}-01`;
+  const end = new Date(year, monthIndex + 1, 1).toISOString().slice(0, 10);
+  return { start, end };
+}
+
+export async function getMonthExpenseTotalCents(
+  pool: pg.Pool,
+  month: string,
+  userId?: string | null,
+): Promise<number> {
+  const scope = scopeClause(userId);
+  const { start, end } = monthDateBounds(month);
+  const startParam = scope.values.length + 1;
+  const endParam = scope.values.length + 2;
+  const result = await pool.query<{ total: string }>(
+    `select coalesce(sum(amount_cents), 0)::text as total
+     from public.finance_entries
+     ${scope.sql}${scope.sql ? " and" : " where"} kind = 'expense'
+       and occurred_on >= $${startParam}::date
+       and occurred_on < $${endParam}::date`,
+    [...scope.values, start, end],
+  );
+  return Number(result.rows[0]?.total ?? 0);
+}
+
+export async function getMonthExpenseTotalCentsViaRest(
+  month: string,
+  userId?: string | null,
+): Promise<number> {
+  const config = requireSupabaseRestConfig();
+  const userFilter = userId ? `eq.${encodeURIComponent(userId)}` : "is.null";
+  const { start, end } = monthDateBounds(month);
+  const url = new URL(`${config.url}/rest/v1/finance_entries`);
+  url.searchParams.set("select", "amount_cents");
+  url.searchParams.set("user_id", userFilter);
+  url.searchParams.set("kind", "eq.expense");
+  url.searchParams.set("occurred_on", `gte.${start}`);
+  url.searchParams.append("occurred_on", `lt.${end}`);
+
+  const response = await fetch(url, { headers: financeRestHeaders() });
+  if (!response.ok) {
+    throw new Error(`Finance REST month query failed: ${response.status} ${await response.text()}`);
+  }
+
+  const rows = (await response.json()) as Array<{ amount_cents: number }>;
+  return rows.reduce((total, row) => total + row.amount_cents, 0);
 }
 
 export async function createFinanceEntry(
@@ -434,8 +487,25 @@ export async function getFinanceEntry(
   entryId: string,
   userId?: string | null,
 ): Promise<FinanceEntry | null> {
-  const entries = await listFinanceEntries(pool, userId);
-  return entries.find((entry) => entry.id === entryId) ?? null;
+  const scope = userId ? "user_id = $2" : "user_id is null";
+  const values = userId ? [entryId, userId] : [entryId];
+  const withRecurrence = await financeRecurrenceSupportedPostgres(pool);
+  const recurrenceSelect = withRecurrence ? "recurrence," : "'none'::text as recurrence,";
+  const result = await pool.query<FinanceEntryRow>(
+    `select
+       id,
+       label,
+       amount_cents,
+       category,
+       kind,
+       occurred_on::text as occurred_on,
+       ${recurrenceSelect}
+       created_at::text as created_at
+     from public.finance_entries
+     where id = $1 and ${scope}`,
+    values,
+  );
+  return result.rows[0] ? mapEntry(result.rows[0]) : null;
 }
 
 export async function deleteFinanceEntry(

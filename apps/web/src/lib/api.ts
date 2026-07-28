@@ -36,3 +36,29 @@ export async function fetchDashboardSummary(cookieHeader?: string | null): Promi
     fetchDashboardSummaryUncached(cookieHeader),
   );
 }
+
+export interface DashboardHubResponse {
+  hub: NonNullable<DashboardSummary["hub"]>;
+}
+
+async function fetchDashboardHubUncached(cookieHeader?: string | null): Promise<DashboardHubResponse> {
+  const headers: HeadersInit = {};
+  if (cookieHeader) {
+    headers.cookie = cookieHeader;
+  }
+
+  const response = await fetch(`${API_URL}/api/dashboard/hub`, {
+    headers,
+    credentials: "include",
+  });
+
+  if (!response.ok) {
+    throw new Error(`Dashboard hub API error: ${response.status}`);
+  }
+
+  return response.json() as Promise<DashboardHubResponse>;
+}
+
+export async function fetchDashboardHub(cookieHeader?: string | null): Promise<DashboardHubResponse> {
+  return dedupeSsrFetch("dashboard-hub", cookieHeader, () => fetchDashboardHubUncached(cookieHeader));
+}

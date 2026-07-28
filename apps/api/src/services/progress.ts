@@ -1,7 +1,7 @@
 // progress math from a degree plan
 // used by /api/progress and the dashboard
 import type { Pool } from "pg";
-import { parseCatalogFromDb } from "./complementaryCatalog.js";
+import { parseCatalogFromDb, getComplementaryCatalog } from "./complementaryCatalog.js";
 import {
   computeComplementaryStudiesProgress,
   type ComplementaryStudiesProgress,
@@ -348,7 +348,11 @@ export async function buildPlanProgressResult(
   let complementaryElectives: ComplementaryElectivesProgress | null = null;
 
   if (expectsComplementaryStudies) {
-    const catalog = parseCatalogFromDb(plan.complementary_catalog);
+    let catalog = parseCatalogFromDb(plan.complementary_catalog);
+    if (!catalog) {
+      const loaded = await getComplementaryCatalog(pool, plan.id);
+      catalog = loaded.catalog;
+    }
     if (catalog) {
       const complementary = computeComplementaryStudiesProgress(plan.terms, catalog);
       complementaryElectives = buildComplementaryElectivesProgress(

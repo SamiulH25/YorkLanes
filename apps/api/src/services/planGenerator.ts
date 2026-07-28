@@ -359,6 +359,7 @@ export async function createSummerTermForChecklistYear(
 export async function getLatestPlanForUser(
   pool: Pool,
   userId: string,
+  options: GetPlanOptions = {},
 ): Promise<DegreePlanRow | null> {
   const result = await pool.query<{ id: string }>(
     `SELECT id FROM degree_plans
@@ -372,10 +373,20 @@ export async function getLatestPlanForUser(
     return null;
   }
 
-  return getPlanById(pool, result.rows[0].id);
+  return getPlanById(pool, result.rows[0].id, options);
 }
 
-export async function getPlanById(pool: Pool, planId: string): Promise<DegreePlanRow | null> {
+export interface GetPlanOptions {
+  /** When false, skips loading the large complementary_catalog JSONB column. */
+  includeComplementaryCatalog?: boolean;
+}
+
+export async function getPlanById(
+  pool: Pool,
+  planId: string,
+  options: GetPlanOptions = {},
+): Promise<DegreePlanRow | null> {
+  const includeComplementaryCatalog = options.includeComplementaryCatalog ?? true;
   const { degreePlansHaveComplementaryColumns } = await import("../db/planComplementarySchema.js");
   const includeComplementary = await degreePlansHaveComplementaryColumns(pool);
 
@@ -390,9 +401,13 @@ export async function getPlanById(pool: Pool, planId: string): Promise<DegreePla
     parse_warnings: unknown;
   }>(
     includeComplementary
-      ? `SELECT id, faculty_key, programme_name, starting_year, source_filename,
-                complementary_filename, complementary_catalog, parse_warnings
-         FROM degree_plans WHERE id = $1`
+      ? includeComplementaryCatalog
+        ? `SELECT id, faculty_key, programme_name, starting_year, source_filename,
+                  complementary_filename, complementary_catalog, parse_warnings
+           FROM degree_plans WHERE id = $1`
+        : `SELECT id, faculty_key, programme_name, starting_year, source_filename,
+                  complementary_filename, NULL::jsonb AS complementary_catalog, parse_warnings
+           FROM degree_plans WHERE id = $1`
       : `SELECT id, faculty_key, programme_name, starting_year, source_filename,
                 NULL::text AS complementary_filename,
                 NULL::jsonb AS complementary_catalog,

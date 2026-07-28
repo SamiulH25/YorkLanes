@@ -434,6 +434,23 @@ function render(
   renderTrend(root, entries);
 }
 
+function renderListOnly(
+  root: HTMLElement,
+  entries: FinanceEntry[],
+  selectedMonth: string,
+  monthOnly: boolean,
+  editingId: string | null,
+  listKind: ListKindFilter,
+  listQuery: string,
+): void {
+  const visibleEntries = getVisibleEntries(entries, selectedMonth, monthOnly);
+  const listEntries = filterListEntries(entries, selectedMonth, monthOnly, listKind, listQuery);
+  renderList(root, listEntries, editingId, {
+    hasAnyEntries: visibleEntries.length > 0,
+    filtersActive: listKind !== "all" || listQuery.trim().length > 0 || monthOnly,
+  });
+}
+
 function setEditMode(root: HTMLElement, entry: FinanceEntry | null): void {
   const form = root.querySelector<HTMLFormElement>("[data-finance-form]");
   const editIdInput = root.querySelector<HTMLInputElement>("[data-finance-edit-id]");
@@ -891,6 +908,7 @@ async function initFinance(root: HTMLElement): Promise<void> {
   let monthOnly = false;
   let listKind: ListKindFilter = "all";
   let listQuery = "";
+  let searchDebounce: ReturnType<typeof setTimeout> | null = null;
   let apiAvailable = false;
   let recurrenceSupported = true;
   let editingId: string | null = null;
@@ -951,7 +969,10 @@ async function initFinance(root: HTMLElement): Promise<void> {
 
   searchInput?.addEventListener("input", () => {
     listQuery = searchInput.value;
-    paint();
+    if (searchDebounce) clearTimeout(searchDebounce);
+    searchDebounce = setTimeout(() => {
+      renderListOnly(root, entries, selectedMonth, monthOnly, editingId, listKind, listQuery);
+    }, 200);
   });
 
   root.querySelectorAll<HTMLInputElement>("[data-finance-kind-filter]").forEach((radio) => {

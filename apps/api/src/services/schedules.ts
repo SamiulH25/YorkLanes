@@ -539,12 +539,15 @@ export async function listTodayClasses(
     };
   }
 
-  const header = await pool.query<{ id: string }>(
-    `select id from public.user_schedules
-     where user_id = $1 and plan_year = $2 and plan_season = $3 and cdm_term = $4`,
+  const activeSchedule = await pool.query<{ id: string }>(
+    `select id
+     from public.user_schedules
+     where user_id = $1 and plan_year = $2 and plan_season = $3 and cdm_term = $4
+     limit 1`,
     [userId, primary.planYear, primary.planSeason, primary.cdmTerm],
   );
-  if (header.rows.length === 0) {
+
+  if (activeSchedule.rows.length === 0) {
     return {
       today: [],
       primarySchedule: primary,
@@ -573,7 +576,7 @@ export async function listTodayClasses(
      from public.schedule_entries
      where schedule_id = $1
      order by start_time asc`,
-    [header.rows[0].id],
+    [activeSchedule.rows[0].id],
   );
 
   const todayRows = result.rows.filter((row) => normalizeScheduleDay(row.day) === dayName);

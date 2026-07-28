@@ -18,8 +18,8 @@ import {
   getFinanceBudgetViaRest,
   getFinanceSummary,
   getFinanceSummaryViaRest,
-  listFinanceEntries,
-  listFinanceEntriesViaRest,
+  getMonthExpenseTotalCents,
+  getMonthExpenseTotalCentsViaRest,
 } from "../services/finance.js";
 import { getLatestPlanForUser } from "../services/planGenerator.js";
 import { buildPlanProgressResult } from "../services/progress.js";
@@ -333,48 +333,302 @@ async function buildHub(input: {
   };
 }
 
+dashboardRouter.get("/hub", async (req, res) => {
+  const usePostgres = Boolean(process.env.SUPABASE_DB_URL?.trim() || process.env.DATABASE_URL?.trim());
+  const month = currentMonth();
+  const userId = req.session.userId;
+
+  if (!userId) {
+    res.json({
+      hub: await buildHub({
+        pool: null,
+        userId: undefined,
+        assignments: [],
+        today: [],
+        finance: emptyFinance("Sign in to sync messages and notifications."),
+        onboardingIncomplete: false,
+      }),
+    });
+    return;
+  }
+
+  let assignments: AssignmentPreview[] = [];
+  let scheduleToday: TodayClassPreview[] = [];
+  let hubScheduleEntries: HubScheduleEntryRow[] = [];
+  let finance = emptyFinance("Open Finances to track income, expenses, and budgets.");
+  let programme: string | null = null;
+
+  try {
+    const [assignmentsResult, scheduleResult, financeResult, programmeResult] = await Promise.all([
+      (async () => {
+        if (!usePostgres && !canUseAssignmentsRest()) return [];
+        return usePostgres
+          ? listAssignmentsDueThisWeek(getPool(), userId)
+          : listAssignmentsDueThisWeekViaRest(userId);
+      })(),
+      usePostgres
+        ? listTodayClasses(getPool(), userId)
+        : Promise.resolve({
+            today: [],
+            hubScheduleEntries: [] as HubScheduleEntryRow[],
+          }),
+      (async () => {
+        try {
+          const [financeSummary, budget, monthSpentCents] = usePostgres
+            ? await Promise.all([
+                getFinanceSummary(getPool(), userId),
+                getFinanceBudget(getPool(), month, userId),
+                getMonthExpenseTotalCents(getPool(), month, userId),
+              ])
+            : canUseFinanceRest()
+              ? await Promise.all([
+                  getFinanceSummaryViaRest(userId),
+                  getFinanceBudgetViaRest(month, userId),
+                  getMonthExpenseTotalCentsViaRest(month, userId),
+                ])
+              : await Promise.reject(new Error("Finance database is not configured"));
+          const monthBudgetCents = budget?.amountCents ?? 0;
+          return {
+            balance: financeSummary.balanceCents / 100,
+            income: financeSummary.incomeCents / 100,
+            expenses: financeSummary.expenseCents / 100,
+            currency: financeSummary.currency,
+            month,
+            monthSpent: monthSpentCents / 100,
+            monthBudget: monthBudgetCents / 100,
+            monthRemaining: (monthBudgetCents - monthSpentCents) / 100,
+            linked: true,
+            message: undefined,
+          } satisfies DashboardSummary["finance"];
+        } catch {
+          return emptyFinance("Finance data is unavailable right now.");
+        }
+      })(),
+      usePostgres ? loadUserProgramme(userId) : Promise.resolve({ programme: null, startingYear: null }),
+    ]);
+
+    assignments = assignmentsResult.map((item) => ({
+      id: item.id,
+      title: item.title,
+      dueAt: item.dueAt,
+      courseCode: item.courseCode,
+    }));
+    scheduleToday = "today" in scheduleResult
+      ? scheduleResult.today.map((item) => ({
+          id: item.id,
+          courseCode: item.courseCode,
+          sectionCode: item.sectionCode,
+          componentType: item.componentType,
+          startTime: item.startTime,
+          endTime: item.endTime,
+          room: item.room,
+          campus: item.campus,
+          status: item.status,
+        }))
+      : [];
+    hubScheduleEntries = "hubScheduleEntries" in scheduleResult ? scheduleResult.hubScheduleEntries : [];
+    finance = financeResult;
+    programme = programmeResult.programme;
+  } catch {
+    // fall through with defaults
+  }
+
+  const hub = await buildHub({
+    pool: usePostgres ? getPool() : null,
+    userId,
+    assignments,
+    today: scheduleToday,
+    finance,
+    onboardingIncomplete: Boolean(usePostgres && !programme),
+    hubScheduleEntries,
+  });
+
+  res.json({ hub });
+});
+
 dashboardRouter.get("/summary", async (req, res) => {
+  const usePostgres = Boolean(process.env.SUPABASE_DB_URL?.trim() || process.env.DATABASE_URL?.trim());
+  const month = currentMonth();
+  const userId = req.session.userId;
+
   let displayName = "Student";
   let programme: string | null = null;
   let startingYear: number | null = null;
   let finance = emptyFinance("Open Finances to track income, expenses, and budgets.");
-  const usePostgres = Boolean(process.env.SUPABASE_DB_URL?.trim() || process.env.DATABASE_URL?.trim());
-  const month = currentMonth();
+  let assignments: DashboardSummary["assignments"] = {
+    upcoming: [],
+    message: "No assignments due in the next 7 days.",
+  };
+  let schedule: DashboardSummary["schedule"] = {
+    today: [],
+    hasPrimary: false,
+    savedCount: 0,
+    message: "Build your weekly timetable to see today's classes.",
+  };
+  let progress: DashboardSummary["progress"] = {
+    percentComplete: 0,
+    label: "Import your degree checklist to track progress.",
+    segments: [],
+  };
+  let hubScheduleEntries: HubScheduleEntryRow[] = [];
 
-  if (req.session.userId && usePostgres) {
-    const user = await findUserById(getPool(), req.session.userId);
-    if (user) {
-      displayName = user.display_name;
-    }
-    const programmeInfo = await loadUserProgramme(req.session.userId);
-    programme = programmeInfo.programme;
-    startingYear = programmeInfo.startingYear;
-  }
-
-  if (req.session.userId) {
-    try {
-      const [financeSummary, budget, entries] = usePostgres
-        ? await (async () => {
-            const pool = getPool();
-            return Promise.all([
-              getFinanceSummary(pool, req.session.userId),
-              getFinanceBudget(pool, month, req.session.userId),
-              listFinanceEntries(pool, req.session.userId),
+  if (userId && usePostgres) {
+    const pool = getPool();
+    const [userResult, programmeResult, financeResult, assignmentsResult, scheduleResult, progressResult] =
+      await Promise.all([
+        findUserById(pool, userId),
+        loadUserProgramme(userId),
+        (async (): Promise<DashboardSummary["finance"]> => {
+          try {
+            const [financeSummary, budget, monthSpentCents] = await Promise.all([
+              getFinanceSummary(pool, userId),
+              getFinanceBudget(pool, month, userId),
+              getMonthExpenseTotalCents(pool, month, userId),
             ]);
-          })()
-        : canUseFinanceRest()
-          ? await Promise.all([
-              getFinanceSummaryViaRest(req.session.userId),
-              getFinanceBudgetViaRest(month, req.session.userId),
-              listFinanceEntriesViaRest(req.session.userId),
-            ])
-          : await Promise.reject(new Error("Finance database is not configured"));
+            const monthBudgetCents = budget?.amountCents ?? 0;
+            return {
+              balance: financeSummary.balanceCents / 100,
+              income: financeSummary.incomeCents / 100,
+              expenses: financeSummary.expenseCents / 100,
+              currency: financeSummary.currency,
+              month,
+              monthSpent: monthSpentCents / 100,
+              monthBudget: monthBudgetCents / 100,
+              monthRemaining: (monthBudgetCents - monthSpentCents) / 100,
+              linked: true,
+              message:
+                financeSummary.balanceCents === 0 && monthBudgetCents === 0
+                  ? "No finance entries logged yet. Open Finances to start tracking."
+                  : monthBudgetCents > 0
+                    ? `${month} budget tracking is live.`
+                    : `${financeSummary.categoryTotals.length} expense categories tracked.`,
+            };
+          } catch {
+            return emptyFinance("Finance data is unavailable right now. Open Finances to keep a local draft.");
+          }
+        })(),
+        (async (): Promise<DashboardSummary["assignments"]> => {
+          try {
+            const upcoming = await listAssignmentsDueThisWeek(pool, userId);
+            return {
+              upcoming: upcoming.map((item) => ({
+                id: item.id,
+                title: item.title,
+                dueAt: item.dueAt,
+                courseCode: item.courseCode,
+              })),
+              message:
+                upcoming.length === 0 ? "No assignments due in the next 7 days." : undefined,
+            };
+          } catch {
+            return {
+              upcoming: [],
+              message: "Assignment data is unavailable right now.",
+            };
+          }
+        })(),
+        (async (): Promise<{
+          schedule: DashboardSummary["schedule"];
+          hubScheduleEntries: HubScheduleEntryRow[];
+        }> => {
+          try {
+            const result = await listTodayClasses(pool, userId);
+            const primary = result.primarySchedule ?? undefined;
+            return {
+              hubScheduleEntries: result.hubScheduleEntries,
+              schedule: {
+                today: result.today.map((item) => ({
+                  id: item.id,
+                  courseCode: item.courseCode,
+                  sectionCode: item.sectionCode,
+                  componentType: item.componentType,
+                  startTime: item.startTime,
+                  endTime: item.endTime,
+                  room: item.room,
+                  campus: item.campus,
+                  status: item.status,
+                })),
+                primarySchedule: primary,
+                activeSchedule: primary,
+                hasPrimary: result.hasPrimary,
+                savedCount: result.savedCount,
+                message:
+                  result.today.length === 0
+                    ? !result.hasPrimary && result.savedCount > 0
+                      ? "Your timetables are saved, but none is set for the dashboard yet. Open Schedule and tap Use on dashboard."
+                      : !result.hasPrimary
+                        ? "Build a weekly timetable on the Schedule page — it will appear here once saved to your account."
+                        : result.totalBlockCount === 0
+                          ? "Your dashboard timetable has no class blocks saved yet. Open Schedule, add courses, and wait for the sync confirmation."
+                          : result.todayBlockCount === 0
+                            ? `No ${new Date().toLocaleDateString("en-CA", { weekday: "long", timeZone: SCHEDULE_TIMEZONE })} blocks in your dashboard timetable.`
+                            : `No classes left on your dashboard schedule for ${new Date().toLocaleDateString("en-CA", { weekday: "long", timeZone: SCHEDULE_TIMEZONE })}.`
+                    : undefined,
+              },
+            };
+          } catch (error) {
+            return {
+              hubScheduleEntries: [],
+              schedule: {
+                today: [],
+                hasPrimary: false,
+                savedCount: 0,
+                message: isMissingTableError(error)
+                  ? "Schedule tables are not set up yet. Run npm run supabase:push, then save your timetable."
+                  : "Schedule data is unavailable right now.",
+              },
+            };
+          }
+        })(),
+        (async (): Promise<DashboardSummary["progress"] & { programmeName?: string | null; planStartingYear?: number | null }> => {
+          try {
+            const plan = await getLatestPlanForUser(pool, userId, { includeComplementaryCatalog: false });
+            if (!plan) {
+              return progress;
+            }
+            const planProgress = await buildPlanProgressResult(pool, plan);
+            return {
+              percentComplete: planProgress.percentComplete,
+              label: planProgress.message,
+              completed: planProgress.completed,
+              total: planProgress.total,
+              planId: planProgress.planId,
+              segments: planProgress.segments,
+              programmeName: planProgress.programmeName,
+              planStartingYear: planProgress.startingYear,
+            };
+          } catch {
+            return progress;
+          }
+        })(),
+      ]);
 
-      const monthSpentCents = entries
-        .filter((entry) => entry.kind === "expense" && entry.occurredOn.startsWith(month))
-        .reduce((total, entry) => total + entry.amountCents, 0);
+    if (userResult) {
+      displayName = userResult.display_name;
+    }
+    programme = programmeResult.programme;
+    startingYear = programmeResult.startingYear;
+    finance = financeResult;
+    assignments = assignmentsResult;
+    schedule = scheduleResult.schedule;
+    hubScheduleEntries = scheduleResult.hubScheduleEntries;
+    progress = progressResult;
+    if (!programme && progressResult.programmeName) {
+      programme = progressResult.programmeName;
+    }
+    if (!startingYear && progressResult.planStartingYear) {
+      startingYear = progressResult.planStartingYear;
+    }
+  } else if (userId) {
+    try {
+      const [financeSummary, budget, monthSpentCents] = canUseFinanceRest()
+        ? await Promise.all([
+            getFinanceSummaryViaRest(userId),
+            getFinanceBudgetViaRest(month, userId),
+            getMonthExpenseTotalCentsViaRest(month, userId),
+          ])
+        : await Promise.reject(new Error("Finance database is not configured"));
       const monthBudgetCents = budget?.amountCents ?? 0;
-
       finance = {
         balance: financeSummary.balanceCents / 100,
         income: financeSummary.incomeCents / 100,
@@ -395,122 +649,30 @@ dashboardRouter.get("/summary", async (req, res) => {
     } catch {
       finance = emptyFinance("Finance data is unavailable right now. Open Finances to keep a local draft.");
     }
-  }
 
-  let assignments: DashboardSummary["assignments"] = {
-    upcoming: [],
-    message: "No assignments due in the next 7 days.",
-  };
-  try {
-    if (!usePostgres && !canUseAssignmentsRest()) {
-      assignments = {
-        upcoming: [],
-        message: "Assignments are unavailable until the database is configured.",
-      };
-    } else {
-      const upcoming = usePostgres
-        ? await listAssignmentsDueThisWeek(getPool(), req.session.userId)
-        : await listAssignmentsDueThisWeekViaRest(req.session.userId);
-      assignments = {
-        upcoming: upcoming.map((item) => ({
-          id: item.id,
-          title: item.title,
-          dueAt: item.dueAt,
-          courseCode: item.courseCode,
-        })),
-        message:
-          upcoming.length === 0
-            ? "No assignments due in the next 7 days."
-            : undefined,
-      };
-    }
-  } catch {
-    assignments = {
-      upcoming: [],
-      message: "Assignment data is unavailable right now.",
-    };
-  }
-
-  let schedule: DashboardSummary["schedule"] = {
-    today: [],
-    hasPrimary: false,
-    savedCount: 0,
-    message: "Build your weekly timetable to see today's classes.",
-  };
-  let hubScheduleEntries: HubScheduleEntryRow[] = [];
-  if (req.session.userId && usePostgres) {
     try {
-      const result = await listTodayClasses(getPool(), req.session.userId);
-      hubScheduleEntries = result.hubScheduleEntries;
-      const primary = result.primarySchedule ?? undefined;
-      schedule = {
-        today: result.today.map((item) => ({
-          id: item.id,
-          courseCode: item.courseCode,
-          sectionCode: item.sectionCode,
-          componentType: item.componentType,
-          startTime: item.startTime,
-          endTime: item.endTime,
-          room: item.room,
-          campus: item.campus,
-          status: item.status,
-        })),
-        primarySchedule: primary,
-        activeSchedule: primary,
-        hasPrimary: result.hasPrimary,
-        savedCount: result.savedCount,
-        message:
-          result.today.length === 0
-            ? !result.hasPrimary && result.savedCount > 0
-              ? "Your timetables are saved, but none is set for the dashboard yet. Open Schedule and tap Use on dashboard."
-              : !result.hasPrimary
-                ? "Build a weekly timetable on the Schedule page — it will appear here once saved to your account."
-                : result.totalBlockCount === 0
-                  ? "Your dashboard timetable has no class blocks saved yet. Open Schedule, add courses, and wait for the sync confirmation."
-                  : result.todayBlockCount === 0
-                    ? `No ${new Date().toLocaleDateString("en-CA", { weekday: "long", timeZone: SCHEDULE_TIMEZONE })} blocks in your dashboard timetable.`
-                    : `No classes left on your dashboard schedule for ${new Date().toLocaleDateString("en-CA", { weekday: "long", timeZone: SCHEDULE_TIMEZONE })}.`
-            : undefined,
-      };
-    } catch (error) {
-      schedule = {
-        today: [],
-        hasPrimary: false,
-        savedCount: 0,
-        message: isMissingTableError(error)
-          ? "Schedule tables are not set up yet. Run npm run supabase:push, then save your timetable."
-          : "Schedule data is unavailable right now.",
-      };
-    }
-  }
-
-  let progress: DashboardSummary["progress"] = {
-    percentComplete: 0,
-    label: "Import your degree checklist to track progress.",
-    segments: [],
-  };
-  if (req.session.userId && usePostgres) {
-    try {
-      const plan = await getLatestPlanForUser(getPool(), req.session.userId);
-      if (plan) {
-        const planProgress = await buildPlanProgressResult(getPool(), plan);
-        progress = {
-          percentComplete: planProgress.percentComplete,
-          label: planProgress.message,
-          completed: planProgress.completed,
-          total: planProgress.total,
-          planId: planProgress.planId,
-          segments: planProgress.segments,
+      if (!canUseAssignmentsRest()) {
+        assignments = {
+          upcoming: [],
+          message: "Assignments are unavailable until the database is configured.",
         };
-        if (!programme && planProgress.programmeName) {
-          programme = planProgress.programmeName;
-        }
-        if (!startingYear && planProgress.startingYear) {
-          startingYear = planProgress.startingYear;
-        }
+      } else {
+        const upcoming = await listAssignmentsDueThisWeekViaRest(userId);
+        assignments = {
+          upcoming: upcoming.map((item) => ({
+            id: item.id,
+            title: item.title,
+            dueAt: item.dueAt,
+            courseCode: item.courseCode,
+          })),
+          message: upcoming.length === 0 ? "No assignments due in the next 7 days." : undefined,
+        };
       }
     } catch {
-      // Keep default progress when plan cannot be loaded.
+      assignments = {
+        upcoming: [],
+        message: "Assignment data is unavailable right now.",
+      };
     }
   }
 
@@ -525,12 +687,12 @@ dashboardRouter.get("/summary", async (req, res) => {
     finance,
     schedule,
     hub: await buildHub({
-      pool: req.session.userId && usePostgres ? getPool() : null,
-      userId: req.session.userId,
+      pool: userId && usePostgres ? getPool() : null,
+      userId,
       assignments: assignments.upcoming,
       today: schedule.today,
       finance,
-      onboardingIncomplete: Boolean(req.session.userId && usePostgres && !programme),
+      onboardingIncomplete: Boolean(userId && usePostgres && !programme),
       hubScheduleEntries,
     }),
   };

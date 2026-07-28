@@ -1,12 +1,11 @@
 ---
 import DashboardLayout from "../../layouts/DashboardLayout.astro";
 import PortalHubFeed from "../../components/portal/PortalHubFeed.astro";
-import { fetchDashboardSummary } from "../../lib/api";
+import { fetchDashboardHub } from "../../lib/api";
 import { fetchSessionUser } from "../../lib/auth";
 import {
   emptyHubFallback,
   guestHubFallback,
-  hubFromSummary,
   hubNotificationsForPanels,
 } from "../../lib/portal-hub";
 
@@ -18,7 +17,7 @@ const sessionUser = await fetchSessionUser(cookie);
 let hub = sessionUser ? emptyHubFallback() : guestHubFallback();
 if (sessionUser) {
   try {
-    hub = hubFromSummary(await fetchDashboardSummary(cookie));
+    hub = (await fetchDashboardHub(cookie)).hub;
   } catch {
     // Fall back to empty hub when the API is unavailable.
   }

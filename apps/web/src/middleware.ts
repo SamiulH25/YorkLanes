@@ -1,4 +1,5 @@
 import type { MiddlewareHandler } from "astro";
+import { fetchAuthStatus, fetchSessionUser } from "./lib/auth";
 import { runWithSsrRequestCache } from "./lib/ssr-request-cache";
 
 const API_ORIGIN = import.meta.env.API_INTERNAL_URL ?? "http://localhost:3001";
@@ -62,18 +63,11 @@ async function proxyApiRequest(context: Parameters<MiddlewareHandler>[0]): Promi
 async function requiresAuthRedirect(context: Parameters<MiddlewareHandler>[0]): Promise<boolean> {
   const cookie = context.request.headers.get("cookie");
   try {
-    const meResponse = await fetch(`${API_ORIGIN}/api/auth/me`, {
-      headers: cookie ? { cookie } : undefined,
-    });
-    if (meResponse.ok) {
-      const data = (await meResponse.json()) as { user?: unknown };
-      if (data.user) return false;
-    }
+    const user = await fetchSessionUser(cookie);
+    if (user) return false;
 
-    const statusResponse = await fetch(`${API_ORIGIN}/api/auth/status`);
-    if (!statusResponse.ok) return false;
-    const status = (await statusResponse.json()) as { oauthEnabled?: boolean };
-    return Boolean(status.oauthEnabled);
+    const status = await fetchAuthStatus();
+    return status.oauthEnabled;
   } catch {
     return false;
   }

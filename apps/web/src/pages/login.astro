@@ -3,7 +3,8 @@
 import BaseLayout from "../layouts/BaseLayout.astro";
 import YorkMark from "../components/YorkMark.astro";
 import SettingsMenu from "../components/SettingsMenu.astro";
-import { fetchAuthStatus, fetchSessionUser, googleSignInUrl } from "../lib/auth";
+import { fetchAuthStatus, fetchSessionUser } from "../lib/auth";
+import { googleSignInUrl } from "../lib/auth-urls";
 import "../styles/marketing.css";
 
 export const prerender = false;
@@ -163,7 +164,7 @@ const errorNote = errorCode ? errorMessages[errorCode] : null;
 </BaseLayout>
 
 <script>
-  import { googleSignInUrl } from "../lib/auth";
+  import { googleSignInUrl } from "../lib/auth-urls";
 
   function syncSignInUrl(): void {
     const checkbox = document.getElementById("remember-me");

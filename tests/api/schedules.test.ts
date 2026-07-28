@@ -78,7 +78,7 @@ describe("listTodayClasses", () => {
       if (sql.includes("count(*)::text as count from public.user_schedules")) {
         return { rowCount: 1, rows: [{ count: "1" }] };
       }
-      if (sql.includes("select id from public.user_schedules")) {
+      if (sql.includes("from public.user_schedules") && sql.includes("select id")) {
         return { rowCount: 1, rows: [{ id: "sched-1" }] };
       }
       if (sql.includes("from public.schedule_entries")) {

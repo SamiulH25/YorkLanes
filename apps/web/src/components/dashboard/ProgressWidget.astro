@@ -67,6 +67,7 @@ if (ringSegments.length === 0 && progress.percentComplete > 0) {
 <section
   class="dashboard-widget dashboard-widget--progress surface relative flex h-full flex-col overflow-hidden p-6"
   data-progress-widget
+  data-ssr-plan-id={progress.planId ?? ""}
   data-circumference={circumference}
   data-radius={radius}
 >
@@ -250,6 +251,11 @@ if (ringSegments.length === 0 && progress.percentComplete > 0) {
       try {
         var planId = sessionStorage.getItem("yorklanes-plan-id");
         if (!planId) {
+          return;
+        }
+
+        var ssrPlanId = root.getAttribute("data-ssr-plan-id");
+        if (ssrPlanId && planId === ssrPlanId) {
           return;
         }
 

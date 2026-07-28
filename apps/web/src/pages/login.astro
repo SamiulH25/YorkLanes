@@ -38,39 +38,50 @@ const errorNote = errorCode ? errorMessages[errorCode] : null;
 ---
 
 <BaseLayout title="Sign In | YorkLanes" fillViewport>
-  <div class="login-shell login-shell--split">
-    <aside class="login-brand-panel" aria-label="YorkLanes">
+  <div class="login-shell login-shell--split" transition:name="marketing-page">
+    <aside class="login-brand-panel" aria-label="YorkLanes" transition:name="marketing-left">
       <div class="login-brand-panel__pattern" aria-hidden="true"></div>
-      <div class="login-brand-panel__content">
-        <div class="login-brand-panel__logo">
-          <div class="login-brand-panel__logo-mark">
-            <YorkMark class="h-7 w-7 text-white" />
+      <p class="login-brand-panel__watermark" aria-hidden="true">U</p>
+      <div class="login-brand-panel__inner">
+        <div class="login-brand-panel__content">
+          <div class="login-brand-panel__logo">
+            <div class="login-brand-panel__logo-mark">
+              <YorkMark class="h-7 w-7 text-white" />
+            </div>
+            <div>
+              <p class="login-brand-panel__title">YorkLanes</p>
+              <p class="text-[10px] font-bold uppercase tracking-[0.18em] text-white/80">York University</p>
+            </div>
           </div>
-          <div>
-            <p class="login-brand-panel__title">YorkLanes</p>
-            <p class="text-[10px] font-bold uppercase tracking-[0.18em] text-white/80">York University</p>
-          </div>
+          <p class="login-brand-panel__tagline">Continue your degree plan</p>
+          <p class="login-brand-panel__desc">
+            Sign in to import your checklist, save your term layout, and keep schedule, assignments, and progress in one place.
+          </p>
+          <ul class="login-brand-panel__features">
+            <li>
+              <span class="login-brand-panel__feature-icon" aria-hidden="true">✓</span>
+              Upload your faculty checklist in minutes
+            </li>
+            <li>
+              <span class="login-brand-panel__feature-icon" aria-hidden="true">✓</span>
+              Drag courses across terms with prereq hints
+            </li>
+            <li>
+              <span class="login-brand-panel__feature-icon" aria-hidden="true">✓</span>
+              Sync schedule, assignments, and finances
+            </li>
+          </ul>
         </div>
-        <p class="login-brand-panel__tagline">Continue your degree plan</p>
-        <p class="login-brand-panel__desc">
-          Sign in to import your checklist, save your term layout, and keep schedule, assignments, and progress in one place.
-        </p>
-      </div>
-      <div class="login-brand-panel__nodes" aria-hidden="true">
-        <svg viewBox="0 0 320 120" fill="none" xmlns="http://www.w3.org/2000/svg">
-          <circle cx="28" cy="60" r="8" stroke="white" stroke-opacity="0.9" stroke-width="2" />
-          <circle cx="108" cy="28" r="8" stroke="white" stroke-opacity="0.75" stroke-width="2" />
-          <circle cx="108" cy="92" r="8" stroke="white" stroke-opacity="0.75" stroke-width="2" />
-          <circle cx="188" cy="60" r="8" stroke="white" stroke-opacity="0.9" stroke-width="2" />
-          <circle cx="268" cy="40" r="8" stroke="white" stroke-opacity="0.65" stroke-width="2" />
-          <circle cx="268" cy="80" r="8" stroke="white" stroke-opacity="0.65" stroke-width="2" />
-          <path d="M36 60H100M116 34L180 54M116 86L180 66M196 60H260" stroke="white" stroke-opacity="0.45" stroke-width="2" stroke-linecap="round" />
-        </svg>
+        <div class="login-brand-panel__nodes" aria-hidden="true">
+          <div class="login-brand-panel__node">Plan</div>
+          <div class="login-brand-panel__node">Schedule</div>
+          <div class="login-brand-panel__node">Progress</div>
+        </div>
       </div>
     </aside>
 
-    <div class="login-split-main">
-      <header class="login-split-main__header">
+    <div class="login-split-main" transition:name="marketing-right">
+      <header class="login-split-main__header" transition:persist="marketing-header">
         <a href="/" class="flex min-w-0 items-center gap-2 transition-opacity hover:opacity-90">
           <div class="rounded-xl bg-york-red/10 p-1 dark:bg-york-red/15">
             <YorkMark class="h-7 w-7 sm:h-8 sm:w-8" />

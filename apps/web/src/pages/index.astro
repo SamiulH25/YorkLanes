@@ -27,8 +27,8 @@ const features = [
 ---
 
 <BaseLayout title="YorkLanes | degree planning for York">
-  <div class="hero-shell hero-shell--split">
-    <header class="hero-header">
+  <div class="hero-shell hero-shell--split" transition:name="marketing-page">
+    <header class="hero-header" transition:persist="marketing-header">
       <a href="/" class="flex min-w-0 items-center gap-2 transition-opacity hover:opacity-90">
         <div class="rounded-xl bg-york-red/10 p-1 dark:bg-york-red/15">
           <YorkMark class="h-8 w-8" />
@@ -58,7 +58,7 @@ const features = [
     </header>
 
     <div class="hero-split">
-      <main class="hero-split__copy">
+      <main class="hero-split__copy" transition:name="marketing-left">
         <section class="hero-copy animate-slide-up">
           <p class="label">Unofficial student project</p>
           <h1 class="mt-3 font-display text-4xl font-semibold leading-[1.08] tracking-tight text-york-black dark:text-white sm:text-5xl lg:text-[3.25rem]">
@@ -124,39 +124,54 @@ const features = [
         </section>
       </main>
 
-      <aside class="hero-split__visual" aria-hidden="true">
+      <aside class="hero-split__visual" aria-hidden="true" transition:name="marketing-right">
         <div class="hero-plan-preview">
-          <div class="hero-plan-preview__glow"></div>
-          <div class="hero-plan-preview__card">
-            <div class="hero-plan-preview__header">
-              <p class="hero-plan-preview__eyebrow">My plan</p>
-              <p class="hero-plan-preview__title">Fall 2025 · Winter 2026</p>
+          <div class="hero-plan-preview__orb hero-plan-preview__orb--one"></div>
+          <div class="hero-plan-preview__orb hero-plan-preview__orb--two"></div>
+          <div class="hero-plan-preview__stack">
+            <div class="hero-plan-preview__chip">
+              <span class="hero-plan-preview__chip-dot"></span>
+              On track for Fall 2026
             </div>
-            <div class="hero-plan-preview__terms">
-              <div class="hero-plan-preview__term">
-                <p>Fall 2025</p>
-                <span class="hero-plan-preview__pill">EECS 1012</span>
-                <span class="hero-plan-preview__pill">MATH 1013</span>
-                <span class="hero-plan-preview__pill hero-plan-preview__pill--gold">ENGL 1010</span>
+            <div class="hero-plan-preview__card">
+              <div class="hero-plan-preview__header">
+                <div>
+                  <p class="hero-plan-preview__eyebrow">My plan</p>
+                  <p class="hero-plan-preview__title">BEng · Years 1–2</p>
+                </div>
+                <span class="hero-plan-preview__badge">27%</span>
               </div>
-              <div class="hero-plan-preview__term">
-                <p>Winter 2026</p>
-                <span class="hero-plan-preview__pill">EECS 1021</span>
-                <span class="hero-plan-preview__pill">PHYS 1010</span>
+              <div class="hero-plan-preview__terms">
+                <div class="hero-plan-preview__term">
+                  <p>Fall 2025</p>
+                  <span class="hero-plan-preview__pill hero-plan-preview__pill--done">EECS 1012</span>
+                  <span class="hero-plan-preview__pill hero-plan-preview__pill--done">MATH 1013</span>
+                  <span class="hero-plan-preview__pill hero-plan-preview__pill--gold">ENGL 1010</span>
+                </div>
+                <div class="hero-plan-preview__term hero-plan-preview__term--active">
+                  <p>Winter 2026</p>
+                  <span class="hero-plan-preview__pill">EECS 1021</span>
+                  <span class="hero-plan-preview__pill">PHYS 1010</span>
+                </div>
+                <div class="hero-plan-preview__term">
+                  <p>Fall 2026</p>
+                  <span class="hero-plan-preview__pill hero-plan-preview__pill--muted">Elective slot</span>
+                </div>
               </div>
-              <div class="hero-plan-preview__term">
-                <p>Fall 2026</p>
-                <span class="hero-plan-preview__pill hero-plan-preview__pill--muted">Elective</span>
+              <div class="hero-plan-preview__progress">
+                <div class="hero-plan-preview__progress-label">
+                  <span>Degree progress</span>
+                  <span>32 / 120 credits</span>
+                </div>
+                <div class="hero-plan-preview__progress-track">
+                  <div class="hero-plan-preview__progress-fill"></div>
+                </div>
               </div>
             </div>
-            <div class="hero-plan-preview__progress">
-              <div class="hero-plan-preview__progress-label">
-                <span>Degree progress</span>
-                <span>32 / 120 credits</span>
-              </div>
-              <div class="hero-plan-preview__progress-track">
-                <div class="hero-plan-preview__progress-fill"></div>
-              </div>
+            <div class="hero-plan-preview__schedule">
+              <p class="hero-plan-preview__schedule-label">Today</p>
+              <p class="hero-plan-preview__schedule-item"><strong>10:30</strong> EECS 1021 · Lecture</p>
+              <p class="hero-plan-preview__schedule-item"><strong>14:00</strong> PHYS 1010 · Lab</p>
             </div>
           </div>
         </div>

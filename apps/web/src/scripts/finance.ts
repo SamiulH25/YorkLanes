@@ -832,13 +832,24 @@ function renderTrend(root: HTMLElement, entries: FinanceEntry[]): void {
   }
 }
 
-function setMode(root: HTMLElement, apiAvailable: boolean): void {
-  const mode = root.ownerDocument.querySelector<HTMLElement>("[data-finance-mode]");
-  if (!mode) return;
-  mode.textContent = apiAvailable ? "Database" : "Local draft";
-  mode.className = apiAvailable
-    ? "rounded-full bg-emerald-500/15 px-3 py-1 text-xs font-semibold text-emerald-700 dark:text-emerald-300"
-    : "rounded-full bg-york-gold/15 px-3 py-1 text-xs font-semibold text-york-gold";
+type FinanceMode = "loading" | "database" | "local";
+
+function setMode(root: HTMLElement, mode: FinanceMode): void {
+  const badge = root.ownerDocument.querySelector<HTMLElement>("[data-finance-mode]");
+  if (!badge) return;
+
+  if (mode === "loading") {
+    badge.textContent = "Syncing…";
+    badge.className =
+      "rounded-full bg-york-muted/15 px-3 py-1 text-xs font-semibold text-york-muted";
+    return;
+  }
+
+  badge.textContent = mode === "database" ? "Database" : "Local draft";
+  badge.className =
+    mode === "database"
+      ? "rounded-full bg-emerald-500/15 px-3 py-1 text-xs font-semibold text-emerald-700 dark:text-emerald-300"
+      : "rounded-full bg-york-gold/15 px-3 py-1 text-xs font-semibold text-york-gold";
 }
 
 function setRecurrenceAvailability(
@@ -858,6 +869,11 @@ function setRecurrenceAvailability(
   } else {
     hint.textContent = "Log each occurrence when it is due.";
   }
+}
+
+function isTransientFetchError(error: unknown): boolean {
+  if (error instanceof DOMException && error.name === "AbortError") return true;
+  return error instanceof TypeError;
 }
 
 async function initFinance(root: HTMLElement): Promise<void> {
@@ -886,11 +902,12 @@ async function initFinance(root: HTMLElement): Promise<void> {
   if (monthInput) monthInput.value = selectedMonth;
   syncKindUi(root, "expense");
   paint();
-  setMode(root, apiAvailable);
+  setMode(root, "loading");
   setRecurrenceAvailability(root, apiAvailable, recurrenceSupported);
   setSignInPrompt(root, false);
 
   const signedIn = await fetchSignedIn();
+  if (!root.isConnected) return;
   setSignInPrompt(root, !signedIn);
 
   if (signedIn) {
@@ -900,23 +917,25 @@ async function initFinance(root: HTMLElement): Promise<void> {
         fetchApiBudget(selectedMonth),
         fetchApiFinance(),
       ]);
+      if (!root.isConnected) return;
       entries = apiEntries;
       budgetCents = apiBudget.amountCents;
       apiAvailable = true;
       recurrenceSupported = apiFinance.recurrenceSupported === true;
       paint();
-      setMode(root, apiAvailable);
+      setMode(root, "database");
       setRecurrenceAvailability(root, apiAvailable, recurrenceSupported);
-    } catch {
+    } catch (error) {
+      if (!root.isConnected || isTransientFetchError(error)) return;
       apiAvailable = false;
       recurrenceSupported = true;
-      setMode(root, apiAvailable);
+      setMode(root, "local");
       setRecurrenceAvailability(root, apiAvailable, recurrenceSupported);
     }
   } else {
     apiAvailable = false;
     recurrenceSupported = true;
-    setMode(root, apiAvailable);
+    setMode(root, "local");
     setRecurrenceAvailability(root, apiAvailable, recurrenceSupported);
   }
 
@@ -983,10 +1002,7 @@ async function initFinance(root: HTMLElement): Promise<void> {
           clearEditMode();
           return;
         } catch {
-          apiAvailable = false;
-          recurrenceSupported = true;
-          setMode(root, apiAvailable);
-          setRecurrenceAvailability(root, apiAvailable, recurrenceSupported);
+          // Keep database mode; fall back to local edit for this action only.
         }
       }
 
@@ -1016,10 +1032,7 @@ async function initFinance(root: HTMLElement): Promise<void> {
         paint();
         return;
       } catch {
-        apiAvailable = false;
-        recurrenceSupported = true;
-        setMode(root, apiAvailable);
-        setRecurrenceAvailability(root, apiAvailable, recurrenceSupported);
+        // Keep database mode; fall back to local save for this action only.
       }
     }
 
@@ -1057,10 +1070,7 @@ async function initFinance(root: HTMLElement): Promise<void> {
         paint();
         return;
       } catch {
-        apiAvailable = false;
-        recurrenceSupported = true;
-        setMode(root, apiAvailable);
-        setRecurrenceAvailability(root, apiAvailable, recurrenceSupported);
+        // Keep database mode; fall back to local budget for this action only.
       }
     }
 
@@ -1081,10 +1091,7 @@ async function initFinance(root: HTMLElement): Promise<void> {
         paint();
         return;
       } catch {
-        apiAvailable = false;
-        recurrenceSupported = true;
-        setMode(root, apiAvailable);
-        setRecurrenceAvailability(root, apiAvailable, recurrenceSupported);
+        // Keep database mode; fall back to cached budget for this month.
       }
     }
 
@@ -1137,10 +1144,7 @@ async function initFinance(root: HTMLElement): Promise<void> {
           paint();
           return;
         } catch {
-          apiAvailable = false;
-          recurrenceSupported = true;
-          setMode(root, apiAvailable);
-          setRecurrenceAvailability(root, apiAvailable, recurrenceSupported);
+          // Keep database mode; fall back to local edit for this action only.
         }
       }
 
@@ -1176,10 +1180,7 @@ async function initFinance(root: HTMLElement): Promise<void> {
         paint();
         return;
       } catch {
-        apiAvailable = false;
-        recurrenceSupported = true;
-        setMode(root, apiAvailable);
-        setRecurrenceAvailability(root, apiAvailable, recurrenceSupported);
+        // Keep database mode; fall back to local delete for this action only.
       }
     }
 
@@ -1193,7 +1194,20 @@ async function initFinance(root: HTMLElement): Promise<void> {
   });
 }
 
-const root = document.querySelector<HTMLElement>("[data-finance-root]");
-if (root) void initFinance(root);
+function bootFinance(): void {
+  const root = document.querySelector<HTMLElement>("[data-finance-root]");
+  if (!root || root.dataset.financeInit === "true") return;
+  root.dataset.financeInit = "true";
+  void initFinance(root);
+}
+
+document.addEventListener("astro:page-load", () => {
+  document.querySelectorAll<HTMLElement>("[data-finance-root]").forEach((root) => {
+    delete root.dataset.financeInit;
+  });
+  bootFinance();
+});
+
+bootFinance();
 
 export {};

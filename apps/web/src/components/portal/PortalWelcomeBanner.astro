@@ -1,0 +1,266 @@
+---
+import PortalIcon, { type PortalIconName } from "../icons/PortalIcon.astro";
+import campusBanner from "../../assets/york-campus-banner.png";
+
+interface Props {
+  displayName: string;
+  classCount: number;
+  assignmentCount: number;
+  courseAverage: number | null;
+  holdCount: number;
+  guest?: boolean;
+}
+
+const { displayName, classCount, assignmentCount, courseAverage, holdCount, guest = false } = Astro.props;
+
+function getGreeting(): string {
+  const hour = new Date().getHours();
+  if (hour < 12) return "Good morning";
+  if (hour < 17) return "Good afternoon";
+  return "Good evening";
+}
+
+const greeting = getGreeting();
+const firstName = guest ? "Guest" : displayName.trim().split(/\s+/)[0] || displayName;
+const subtitle = guest
+  ? "Sign in to sync assignments, schedule, and degree progress."
+  : "You're all set for a productive day.";
+
+const stats: { label: string; icon: PortalIconName }[] = [
+  {
+    label: `${classCount} Class${classCount === 1 ? "" : "es"} today`,
+    icon: "calendar",
+  },
+  {
+    label: `${assignmentCount} Assignment${assignmentCount === 1 ? "" : "s"} due`,
+    icon: "assignments",
+  },
+  ...(courseAverage !== null
+    ? [{ label: `${courseAverage}% Course average`, icon: "chart" as PortalIconName }]
+    : []),
+  ...(holdCount > 0
+    ? [{ label: `${holdCount} Hold item${holdCount === 1 ? "" : "s"}`, icon: "wallet" as PortalIconName }]
+    : []),
+];
+---
+
+<section class="portal-welcome" aria-label="Welcome summary">
+  <div class="portal-welcome__content">
+    <h2 class="portal-welcome__heading">
+      {greeting}, {firstName}! 👋
+    </h2>
+    <p class="portal-welcome__subtitle">{subtitle}</p>
+
+    <ul class="portal-welcome__stats" role="list">
+      {
+        stats.map((stat) => (
+          <li class="portal-welcome__chip">
+            <span class="portal-welcome__chip-icon" aria-hidden="true">
+              <PortalIcon name={stat.icon} size={18} />
+            </span>
+            <span class="portal-welcome__chip-label">{stat.label}</span>
+          </li>
+        ))
+      }
+    </ul>
+  </div>
+
+  <div class="portal-welcome__visual" aria-hidden="true">
+    <img
+      class="portal-welcome__photo"
+      src={campusBanner.src}
+      alt=""
+      width={campusBanner.width}
+      height={campusBanner.height}
+      loading="eager"
+      fetchpriority="high"
+      decoding="async"
+    />
+    <div class="portal-welcome__photo-overlay" />
+  </div>
+</section>
+
+<style>
+  .portal-welcome {
+    position: relative;
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 1.25rem;
+    overflow: hidden;
+    border-radius: var(--theme-radius, 1rem);
+    background:
+      linear-gradient(
+        105deg,
+        rgb(255 214 222 / 0.98) 0%,
+        rgb(255 236 240 / 0.92) 38%,
+        rgb(255 250 251 / 0.88) 62%,
+        rgb(255 255 255 / 0.95) 100%
+      );
+    border: 1px solid color-mix(in srgb, var(--theme-primary) 10%, transparent);
+    box-shadow: var(--theme-shadow-card);
+    min-height: 11.5rem;
+  }
+
+  @media (min-width: 640px) {
+    .portal-welcome {
+      grid-template-columns: minmax(0, 1.05fr) minmax(0, 0.95fr);
+      align-items: stretch;
+      min-height: 13.5rem;
+    }
+  }
+
+  .portal-welcome__content {
+    padding: 1.35rem 1.35rem 1.25rem;
+    z-index: 1;
+  }
+
+  @media (min-width: 640px) {
+    .portal-welcome__content {
+      padding: 1.5rem 1.25rem 1.5rem 1.5rem;
+    }
+  }
+
+  .portal-welcome__heading {
+    font-family: var(--theme-font-display, Georgia, serif);
+    font-size: clamp(1.35rem, 3vw, 1.75rem);
+    font-weight: 700;
+    line-height: 1.2;
+    color: var(--theme-foreground);
+  }
+
+  .portal-welcome__subtitle {
+    margin-top: 0.35rem;
+    font-size: 0.9rem;
+    color: var(--theme-muted);
+  }
+
+  .portal-welcome__stats {
+    margin-top: 1rem;
+    padding: 0;
+    list-style: none;
+  }
+
+  .portal-welcome__chip {
+    display: flex;
+    align-items: center;
+    gap: 0.45rem;
+    padding: 0.5rem 0.7rem;
+    border-radius: 0.65rem;
+    background: rgb(255 255 255 / 0.92);
+    border: 1px solid color-mix(in srgb, var(--theme-border) 65%, transparent);
+    box-shadow: 0 1px 3px rgb(15 15 18 / 0.05);
+    font-size: 0.72rem;
+    font-weight: 600;
+    color: var(--theme-foreground);
+    min-width: 0;
+  }
+
+  @media (min-width: 480px) {
+    .portal-welcome__chip {
+      font-size: 0.75rem;
+      padding: 0.55rem 0.8rem;
+    }
+  }
+
+  .portal-welcome__chip-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 1.1rem;
+    height: 1.1rem;
+    color: var(--theme-primary);
+    flex-shrink: 0;
+  }
+
+  .portal-welcome__chip-icon :global(svg) {
+    width: 100%;
+    height: 100%;
+  }
+
+  .portal-welcome__chip-label {
+    line-height: 1.2;
+  }
+
+  .portal-welcome__visual {
+    position: relative;
+    min-height: 8.5rem;
+    overflow: hidden;
+    background: var(--theme-surface-muted, #f1f5f9);
+  }
+
+  .portal-welcome__photo {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    object-position: 22% center;
+  }
+
+  .portal-welcome__photo-overlay {
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(
+      90deg,
+      var(--theme-surface) 0%,
+      color-mix(in srgb, var(--theme-surface) 72%, transparent) 18%,
+      transparent 42%
+    );
+    pointer-events: none;
+  }
+
+  @media (max-width: 639px) {
+    .portal-welcome__visual {
+      margin: 0 1.35rem 1.25rem;
+      border-radius: 0.75rem;
+      min-height: 10rem;
+    }
+
+    .portal-welcome__photo {
+      object-position: 30% center;
+    }
+
+    .portal-welcome__photo-overlay {
+      background: linear-gradient(
+        180deg,
+        transparent 55%,
+        color-mix(in srgb, var(--theme-surface) 88%, transparent) 100%
+      );
+    }
+  }
+
+  :global(.dark) .portal-welcome__visual {
+    background: rgb(24 28 36);
+  }
+
+  :global(.dark) .portal-welcome__photo-overlay {
+    background: linear-gradient(
+      90deg,
+      color-mix(in srgb, var(--theme-surface) 96%, transparent) 0%,
+      color-mix(in srgb, var(--theme-surface) 55%, transparent) 20%,
+      transparent 45%
+    );
+  }
+
+  @media (max-width: 639px) {
+    :global(.dark) .portal-welcome__photo-overlay {
+      background: linear-gradient(
+        180deg,
+        transparent 50%,
+        color-mix(in srgb, var(--theme-surface) 92%, transparent) 100%
+      );
+    }
+  }
+
+  :global(.dark) .portal-welcome {
+    background:
+      linear-gradient(135deg, rgb(80 24 36 / 0.55) 0%, rgb(40 18 28 / 0.65) 50%, rgb(60 20 32 / 0.5) 100%),
+      linear-gradient(160deg, rgb(227 24 55 / 0.12), transparent 55%);
+    border-color: color-mix(in srgb, var(--theme-primary) 25%, transparent);
+  }
+
+  :global(.dark) .portal-welcome__chip {
+    background: rgb(20 24 32 / 0.75);
+    border-color: color-mix(in srgb, var(--theme-border) 50%, transparent);
+  }
+</style>

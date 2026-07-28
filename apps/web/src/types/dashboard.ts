@@ -57,6 +57,40 @@ export interface DashboardSummary {
     savedCount: number;
     message?: string;
   };
+  hub?: {
+    messageCount: number;
+    notificationCount: number;
+    messages: HubMessage[];
+    notifications: HubNotification[];
+    calendarDays: HubCalendarDay[];
+  };
+}
+
+export interface HubMessage {
+  id: string;
+  title: string;
+  preview: string;
+  date: string;
+  href?: string;
+}
+
+export interface HubNotification {
+  id: string;
+  title: string;
+  body: string;
+  date: string;
+  type: "assignment" | "schedule" | "finance" | "system";
+  href?: string;
+}
+
+export interface HubCalendarDay {
+  date: string;
+  events: Array<{
+    id: string;
+    title: string;
+    time: string;
+    location?: string;
+  }>;
 }
 
 export interface AssignmentPreview {

@@ -532,45 +532,317 @@ function clearMissingRequiredCourse(state: EditorState, courseCode: string): voi
 }
 
 function updateMissingRequiredBanner(state: EditorState): void {
-  const panel = document.getElementById("plan-missing-required");
-  const list = document.getElementById("plan-missing-required-list");
-  if (!panel || !list) return;
+  updateWarningsBubble(state);
+}
 
-  list.replaceChildren();
-  if (state.missingRequiredCourses.length === 0) {
-    panel.classList.add("hidden");
-    panel.setAttribute("aria-hidden", "true");
-    return;
+function createWarningsSection(title: string, tone?: "missing" | "notes" | "schedule" | "complementary"): HTMLElement {
+  const section = document.createElement("section");
+  section.className = "plan-warnings-section";
+  if (tone) {
+    section.classList.add(`plan-warnings-section--${tone}`);
+  }
+  const heading = document.createElement("h3");
+  heading.className = "plan-warnings-section__title";
+  heading.textContent = title;
+  section.appendChild(heading);
+  return section;
+}
+
+function appendWarningsHint(section: HTMLElement, text: string): void {
+  const hint = document.createElement("p");
+  hint.className = "plan-warnings-section__hint";
+  hint.textContent = text;
+  section.appendChild(hint);
+}
+
+function appendWarningsList(section: HTMLElement): HTMLUListElement {
+  const list = document.createElement("ul");
+  list.className = "plan-warnings-section__list";
+  section.appendChild(list);
+  return list;
+}
+
+function setWarningsBubbleOpen(open: boolean): void {
+  const toggle = document.getElementById("plan-warnings-toggle");
+  const panel = document.getElementById("plan-warnings-panel");
+  if (!toggle || !panel) return;
+
+  toggle.setAttribute("aria-expanded", open ? "true" : "false");
+  panel.classList.toggle("hidden", !open);
+  panel.setAttribute("aria-hidden", open ? "false" : "true");
+  panel.classList.toggle("plan-warnings-panel--open", open);
+}
+
+function updateWarningsBubble(state: EditorState): void {
+  const toggle = document.getElementById("plan-warnings-toggle");
+  const countEl = document.getElementById("plan-warnings-count");
+  const body = document.getElementById("plan-warnings-body");
+  if (!toggle || !countEl || !body) return;
+
+  body.replaceChildren();
+  let issueCount = 0;
+
+  const parseWarnings = state.plan.parse_warnings ?? [];
+  if (parseWarnings.length > 0) {
+    issueCount += parseWarnings.length;
+    const section = createWarningsSection("Parser notes", "notes");
+    const list = appendWarningsList(section);
+    for (const warning of parseWarnings) {
+      const item = document.createElement("li");
+      item.className = "plan-warnings-note";
+      item.textContent = warning;
+      list.appendChild(item);
+    }
+    body.appendChild(section);
   }
 
-  panel.classList.remove("hidden");
-  panel.setAttribute("aria-hidden", "false");
-
-  const title = panel.querySelector<HTMLElement>(".plan-alert-panel__title");
-  if (title) {
-    title.textContent =
+  if (state.missingRequiredCourses.length > 0) {
+    issueCount += state.missingRequiredCourses.length;
+    const section = createWarningsSection(
       state.missingRequiredCourses.length === 1
         ? "Missing required course"
-        : "Missing required courses";
+        : "Missing required courses",
+      "missing",
+    );
+    appendWarningsHint(
+      section,
+      "These checklist courses were removed from your plan. Re-add them with + Add course or drag a replacement into the same term.",
+    );
+    const list = appendWarningsList(section);
+    for (const missing of state.missingRequiredCourses) {
+      const item = document.createElement("li");
+      const button = document.createElement("button");
+      button.type = "button";
+      button.className = "plan-missing-required__item";
+      button.dataset.formerTermId = missing.formerTermId ?? "";
+      button.innerHTML = `<span class="plan-missing-required__code">${missing.code}</span>${
+        missing.title
+          ? `<span class="plan-missing-required__title-text">${missing.title}</span>`
+          : ""
+      }`;
+      button.title = missing.formerTermId
+        ? `Scroll to ${missing.code}'s former term`
+        : `Removed required course: ${missing.title ? `${missing.code} — ${missing.title}` : missing.code}`;
+      item.appendChild(button);
+      list.appendChild(item);
+    }
+    body.appendChild(section);
   }
 
-  for (const missing of state.missingRequiredCourses) {
-    const item = document.createElement("li");
-    const button = document.createElement("button");
-    button.type = "button";
-    button.className = "plan-missing-required__item";
-    button.dataset.formerTermId = missing.formerTermId ?? "";
-    const label = missing.title ? `${missing.code} — ${missing.title}` : missing.code;
-    button.innerHTML = `<span class="plan-missing-required__code">${missing.code}</span>${
-      missing.title
-        ? `<span class="plan-missing-required__title-text">${missing.title}</span>`
-        : ""
-    }`;
-    button.title = missing.formerTermId
-      ? `Scroll to ${missing.code}'s former term`
-      : `Removed required course: ${label}`;
-    item.appendChild(button);
-    list.appendChild(item);
+  if (state.graph) {
+    const unmetPrereqs = state.graph.dependencies.filter(
+      (edge) => !edge.satisfied && edge.kind === "prerequisite",
+    );
+    const unsatisfiedCoreqs = state.graph.dependencies.filter(
+      (edge) => !edge.satisfied && edge.kind === "corequisite",
+    );
+
+    if (unmetPrereqs.length > 0) {
+      issueCount += unmetPrereqs.length;
+      const section = createWarningsSection("Unmet prerequisites");
+      appendWarningsHint(section, "These courses are scheduled before their prerequisites.");
+      const list = appendWarningsList(section);
+      for (const edge of unmetPrereqs) {
+        const item = document.createElement("li");
+        const button = document.createElement("button");
+        button.type = "button";
+        button.className = "plan-alert-row plan-alert-row--prereq";
+        if (edge.to_course_id) {
+          button.dataset.courseId = edge.to_course_id;
+        }
+        button.innerHTML = `
+          <span class="plan-alert-row__badge" aria-hidden="true">!</span>
+          <span class="plan-alert-row__content">
+            <span class="plan-alert-row__title">
+              <strong class="plan-alert-row__code">${edge.to}</strong>
+            </span>
+            <span class="plan-alert-row__detail">Requires ${edge.from} earlier in your plan</span>
+          </span>`;
+        button.title = edge.to_course_id ? "Show this course on the plan" : "";
+        item.appendChild(button);
+        list.appendChild(item);
+      }
+      body.appendChild(section);
+    }
+
+    if (unsatisfiedCoreqs.length > 0) {
+      issueCount += unsatisfiedCoreqs.length;
+      const section = createWarningsSection("Co-requisite scheduling");
+      appendWarningsHint(section, "These courses should be taken in the same term.");
+      const list = appendWarningsList(section);
+      for (const edge of unsatisfiedCoreqs) {
+        const item = document.createElement("li");
+        const button = document.createElement("button");
+        button.type = "button";
+        button.className = "plan-alert-row plan-alert-row--coreq";
+        const focusId = edge.from_course_id ?? edge.to_course_id ?? "";
+        if (focusId) {
+          button.dataset.courseId = focusId;
+        }
+        button.innerHTML = `
+          <span class="plan-alert-row__badge" aria-hidden="true">⟷</span>
+          <span class="plan-alert-row__content">
+            <span class="plan-alert-row__title">
+              <strong class="plan-alert-row__code">${edge.from}</strong>
+              <span class="plan-alert-row__meta">+ ${edge.to}</span>
+            </span>
+            <span class="plan-alert-row__detail">Not scheduled in the same term</span>
+          </span>`;
+        button.title = focusId ? "Show this course on the plan" : "";
+        item.appendChild(button);
+        list.appendChild(item);
+      }
+      body.appendChild(section);
+    }
+
+    const scheduleWarnings = listScheduleWarnings(state.graph);
+    if (scheduleWarnings.length > 0) {
+      issueCount += scheduleWarnings.length;
+      const section = createWarningsSection("Season offering alerts", "schedule");
+      appendWarningsHint(section, formatScheduleAlertsHint(scheduleWarnings));
+      const list = appendWarningsList(section);
+      for (const warning of scheduleWarnings) {
+        const item = document.createElement("li");
+        const button = document.createElement("button");
+        button.type = "button";
+        button.className = "plan-alert-row plan-alert-row--schedule";
+        button.dataset.courseId = warning.course_id;
+        button.innerHTML = `
+          <span class="plan-alert-row__badge" aria-hidden="true">S</span>
+          <span class="plan-alert-row__content">
+            <span class="plan-alert-row__title">
+              <strong class="plan-alert-row__code">${warning.course_code}</strong>
+              <span class="plan-alert-row__meta">${warning.term_label}</span>
+            </span>
+            <span class="plan-alert-row__detail">${formatScheduleWarningDetail(warning)}</span>
+          </span>`;
+        button.title = "Show this course on the plan";
+        item.appendChild(button);
+        list.appendChild(item);
+      }
+      body.appendChild(section);
+    }
+
+    if (state.expectsComplementaryStudies) {
+      const warnings = listComplementaryWarnings(state.graph);
+      if (warnings.length > 0) {
+        const summary = summarizeComplementaryWarnings(warnings, state.plan);
+        const section = createWarningsSection("Complementary studies", "complementary");
+        appendWarningsHint(
+          section,
+          "Progress toward your uploaded complementary availability PDF and open checklist slots.",
+        );
+
+        if (state.hasComplementaryCatalog) {
+          const linkRow = document.createElement("p");
+          linkRow.className = "plan-warnings-section__action-row";
+          const link = document.createElement("a");
+          link.className = "plan-warnings-section__action";
+          link.href = progressElectivesHref(state.plan.id);
+          link.textContent = "View progress";
+          linkRow.appendChild(link);
+          section.appendChild(linkRow);
+        }
+
+        const list = appendWarningsList(section);
+
+        if (summary.infoMessage) {
+          const item = document.createElement("li");
+          item.className = "plan-alert-info";
+          item.textContent = summary.infoMessage;
+          list.appendChild(item);
+        } else {
+          if (summary.creditProgress) {
+            issueCount += 1;
+            appendProgressBlock(
+              list,
+              "Complementary credits",
+              summary.creditProgress.planned,
+              summary.creditProgress.required,
+              "warning",
+            );
+          }
+
+          if (summary.subjectProgress) {
+            issueCount += 1;
+            appendProgressBlock(
+              list,
+              "Humanities / social science",
+              summary.subjectProgress.planned,
+              summary.subjectProgress.required,
+              "accent",
+            );
+          }
+
+          if (summary.openStubs.length > 0) {
+            issueCount += summary.openStubs.length;
+            const group = document.createElement("li");
+            group.className = "plan-alert-stub-group";
+            const heading = document.createElement("p");
+            heading.className = "plan-alert-stub-group__title";
+            heading.textContent = `Open slots (${summary.openStubs.length})`;
+            group.appendChild(heading);
+
+            const chips = document.createElement("div");
+            chips.className = "plan-alert-stub-group__chips";
+            for (const stub of summary.openStubs) {
+              const chip = document.createElement("button");
+              chip.type = "button";
+              chip.className = "plan-alert-chip";
+              chip.dataset.courseId = stub.courseId;
+              chip.title = `Show ${stub.termLabel} slot on the plan`;
+              chip.innerHTML = `<span class="plan-alert-chip__credits">${stub.credits || "?"} cr</span><span class="plan-alert-chip__term">${stub.termLabel}</span>`;
+              chips.appendChild(chip);
+            }
+            group.appendChild(chips);
+            list.appendChild(group);
+          }
+
+          if (summary.noCoursesYet) {
+            issueCount += 1;
+            const item = document.createElement("li");
+            item.className = "plan-alert-note";
+            item.textContent =
+              "No complementary courses added yet — fill open slots or use Find complementary.";
+            list.appendChild(item);
+          }
+
+          for (const invalid of summary.invalidCourses) {
+            issueCount += 1;
+            const item = document.createElement("li");
+            const button = document.createElement("button");
+            button.type = "button";
+            button.className = "plan-alert-row plan-alert-row--complementary";
+            button.dataset.courseId = invalid.courseId;
+            button.innerHTML = `
+              <span class="plan-alert-row__badge" aria-hidden="true">!</span>
+              <span class="plan-alert-row__content">
+                <span class="plan-alert-row__title">
+                  <strong class="plan-alert-row__code">${invalid.courseCode}</strong>
+                  <span class="plan-alert-row__meta">Not approved</span>
+                </span>
+                <span class="plan-alert-row__detail">Not on your uploaded complementary list or subject areas</span>
+              </span>`;
+            button.title = "Show this course on the plan";
+            item.appendChild(button);
+            list.appendChild(item);
+          }
+        }
+
+        body.appendChild(section);
+      }
+    }
+  }
+
+  countEl.textContent = String(issueCount);
+  toggle.classList.toggle("hidden", issueCount === 0);
+  toggle.setAttribute(
+    "aria-label",
+    issueCount === 1 ? "1 plan issue" : `${issueCount} plan issues`,
+  );
+
+  if (issueCount === 0) {
+    setWarningsBubbleOpen(false);
   }
 }
 
@@ -800,53 +1072,16 @@ function syncPlanCourseDom(previous: DegreePlan, next: DegreePlan): void {
 
 function updateDependencySummary(state: EditorState): void {
   const el = document.getElementById("plan-dep-summary");
-  if (!el || !state.graph) return;
+  if (!el) return;
 
-  const total = state.graph.dependencies.length;
-  let violations = 0;
-  let coreqIssues = 0;
-  for (const d of state.graph.dependencies) {
-    if (d.satisfied) continue;
-    if (d.kind === "prerequisite") violations += 1;
-    else coreqIssues += 1;
-  }
-  const scheduleIssues = state.graph.schedule_warnings?.length ?? 0;
-  const complementaryIssues = state.expectsComplementaryStudies
-    ? state.graph.complementary_warnings?.filter((warning) => warning.severity === "warning").length ?? 0
-    : 0;
-
-  if (total === 0 && scheduleIssues === 0 && complementaryIssues === 0) {
-    el.textContent = state.expectsComplementaryStudies
-      ? "No prerequisite, co-requisite, season offering, or complementary studies issues for these courses yet."
-      : "No prerequisite, co-requisite, or season offering issues for these courses yet.";
+  if (!state.graph) {
+    el.textContent = "Loading prerequisite links…";
     return;
   }
 
-  const parts: string[] = [];
-  if (violations > 0) {
-    parts.push(`${violations} unmet prerequisite${violations === 1 ? "" : "s"}`);
-  }
-  if (coreqIssues > 0) {
-    parts.push(`${coreqIssues} co-req scheduling issue${coreqIssues === 1 ? "" : "s"}`);
-  }
-  if (scheduleIssues > 0) {
-    parts.push(
-      `${scheduleIssues} season offering warning${scheduleIssues === 1 ? "" : "s"}`,
-    );
-  }
-  if (complementaryIssues > 0) {
-    parts.push(
-      `${complementaryIssues} complementary studies warning${complementaryIssues === 1 ? "" : "s"}`,
-    );
-  }
-  if (parts.length === 0) {
-    el.textContent =
-      total > 0
-        ? `${total} catalog link${total === 1 ? "" : "s"}. Click a course to inspect.`
-        : "No issues found. Click a course to inspect.";
-    return;
-  }
-  el.textContent = `${parts.join(" · ")}. Click a course for details.`;
+  el.textContent = state.expectsComplementaryStudies
+    ? "Click a course to see prerequisite links · season and complementary alerts are in the issues panel"
+    : "Click a course to see prerequisite links · season alerts are in the issues panel";
 }
 
 function updateSelectionLegend(state: EditorState): void {
@@ -878,46 +1113,6 @@ function updateSelectionLegend(state: EditorState): void {
 
   el.classList.remove("hidden");
   el.textContent = `Blue = prerequisite (${prereqCount}) · Amber dashed = co-requisite (${coreqCount})`;
-}
-
-function updateScheduleWarningsPanel(state: EditorState): void {
-  const panel = document.getElementById("plan-schedule-warnings");
-  const list = document.getElementById("plan-schedule-warnings-list");
-  const hint = document.getElementById("plan-schedule-warnings-hint");
-  if (!panel || !list) return;
-
-  const warnings = state.graph ? listScheduleWarnings(state.graph) : [];
-  list.replaceChildren();
-
-  if (warnings.length === 0) {
-    panel.classList.add("hidden");
-    return;
-  }
-
-  panel.classList.remove("hidden");
-  if (hint) {
-    hint.textContent = formatScheduleAlertsHint(warnings);
-  }
-
-  for (const warning of warnings) {
-    const item = document.createElement("li");
-    const button = document.createElement("button");
-    button.type = "button";
-    button.className = "plan-alert-row plan-alert-row--schedule";
-    button.dataset.courseId = warning.course_id;
-    button.innerHTML = `
-      <span class="plan-alert-row__badge" aria-hidden="true">S</span>
-      <span class="plan-alert-row__content">
-        <span class="plan-alert-row__title">
-          <strong class="plan-alert-row__code">${warning.course_code}</strong>
-          <span class="plan-alert-row__meta">${warning.term_label}</span>
-        </span>
-        <span class="plan-alert-row__detail">${formatScheduleWarningDetail(warning)}</span>
-      </span>`;
-    button.title = "Show this course on the plan";
-    item.appendChild(button);
-    list.appendChild(item);
-  }
 }
 
 function updateTermWarningBadges(state: EditorState): void {
@@ -1084,18 +1279,8 @@ function appendProgressBlock(
   parent.appendChild(block);
 }
 
-function syncComplementaryProgressLink(state: EditorState): void {
-  if (!state.expectsComplementaryStudies) return;
-
-  const link = document.getElementById("plan-complementary-progress-link") as HTMLAnchorElement | null;
-  if (!link) return;
-
-  if (state.hasComplementaryCatalog) {
-    link.href = progressElectivesHref(state.plan.id);
-    link.classList.remove("hidden");
-  } else {
-    link.classList.add("hidden");
-  }
+function syncComplementaryProgressLink(_state: EditorState): void {
+  // Progress link is rendered inside the warnings bubble complementary section.
 }
 
 function focusComplementaryFromUrl(state: EditorState): void {
@@ -1104,111 +1289,21 @@ function focusComplementaryFromUrl(state: EditorState): void {
   const params = new URLSearchParams(window.location.search);
   if (params.get("focus") !== "complementary") return;
 
-  const panel = document.getElementById("plan-complementary-warnings");
-  const toolbar = document.querySelector(".plan-complementary-toolbar");
-  const target = panel && !panel.classList.contains("hidden") ? panel : toolbar;
-  target?.scrollIntoView({ behavior: "smooth", block: "nearest" });
-  panel?.classList.add("plan-alert-panel--focused");
-  window.setTimeout(() => panel?.classList.remove("plan-alert-panel--focused"), 1800);
-}
-
-function updateComplementaryWarningsPanel(state: EditorState): void {
-  if (!state.expectsComplementaryStudies) return;
-
-  syncComplementaryProgressLink(state);
-
-  const panel = document.getElementById("plan-complementary-warnings");
-  const list = document.getElementById("plan-complementary-warnings-list");
-  if (!panel || !list) return;
-
-  const warnings = state.graph ? listComplementaryWarnings(state.graph) : [];
-  list.replaceChildren();
-
-  if (warnings.length === 0) {
-    panel.classList.add("hidden");
+  updateWarningsBubble(state);
+  const toggle = document.getElementById("plan-warnings-toggle");
+  if (toggle?.classList.contains("hidden")) {
+    const toolbar = document.querySelector(".plan-complementary-toolbar");
+    toolbar?.scrollIntoView({ behavior: "smooth", block: "nearest" });
     return;
   }
 
-  panel.classList.remove("hidden");
-  const summary = summarizeComplementaryWarnings(warnings, state.plan);
-
-  if (summary.infoMessage) {
-    const item = document.createElement("li");
-    item.className = "plan-alert-info";
-    item.textContent = summary.infoMessage;
-    list.appendChild(item);
-    return;
-  }
-
-  if (summary.creditProgress) {
-    appendProgressBlock(
-      list,
-      "Complementary credits",
-      summary.creditProgress.planned,
-      summary.creditProgress.required,
-      "warning",
-    );
-  }
-
-  if (summary.subjectProgress) {
-    appendProgressBlock(
-      list,
-      "Humanities / social science",
-      summary.subjectProgress.planned,
-      summary.subjectProgress.required,
-      "accent",
-    );
-  }
-
-  if (summary.openStubs.length > 0) {
-    const group = document.createElement("li");
-    group.className = "plan-alert-stub-group";
-    const heading = document.createElement("p");
-    heading.className = "plan-alert-stub-group__title";
-    heading.textContent = `Open slots (${summary.openStubs.length})`;
-    group.appendChild(heading);
-
-    const chips = document.createElement("div");
-    chips.className = "plan-alert-stub-group__chips";
-    for (const stub of summary.openStubs) {
-      const chip = document.createElement("button");
-      chip.type = "button";
-      chip.className = "plan-alert-chip";
-      chip.dataset.courseId = stub.courseId;
-      chip.title = `Show ${stub.termLabel} slot on the plan`;
-      chip.innerHTML = `<span class="plan-alert-chip__credits">${stub.credits || "?"} cr</span><span class="plan-alert-chip__term">${stub.termLabel}</span>`;
-      chips.appendChild(chip);
-    }
-    group.appendChild(chips);
-    list.appendChild(group);
-  }
-
-  if (summary.noCoursesYet) {
-    const item = document.createElement("li");
-    item.className = "plan-alert-note";
-    item.textContent = "No complementary courses added yet — fill open slots or use Find complementary.";
-    list.appendChild(item);
-  }
-
-  for (const invalid of summary.invalidCourses) {
-    const item = document.createElement("li");
-    const button = document.createElement("button");
-    button.type = "button";
-    button.className = "plan-alert-row plan-alert-row--complementary";
-    button.dataset.courseId = invalid.courseId;
-    button.innerHTML = `
-      <span class="plan-alert-row__badge" aria-hidden="true">!</span>
-      <span class="plan-alert-row__content">
-        <span class="plan-alert-row__title">
-          <strong class="plan-alert-row__code">${invalid.courseCode}</strong>
-          <span class="plan-alert-row__meta">Not approved</span>
-        </span>
-        <span class="plan-alert-row__detail">Not on your uploaded complementary list or subject areas</span>
-      </span>`;
-    button.title = "Show this course on the plan";
-    item.appendChild(button);
-    list.appendChild(item);
-  }
+  setWarningsBubbleOpen(true);
+  const section = document.querySelector<HTMLElement>(
+    ".plan-warnings-section--complementary",
+  );
+  section?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+  section?.classList.add("plan-warnings-section--focused");
+  window.setTimeout(() => section?.classList.remove("plan-warnings-section--focused"), 1800);
 }
 
 function syncComplementaryToolbar(state: EditorState): void {
@@ -1230,8 +1325,7 @@ function syncCardChrome(state: EditorState): void {
   highlightSelection(state);
   updateWarningBadges(state);
   updateTermWarningBadges(state);
-  updateScheduleWarningsPanel(state);
-  updateComplementaryWarningsPanel(state);
+  updateWarningsBubble(state);
   updateCompletedStyles(state);
 }
 
@@ -1711,52 +1805,57 @@ function bindDragAndDrop(state: EditorState): void {
   });
 }
 
-function bindMissingRequiredBanner(): void {
-  const list = document.getElementById("plan-missing-required-list");
-  if (!list) return;
+function bindWarningsBubble(state: EditorState): void {
+  const bubble = document.getElementById("plan-warnings-bubble");
+  const toggle = document.getElementById("plan-warnings-toggle");
+  const panel = document.getElementById("plan-warnings-panel");
+  const body = document.getElementById("plan-warnings-body");
+  if (!bubble || !toggle || !panel || !body || bubble.dataset.warningsBound === "true") return;
+  bubble.dataset.warningsBound = "true";
 
-  list.addEventListener("click", (event) => {
-    const button = (event.target as HTMLElement).closest<HTMLButtonElement>(
+  toggle.addEventListener("click", (event) => {
+    event.stopPropagation();
+    const open = toggle.getAttribute("aria-expanded") !== "true";
+    setWarningsBubbleOpen(open);
+  });
+
+  panel.querySelector("[data-action='close-warnings']")?.addEventListener("click", () => {
+    setWarningsBubbleOpen(false);
+  });
+
+  document.addEventListener("click", (event) => {
+    if (!bubble.contains(event.target as Node)) {
+      setWarningsBubbleOpen(false);
+    }
+  });
+
+  document.addEventListener("keydown", (event) => {
+    if (event.key === "Escape" && toggle.getAttribute("aria-expanded") === "true") {
+      setWarningsBubbleOpen(false);
+      toggle.focus();
+    }
+  });
+
+  body.addEventListener("click", (event) => {
+    const missingButton = (event.target as HTMLElement).closest<HTMLButtonElement>(
       ".plan-missing-required__item",
     );
-    const formerTermId = button?.dataset.formerTermId;
-    if (!formerTermId) return;
-    scrollToFormerTerm(formerTermId);
-  });
-}
+    const formerTermId = missingButton?.dataset.formerTermId;
+    if (formerTermId) {
+      scrollToFormerTerm(formerTermId);
+      return;
+    }
 
-function bindScheduleWarningPanel(state: EditorState): void {
-  const list = document.getElementById("plan-schedule-warnings-list");
-  if (!list) return;
-
-  list.addEventListener("click", (event) => {
-    const button = (event.target as HTMLElement).closest<HTMLButtonElement>(
-      ".plan-alert-row--schedule",
+    const courseButton = (event.target as HTMLElement).closest<HTMLButtonElement>(
+      ".plan-alert-row--schedule, .plan-alert-row--complementary, .plan-alert-row--prereq, .plan-alert-row--coreq, .plan-alert-chip",
     );
-    const courseId = button?.dataset.courseId;
+    const courseId = courseButton?.dataset.courseId;
     if (!courseId) return;
 
     state.selectedCourseId = courseId;
     scheduleRedraw(state, { chrome: true, animate: true });
     updateSelectionLegend(state);
-
-    const card = document.querySelector<HTMLElement>(
-      `.plan-course-card[data-course-id="${CSS.escape(courseId)}"]`,
-    );
-    card?.scrollIntoView({ behavior: "smooth", block: "nearest", inline: "nearest" });
-  });
-
-  const complementaryList = document.getElementById("plan-complementary-warnings-list");
-  complementaryList?.addEventListener("click", (event) => {
-    const button = (event.target as HTMLElement).closest<HTMLButtonElement>(
-      ".plan-alert-row--complementary, .plan-alert-chip",
-    );
-    const courseId = button?.dataset.courseId;
-    if (!courseId) return;
-
-    state.selectedCourseId = courseId;
-    scheduleRedraw(state, { chrome: true, animate: true });
-    updateSelectionLegend(state);
+    setWarningsBubbleOpen(false);
 
     const card = document.querySelector<HTMLElement>(
       `.plan-course-card[data-course-id="${CSS.escape(courseId)}"]`,
@@ -2618,10 +2717,9 @@ export function initPlanEditor(plan: DegreePlan): void {
   persistMissingRequiredCourses(state);
   updateMissingRequiredBanner(state);
   bindDragAndDrop(state);
-  bindMissingRequiredBanner();
+  bindWarningsBubble(state);
   bindAddCourse(state);
   bindComplementaryUpload(state);
-  bindScheduleWarningPanel(state);
   bindSelection(state);
   bindCompletionToggles(state);
   bindCourseRemoval(state);
@@ -2660,3 +2758,5 @@ document.addEventListener("astro:page-load", () => {
   }
   bootPlanEditor();
 });
+
+bootPlanEditor();

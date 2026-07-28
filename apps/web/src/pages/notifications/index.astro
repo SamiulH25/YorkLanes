@@ -1,0 +1,68 @@
+---
+import PortalLayout from "../../layouts/PortalLayout.astro";
+import PortalActionGrid from "../../components/portal/PortalActionGrid.astro";
+import PortalHubFeed from "../../components/portal/PortalHubFeed.astro";
+import { fetchDashboardSummary } from "../../lib/api";
+import { fetchSessionUser } from "../../lib/auth";
+import {
+  emptyHubFallback,
+  guestHubFallback,
+  hubFromSummary,
+  hubNotificationsForPanels,
+} from "../../lib/portal-hub";
+
+export const prerender = false;
+
+const cookie = Astro.request.headers.get("cookie");
+const sessionUser = await fetchSessionUser(cookie);
+
+let hub = sessionUser ? emptyHubFallback() : guestHubFallback();
+if (sessionUser) {
+  try {
+    hub = hubFromSummary(await fetchDashboardSummary(cookie));
+  } catch {
+    // Fall back to empty hub when the API is unavailable.
+  }
+}
+
+const notifications = hubNotificationsForPanels(hub);
+---
+
+<PortalLayout title="Notifications | YorkLanes" hub={hub}>
+  <Fragment slot="actions">
+    <PortalActionGrid activeNav="dashboard" />
+  </Fragment>
+
+  <Fragment slot="breadcrumbs">
+    <nav aria-label="Breadcrumb">
+      <ol class="portal-breadcrumbs">
+        <li class="portal-breadcrumbs__item">
+          <a href="/dashboard" class="portal-breadcrumbs__link">Home</a>
+        </li>
+        <li class="portal-breadcrumbs__item">
+          <span class="portal-breadcrumbs__current" aria-current="page">Notifications</span>
+        </li>
+      </ol>
+    </nav>
+  </Fragment>
+
+  <div class="portal-inbox-page">
+    <header class="portal-inbox-page__header">
+      <div>
+        <p class="portal-inbox-page__eyebrow">Activity</p>
+        <h1 class="portal-inbox-page__title">Notifications</h1>
+        <p class="portal-inbox-page__subtitle">
+          Assignment due dates, schedule changes, finance alerts, and setup reminders.
+        </p>
+      </div>
+      <a href="/dashboard" class="portal-inbox-page__cta">Back to dashboard</a>
+    </header>
+
+    <PortalHubFeed
+      kind="notifications"
+      notifications={notifications}
+      emptyTitle="You're all caught up"
+      emptyBody="New notifications from assignments, your schedule, and finances will appear here."
+    />
+  </div>
+</PortalLayout>

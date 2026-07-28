@@ -1,0 +1,423 @@
+---
+import PortalIcon, { type PortalIconName } from "../icons/PortalIcon.astro";
+
+export interface PortalCourse {
+  code: string;
+  title: string;
+  credits: number;
+  gradePercent: number | null;
+  letterGrade: string | null;
+  imageUrl?: string;
+}
+
+interface Props {
+  courses?: PortalCourse[];
+  creditsCompleted?: number;
+  creditsTotal?: number;
+  percent?: number;
+  guest?: boolean;
+  emptyMessage?: string;
+}
+
+const {
+  courses = [],
+  creditsCompleted = 0,
+  creditsTotal = 0,
+  percent = 0,
+  guest = false,
+  emptyMessage = "Add courses to your schedule or import your degree plan to see them here.",
+} = Astro.props;
+
+const defaultCourses: PortalCourse[] = [
+  {
+    code: "PSYC 1010",
+    title: "Introduction to Psychology",
+    credits: 3,
+    gradePercent: 78,
+    letterGrade: "B+",
+  },
+  {
+    code: "ECON 1010",
+    title: "Introductory Macroeconomics",
+    credits: 3,
+    gradePercent: 85,
+    letterGrade: "A",
+  },
+  {
+    code: "WRIT 1000",
+    title: "Writing for University",
+    credits: 3,
+    gradePercent: 89,
+    letterGrade: "A+",
+  },
+  {
+    code: "NATS 1700",
+    title: "Everyday Computer Applications",
+    credits: 3,
+    gradePercent: 78,
+    letterGrade: "B+",
+  },
+];
+
+const hasCourses = courses.length > 0;
+const showSample = guest && !hasCourses;
+const displayCourses = hasCourses ? courses.slice(0, 4) : showSample ? defaultCourses : [];
+const clampedPercent = Math.min(100, Math.max(0, percent));
+const showProgressCounts = creditsTotal > 0;
+
+function formatCredits(credits: number): string {
+  return Number.isInteger(credits) ? credits.toFixed(2) : credits.toFixed(2);
+}
+
+const subjectPalettes: Record<string, string> = {
+  social: "linear-gradient(145deg, rgb(108 82 142), rgb(62 48 92))",
+  business: "linear-gradient(145deg, rgb(42 88 132), rgb(20 48 82))",
+  humanities: "linear-gradient(145deg, rgb(128 98 68), rgb(82 62 42))",
+  science: "linear-gradient(145deg, rgb(72 108 98), rgb(38 68 58))",
+  technology: "linear-gradient(145deg, rgb(58 92 128), rgb(28 52 78))",
+  default: "linear-gradient(145deg, rgb(98 78 118), rgb(52 42 72))",
+};
+
+function courseSubjectType(code: string): keyof typeof subjectPalettes {
+  const prefix = code.replace(/\s+/g, "").split(/[0-9]/)[0]?.toUpperCase() ?? "";
+
+  if (/^(PSYC|SOCI|ANTH|POLS|HIST|PHIL|HLST)/.test(prefix)) return "social";
+  if (/^(ECON|BUSI|ADMS|FNCE|OMIS|MATH|STAT|ACCT)/.test(prefix)) return "business";
+  if (/^(WRIT|ENGL|HUMA|CLTR|FILM)/.test(prefix)) return "humanities";
+  if (/^(CSE|CS|EECS|NATS|ITEC)/.test(prefix)) return "technology";
+  if (/^(BIOL|CHEM|PHYS|SCIE)/.test(prefix)) return "science";
+
+  return "default";
+}
+
+function courseSubjectIcon(code: string): PortalIconName {
+  const subject = courseSubjectType(code);
+
+  switch (subject) {
+    case "business":
+      return "chart";
+    case "humanities":
+      return "book";
+    case "science":
+      return "book";
+    case "technology":
+      return "eclass";
+    case "social":
+      return "book";
+    default:
+      return "courses";
+  }
+}
+
+function courseThumbStyle(course: PortalCourse): string {
+  if (course.imageUrl) {
+    return `background-image: url('${course.imageUrl}');`;
+  }
+
+  const subject = courseSubjectType(course.code);
+  return `background: ${subjectPalettes[subject]};`;
+}
+
+function courseDetailHref(code: string): string {
+  const normalized = code.replace(/\s+/g, "").toUpperCase();
+  return `/courses/${encodeURIComponent(normalized)}`;
+}
+---
+
+<section class="portal-courses" aria-label="My courses">
+  <header class="portal-courses__header">
+    <div>
+      <h2 class="portal-courses__title">My Courses</h2>
+      {showSample && <p class="portal-courses__sample-note">Sample preview — sign in for your courses</p>}
+    </div>
+    <a href="/courses" class="portal-courses__link">View all courses</a>
+  </header>
+
+  {
+    displayCourses.length > 0 ? (
+      <ul class="portal-courses__grid" role="list">
+        {
+          displayCourses.map((course) => (
+            <li>
+              <a href={courseDetailHref(course.code)} class="portal-courses__card">
+                <div class="portal-courses__thumb" style={courseThumbStyle(course)}>
+                  {!course.imageUrl && (
+                    <span class="portal-courses__thumb-icon" aria-hidden="true">
+                      <PortalIcon name={courseSubjectIcon(course.code)} size={28} />
+                    </span>
+                  )}
+                </div>
+                <div class="portal-courses__meta">
+                  <span class="portal-courses__code">
+                    {course.code} {formatCredits(course.credits)}
+                  </span>
+                </div>
+                <h3 class="portal-courses__name">{course.title}</h3>
+                {
+                  course.gradePercent !== null && course.letterGrade && (
+                    <p class="portal-courses__grade">
+                      <span>{course.gradePercent}%</span>
+                      <span class="portal-courses__grade-sep" aria-hidden="true">•</span>
+                      <span>{course.letterGrade}</span>
+                    </p>
+                  )
+                }
+              </a>
+            </li>
+          ))
+        }
+      </ul>
+    ) : (
+      <p class="portal-courses__empty">{guest ? "Sign in to see your enrolled courses." : emptyMessage}</p>
+    )
+  }
+
+  <div class="portal-courses__progress">
+    <div class="portal-courses__progress-head">
+      <div class="portal-courses__progress-label">
+        <span class="portal-courses__progress-icon" aria-hidden="true">
+          <PortalIcon name="progress" size={18} />
+        </span>
+        <span>Program Progress</span>
+      </div>
+      <a href="/progress" class="portal-courses__link portal-courses__link--sm">View Progress</a>
+    </div>
+
+    <div class="portal-courses__progress-row">
+      <p class="portal-courses__progress-text">
+        {
+          showProgressCounts
+            ? `${creditsCompleted} / ${creditsTotal} courses complete`
+            : "Import your degree checklist to track progress"
+        }
+      </p>
+      <span class="portal-courses__progress-pct">{clampedPercent}%</span>
+    </div>
+
+    <div
+      class="portal-courses__progress-bar"
+      role="progressbar"
+      aria-valuemin={0}
+      aria-valuemax={100}
+      aria-valuenow={clampedPercent}
+      aria-label="Program progress"
+    >
+      <div
+        class="portal-courses__progress-fill"
+        style={`transform: scaleX(${clampedPercent / 100})`}
+      />
+    </div>
+  </div>
+</section>
+
+<style>
+  .portal-courses__header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    margin-bottom: 0.85rem;
+  }
+
+  .portal-courses__title {
+    font-family: var(--theme-font-display, Georgia, serif);
+    font-size: 1.15rem;
+    font-weight: 700;
+    color: var(--theme-foreground);
+  }
+
+  .portal-courses__sample-note {
+    margin: 0.2rem 0 0;
+    font-size: 0.72rem;
+    font-weight: 600;
+    color: var(--theme-muted);
+  }
+
+  .portal-courses__empty {
+    margin: 0;
+    padding: 1rem 0.25rem;
+    font-size: 0.875rem;
+    line-height: 1.5;
+    color: var(--theme-muted);
+  }
+
+  .portal-courses__link {
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: var(--theme-primary);
+    text-decoration: none;
+    transition: color var(--theme-duration-fast, 150ms);
+  }
+
+  .portal-courses__link:hover {
+    color: var(--theme-primary-hover);
+    text-decoration: underline;
+  }
+
+  .portal-courses__link--sm {
+    font-size: 0.75rem;
+  }
+
+  .portal-courses__grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.75rem;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  @media (min-width: 768px) {
+    .portal-courses__grid {
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 0.85rem;
+    }
+  }
+
+  .portal-courses__card {
+    display: flex;
+    flex-direction: column;
+    border-radius: var(--theme-radius, 1rem);
+    border: 1px solid var(--theme-border);
+    background: var(--theme-surface);
+    box-shadow: var(--theme-shadow-card);
+    overflow: hidden;
+    text-decoration: none;
+    color: inherit;
+    transition:
+      border-color var(--theme-duration-fast, 150ms),
+      transform var(--theme-duration-fast, 150ms),
+      box-shadow var(--theme-duration-fast, 150ms);
+  }
+
+  .portal-courses__card:hover {
+    border-color: color-mix(in srgb, var(--theme-primary) 35%, var(--theme-border));
+    transform: translateY(-2px);
+    box-shadow: 0 8px 24px rgb(15 15 18 / 0.08);
+  }
+
+  .portal-courses__thumb {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    aspect-ratio: 16 / 9;
+    background-size: cover;
+    background-position: center;
+  }
+
+  .portal-courses__thumb-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: rgb(255 255 255 / 0.92);
+    filter: drop-shadow(0 2px 6px rgb(0 0 0 / 0.25));
+  }
+
+  .portal-courses__thumb-icon :global(svg) {
+    width: 1.75rem;
+    height: 1.75rem;
+  }
+
+  .portal-courses__meta {
+    padding: 0.65rem 0.75rem 0;
+  }
+
+  .portal-courses__code {
+    font-size: 0.72rem;
+    font-weight: 700;
+    color: var(--theme-primary);
+    font-variant-numeric: tabular-nums;
+  }
+
+  .portal-courses__name {
+    padding: 0.25rem 0.75rem 0;
+    font-size: 0.8rem;
+    font-weight: 700;
+    line-height: 1.35;
+    color: var(--theme-foreground);
+  }
+
+  .portal-courses__grade {
+    padding: 0.35rem 0.75rem 0.75rem;
+    font-size: 0.72rem;
+    font-weight: 600;
+    color: #16a34a;
+  }
+
+  :global(.dark) .portal-courses__grade {
+    color: #4ade80;
+  }
+
+  .portal-courses__progress {
+    margin-top: 1rem;
+    padding: 0.85rem 1rem;
+    border-radius: var(--theme-radius, 1rem);
+    border: 1px solid var(--theme-border);
+    background: var(--theme-surface);
+    box-shadow: var(--theme-shadow-card);
+  }
+
+  .portal-courses__progress-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+  }
+
+  .portal-courses__progress-label {
+    display: flex;
+    align-items: center;
+    gap: 0.45rem;
+    font-size: 0.82rem;
+    font-weight: 700;
+    color: var(--theme-foreground);
+  }
+
+  .portal-courses__progress-icon {
+    display: flex;
+    width: 1.1rem;
+    height: 1.1rem;
+    color: var(--theme-primary);
+  }
+
+  .portal-courses__progress-icon :global(svg) {
+    width: 100%;
+    height: 100%;
+  }
+
+  .portal-courses__progress-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    margin-top: 0.45rem;
+  }
+
+  .portal-courses__progress-text {
+    font-size: 0.75rem;
+    color: var(--theme-muted);
+  }
+
+  .portal-courses__progress-pct {
+    font-size: 0.75rem;
+    font-weight: 700;
+    color: var(--theme-foreground);
+    font-variant-numeric: tabular-nums;
+  }
+
+  .portal-courses__progress-bar {
+    margin-top: 0.55rem;
+    height: 0.45rem;
+    border-radius: 999px;
+    background: color-mix(in srgb, var(--theme-muted) 18%, transparent);
+    overflow: hidden;
+  }
+
+  .portal-courses__progress-fill {
+    width: 100%;
+    height: 100%;
+    border-radius: inherit;
+    background: linear-gradient(90deg, var(--theme-primary), color-mix(in srgb, var(--theme-primary) 75%, white));
+    transform-origin: left center;
+  }
+</style>

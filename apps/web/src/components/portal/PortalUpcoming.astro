@@ -1,0 +1,187 @@
+---
+import PortalIcon from "../icons/PortalIcon.astro";
+import { componentTypeLabel } from "../../lib/schedules";
+import type { DashboardSummary } from "../../types/dashboard";
+
+interface Props {
+  schedule: DashboardSummary["schedule"];
+}
+
+const { schedule } = Astro.props;
+const hasClasses = schedule.today.length > 0;
+
+const today = new Date();
+const dateBox = {
+  month: today.toLocaleDateString("en-CA", { month: "short" }).toUpperCase(),
+  day: today.getDate(),
+};
+
+function formatTime(time: string): string {
+  const [hoursRaw, minutes = "00"] = time.split(":");
+  const hours = Number(hoursRaw);
+  if (!Number.isFinite(hours)) return time;
+  const suffix = hours >= 12 ? "PM" : "AM";
+  const hour12 = ((hours + 11) % 12) + 1;
+  return `${hour12}:${minutes} ${suffix}`;
+}
+
+function formatTimeRange(start: string, end: string): string {
+  return `${formatTime(start)} – ${formatTime(end)}`;
+}
+
+function relativeBadge(
+  startTime: string,
+  status?: "upcoming" | "in_progress" | "past",
+): { label: string; tone: "urgent" | "soon" | "muted" } {
+  if (status === "past") return { label: "Ended", tone: "muted" };
+  if (status === "in_progress") return { label: "Now", tone: "urgent" };
+
+  const [hoursRaw, minutesRaw = "0"] = startTime.split(":");
+  const hours = Number(hoursRaw);
+  const minutes = Number(minutesRaw);
+  if (!Number.isFinite(hours)) return { label: "Today", tone: "soon" };
+
+  const start = new Date();
+  start.setHours(hours, minutes, 0, 0);
+  const diffMs = start.getTime() - Date.now();
+  const diffMins = Math.round(diffMs / (1000 * 60));
+
+  if (diffMins < 0) return { label: "Started", tone: "muted" };
+  if (diffMins < 60) {
+    return { label: diffMins <= 1 ? "In 1 min" : `In ${diffMins} min`, tone: "urgent" };
+  }
+  const diffHours = Math.round(diffMins / 60);
+  if (diffHours === 1) return { label: "In 1 hour", tone: "urgent" };
+  if (diffHours < 12) return { label: `In ${diffHours} hours`, tone: "urgent" };
+  return { label: "Later today", tone: "soon" };
+}
+
+function formatLocation(room?: string | null, campus?: string | null): string | null {
+  const parts = [campus, room].filter(Boolean);
+  return parts.length > 0 ? parts.join(", ") : null;
+}
+---
+
+<section class="portal-card portal-upcoming">
+  <h2 class="portal-card__title">Upcoming</h2>
+
+  {
+    hasClasses ? (
+      <ul class="portal-upcoming__list">
+        {schedule.today.map((item) => {
+          const badge = relativeBadge(item.startTime, item.status);
+          const location = formatLocation(item.room, item.campus);
+          return (
+            <li class="portal-upcoming__item">
+              <div class="portal-upcoming__date" aria-hidden="true">
+                <span class="portal-upcoming__month">{dateBox.month}</span>
+                <span class="portal-upcoming__day">{dateBox.day}</span>
+              </div>
+              <div class="portal-upcoming__body">
+                <p class="portal-upcoming__name">
+                  {item.courseCode} {componentTypeLabel(item.componentType)}
+                </p>
+                <p class="portal-upcoming__meta">
+                  <span class="portal-upcoming__time">{formatTimeRange(item.startTime, item.endTime)}</span>
+                  {location && (
+                    <span class="portal-upcoming__location">
+                      <PortalIcon name="location" size={12} />
+                      {location}
+                    </span>
+                  )}
+                </p>
+              </div>
+              <span class:list={["portal-badge", `portal-badge--${badge.tone}`]}>{badge.label}</span>
+            </li>
+          );
+        })}
+      </ul>
+    ) : (
+      <p class="portal-upcoming__empty">{schedule.message ?? "No classes scheduled for today."}</p>
+    )
+  }
+
+  <a href="/schedule" class="portal-upcoming__link">
+    Go to Schedule
+    <PortalIcon name="chevron-right" size={14} />
+  </a>
+</section>
+
+<style>
+  .portal-upcoming__list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 0.875rem;
+  }
+
+  .portal-upcoming__item {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.75rem;
+    padding-bottom: 0.875rem;
+    border-bottom: 1px solid color-mix(in srgb, var(--theme-border) 55%, transparent);
+  }
+
+  .portal-upcoming__item:last-child {
+    padding-bottom: 0;
+    border-bottom: none;
+  }
+
+  .portal-upcoming__meta {
+    margin: 0.2rem 0 0;
+    font-size: 0.72rem;
+    color: var(--theme-muted);
+    display: flex;
+    flex-direction: column;
+    gap: 0.15rem;
+  }
+
+  .portal-upcoming__location {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+  }
+
+  .portal-upcoming__location :global(svg) {
+    flex-shrink: 0;
+    color: color-mix(in srgb, var(--theme-muted) 85%, transparent);
+  }
+
+  .portal-upcoming__body {
+    min-width: 0;
+    flex: 1;
+  }
+
+  .portal-upcoming__name {
+    margin: 0;
+    font-size: 0.8125rem;
+    font-weight: 700;
+    color: var(--theme-foreground);
+    line-height: 1.35;
+  }
+
+  .portal-upcoming__empty {
+    margin: 0;
+    font-size: 0.875rem;
+    line-height: 1.5;
+    color: var(--theme-muted);
+  }
+
+  .portal-upcoming__link {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    margin-top: 1rem;
+    font-size: 0.8125rem;
+    font-weight: 600;
+    color: var(--theme-primary);
+    text-decoration: none;
+  }
+
+  .portal-upcoming__link:hover {
+    text-decoration: underline;
+  }
+</style>

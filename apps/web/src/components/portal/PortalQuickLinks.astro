@@ -1,0 +1,53 @@
+---
+import PortalIcon, { type PortalIconName } from "../icons/PortalIcon.astro";
+
+interface QuickLink {
+  label: string;
+  href: string;
+  icon: PortalIconName;
+}
+
+const links: QuickLink[] = [
+  {
+    label: "Course catalog",
+    href: "/courses",
+    icon: "courses",
+  },
+  {
+    label: "eClass",
+    href: "https://eclass.yorku.ca",
+    icon: "eclass",
+  },
+  {
+    label: "Library",
+    href: "https://www.library.yorku.ca",
+    icon: "library",
+  },
+  {
+    label: "Student services",
+    href: "https://students.yorku.ca",
+    icon: "services",
+  },
+];
+---
+
+<section class="portal-card portal-quick-links">
+  <h2 class="portal-card__title">Quick Links</h2>
+  <ul class="portal-quick-links__grid">
+    {
+      links.map((link) => (
+        <li>
+          <a
+            href={link.href}
+            class="portal-quick-links__btn"
+            title={link.label}
+            {...(link.href.startsWith("http") ? { target: "_blank", rel: "noopener noreferrer" } : {})}
+          >
+            <PortalIcon name={link.icon} size={20} />
+            <span class="sr-only">{link.label}</span>
+          </a>
+        </li>
+      ))
+    }
+  </ul>
+</section>

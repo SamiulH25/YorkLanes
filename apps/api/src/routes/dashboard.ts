@@ -2,8 +2,10 @@
  * Dashboard API route.
  *
  * Returns the data shape the dashboard widgets expect.
+ * Hub calendar reuses schedule rows from listTodayClasses to avoid duplicate DB round-trips.
  */
 import { Router } from "express";
+import type pg from "pg";
 import { getPool } from "../db/index.js";
 import {
   canUseAssignmentsRest,
@@ -21,9 +23,24 @@ import {
 } from "../services/finance.js";
 import { getLatestPlanForUser } from "../services/planGenerator.js";
 import { buildPlanProgressResult } from "../services/progress.js";
-import { listTodayClasses, SCHEDULE_TIMEZONE } from "../services/schedules.js";
+import {
+  formatWallClockTime,
+  getPrimaryScheduleMeta,
+  getScheduleWeek,
+  listTodayClasses,
+  normalizeScheduleDay,
+  SCHEDULE_TIMEZONE,
+  type HubScheduleEntryRow,
+} from "../services/schedules.js";
 import { findUserById } from "../services/users.js";
-import type { DashboardSummary } from "../types/dashboard.js";
+import type {
+  AssignmentPreview,
+  DashboardSummary,
+  HubCalendarDay,
+  HubMessage,
+  HubNotification,
+  TodayClassPreview,
+} from "../types/dashboard.js";
 
 export const dashboardRouter = Router();
 
@@ -72,6 +89,248 @@ async function loadUserProgramme(
     // Programme table may not exist yet.
   }
   return { programme: null, startingYear: null };
+}
+
+function formatHubDate(value: string | Date, now = new Date()): string {
+  const date = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return new Intl.DateTimeFormat("en-CA", {
+      month: "short",
+      day: "numeric",
+      year: "numeric",
+      timeZone: SCHEDULE_TIMEZONE,
+    }).format(now);
+  }
+
+  const sameDay =
+    new Intl.DateTimeFormat("en-CA", { timeZone: SCHEDULE_TIMEZONE }).format(date) ===
+    new Intl.DateTimeFormat("en-CA", { timeZone: SCHEDULE_TIMEZONE }).format(now);
+
+  if (sameDay) return "Today";
+
+  return new Intl.DateTimeFormat("en-CA", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+    timeZone: SCHEDULE_TIMEZONE,
+  }).format(date);
+}
+
+function nextSevenCalendarDays(now = new Date()): Array<{ date: string; dayName: string }> {
+  const days: Array<{ date: string; dayName: string }> = [];
+  for (let offset = 0; offset < 7; offset += 1) {
+    const probe = new Date(now.getTime() + offset * 24 * 60 * 60 * 1000);
+    const parts = new Intl.DateTimeFormat("en-CA", {
+      timeZone: SCHEDULE_TIMEZONE,
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+      weekday: "long",
+    }).formatToParts(probe);
+    const year = parts.find((part) => part.type === "year")?.value ?? "1970";
+    const month = parts.find((part) => part.type === "month")?.value ?? "01";
+    const day = parts.find((part) => part.type === "day")?.value ?? "01";
+    const dayName = parts.find((part) => part.type === "weekday")?.value ?? "Monday";
+    days.push({ date: `${year}-${month}-${day}`, dayName });
+  }
+  return days;
+}
+
+function mapTodayToCalendarEvents(today: TodayClassPreview[]): HubCalendarDay["events"] {
+  return today.map((item) => ({
+    id: item.id,
+    title: `${item.courseCode} ${item.sectionCode}`.trim(),
+    time: `${item.startTime}–${item.endTime}`,
+    location: item.room ?? item.campus ?? undefined,
+  }));
+}
+
+function mapHubCalendarEntries(entries: HubScheduleEntryRow[]): HubCalendarDay["events"] {
+  return entries
+    .map((entry) => ({
+      id: entry.id,
+      title: `${entry.course_code} ${entry.section_code}`.trim(),
+      time: `${formatWallClockTime(entry.start_time)}–${formatWallClockTime(entry.end_time)}`,
+      location: entry.room ?? entry.campus ?? undefined,
+    }))
+    .sort((left, right) => left.time.localeCompare(right.time));
+}
+
+function buildHubCalendarDaysFromEntries(
+  weekDays: Array<{ date: string; dayName: string }>,
+  entries: HubScheduleEntryRow[],
+): HubCalendarDay[] {
+  return weekDays.map((day) => ({
+    date: day.date,
+    events: mapHubCalendarEntries(
+      entries.filter((entry) => normalizeScheduleDay(entry.day) === day.dayName),
+    ),
+  }));
+}
+
+async function buildHubCalendarDays(
+  pool: pg.Pool | null,
+  userId: string | undefined,
+  today: TodayClassPreview[],
+  prefetchedEntries?: HubScheduleEntryRow[],
+): Promise<HubCalendarDay[]> {
+  const weekDays = nextSevenCalendarDays();
+
+  if (prefetchedEntries && prefetchedEntries.length > 0) {
+    return buildHubCalendarDaysFromEntries(weekDays, prefetchedEntries);
+  }
+
+  if (!pool || !userId) {
+    return weekDays.length > 0
+      ? [{ date: weekDays[0].date, events: mapTodayToCalendarEvents(today) }]
+      : [];
+  }
+
+  try {
+    const primary = await getPrimaryScheduleMeta(pool, userId);
+    if (!primary) {
+      return [{ date: weekDays[0].date, events: mapTodayToCalendarEvents(today) }];
+    }
+
+    const week = await getScheduleWeek(
+      pool,
+      userId,
+      primary.planYear,
+      primary.planSeason,
+      primary.cdmTerm,
+    );
+    if (!week || week.entries.length === 0) {
+      return [{ date: weekDays[0].date, events: mapTodayToCalendarEvents(today) }];
+    }
+
+    return weekDays.map((day) => ({
+      date: day.date,
+      events: week.entries
+        .filter((entry) => normalizeScheduleDay(entry.day) === day.dayName)
+        .map((entry) => ({
+          id: entry.id,
+          title: `${entry.course_code} ${entry.section_code}`.trim(),
+          time: `${entry.start_time}–${entry.end_time}`,
+          location: entry.room ?? entry.campus ?? undefined,
+        }))
+        .sort((left, right) => left.time.localeCompare(right.time)),
+    }));
+  } catch {
+    return [{ date: weekDays[0].date, events: mapTodayToCalendarEvents(today) }];
+  }
+}
+
+function buildHubMessages(assignments: AssignmentPreview[]): HubMessage[] {
+  const messages: HubMessage[] = [];
+
+  for (const assignment of assignments.slice(0, 3)) {
+    messages.push({
+      id: `assignment-${assignment.id}`,
+      title: `${assignment.courseCode} assignment due`,
+      preview: `${assignment.title} is due ${formatHubDate(assignment.dueAt)}.`,
+      date: formatHubDate(assignment.dueAt),
+      href: "/assignments",
+    });
+  }
+
+  return messages;
+}
+
+function buildHubNotifications(input: {
+  assignments: AssignmentPreview[];
+  today: TodayClassPreview[];
+  finance: DashboardSummary["finance"];
+  onboardingIncomplete: boolean;
+}): HubNotification[] {
+  const notifications: HubNotification[] = [];
+
+  for (const assignment of input.assignments) {
+    notifications.push({
+      id: `assignment-${assignment.id}`,
+      title: `Due: ${assignment.title}`,
+      body: assignment.courseCode
+        ? `${assignment.courseCode} is due ${formatHubDate(assignment.dueAt)}.`
+        : `Due ${formatHubDate(assignment.dueAt)}.`,
+      date: formatHubDate(assignment.dueAt),
+      type: "assignment",
+      href: "/assignments",
+    });
+  }
+
+  for (const item of input.today) {
+    notifications.push({
+      id: `class-${item.id}`,
+      title: `${item.courseCode} today`,
+      body: `${item.componentType} ${item.startTime}–${item.endTime}${
+        item.room ? ` · ${item.room}` : ""
+      }`,
+      date: "Today",
+      type: "schedule",
+      href: "/schedule",
+    });
+  }
+
+  if (input.finance.linked && input.finance.balance < 0) {
+    notifications.push({
+      id: "finance-balance",
+      title: "Negative balance",
+      body: `Your tracked balance is ${input.finance.currency} ${input.finance.balance.toFixed(2)}.`,
+      date: "Today",
+      type: "finance",
+      href: "/finance",
+    });
+  }
+
+  if (input.finance.linked && input.finance.monthRemaining < 0) {
+    notifications.push({
+      id: "finance-budget",
+      title: "Over monthly budget",
+      body: `You are ${input.finance.currency} ${Math.abs(input.finance.monthRemaining).toFixed(2)} over your ${input.finance.month} budget.`,
+      date: "Today",
+      type: "finance",
+      href: "/finance",
+    });
+  }
+
+  if (input.onboardingIncomplete) {
+    notifications.push({
+      id: "onboarding-incomplete",
+      title: "Finish YorkLanes setup",
+      body: "Tell us your programme and import your checklist to build your degree plan.",
+      date: "Today",
+      type: "system",
+      href: "/onboarding",
+    });
+  }
+
+  return notifications;
+}
+
+async function buildHub(input: {
+  pool: pg.Pool | null;
+  userId: string | undefined;
+  assignments: AssignmentPreview[];
+  today: TodayClassPreview[];
+  finance: DashboardSummary["finance"];
+  onboardingIncomplete: boolean;
+  hubScheduleEntries?: HubScheduleEntryRow[];
+}): Promise<NonNullable<DashboardSummary["hub"]>> {
+  const messages = buildHubMessages(input.assignments);
+  const notifications = buildHubNotifications(input);
+  const calendarDays = await buildHubCalendarDays(
+    input.pool,
+    input.userId,
+    input.today,
+    input.hubScheduleEntries,
+  );
+
+  return {
+    messageCount: messages.length,
+    notificationCount: notifications.length,
+    messages,
+    notifications,
+    calendarDays,
+  };
 }
 
 dashboardRouter.get("/summary", async (req, res) => {
@@ -178,9 +437,11 @@ dashboardRouter.get("/summary", async (req, res) => {
     savedCount: 0,
     message: "Build your weekly timetable to see today's classes.",
   };
+  let hubScheduleEntries: HubScheduleEntryRow[] = [];
   if (req.session.userId && usePostgres) {
     try {
       const result = await listTodayClasses(getPool(), req.session.userId);
+      hubScheduleEntries = result.hubScheduleEntries;
       const primary = result.primarySchedule ?? undefined;
       schedule = {
         today: result.today.map((item) => ({
@@ -263,6 +524,15 @@ dashboardRouter.get("/summary", async (req, res) => {
     assignments,
     finance,
     schedule,
+    hub: await buildHub({
+      pool: req.session.userId && usePostgres ? getPool() : null,
+      userId: req.session.userId,
+      assignments: assignments.upcoming,
+      today: schedule.today,
+      finance,
+      onboardingIncomplete: Boolean(req.session.userId && usePostgres && !programme),
+      hubScheduleEntries,
+    }),
   };
 
   res.json(summary);

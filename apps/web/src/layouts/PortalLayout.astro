@@ -1,0 +1,135 @@
+---
+import BaseLayout from "./BaseLayout.astro";
+import PortalTopNav from "../components/portal/PortalTopNav.astro";
+import PortalSubHeader from "../components/portal/PortalSubHeader.astro";
+import { fetchDashboardSummary } from "../lib/api";
+import { fetchSessionUser, signOutUrl } from "../lib/auth";
+import {
+  emptyHubFallback,
+  guestHubFallback,
+  hubCalendarForPanels,
+  hubFromSummary,
+  hubMessagesForPanels,
+  hubNotificationsForPanels,
+} from "../lib/portal-hub";
+import type { DashboardSummary } from "../types/dashboard";
+import "../styles/portal.css";
+
+export const prerender = false;
+
+interface Props {
+  title?: string;
+  activeNav?:
+    | "dashboard"
+    | "onboarding"
+    | "plan"
+    | "courses"
+    | "schedule"
+    | "progress"
+    | "finance"
+    | "assignments";
+  studentId?: string;
+  /** When the page already fetched dashboard summary, pass hub to avoid a duplicate API call. */
+  hub?: NonNullable<DashboardSummary["hub"]>;
+}
+
+const { title = "Dashboard | YorkLanes", studentId, hub: hubProp } = Astro.props;
+
+const cookie = Astro.request.headers.get("cookie");
+const sessionUser = await fetchSessionUser(cookie);
+const displayName = sessionUser?.displayName ?? "Guest";
+const logoutUrl = signOutUrl();
+
+let hub = hubProp ?? (sessionUser ? emptyHubFallback() : guestHubFallback());
+if (!hubProp && sessionUser) {
+  try {
+    const summary = await fetchDashboardSummary(cookie);
+    hub = hubFromSummary(summary);
+  } catch {
+    // Signed-in users get an empty hub when the API is unavailable.
+  }
+}
+
+const portalMessages = hubMessagesForPanels(hub);
+const portalNotifications = hubNotificationsForPanels(hub);
+const portalCalendarDays = hubCalendarForPanels(hub);
+---
+
+<BaseLayout title={title}>
+  {
+    Astro.slots.has("head") && (
+      <Fragment slot="head">
+        <slot name="head" />
+      </Fragment>
+    )
+  }
+  <div class="portal-shell">
+    <PortalTopNav />
+
+    <PortalSubHeader
+      displayName={displayName}
+      studentId={studentId}
+      signedIn={Boolean(sessionUser)}
+      signOutUrl={logoutUrl}
+      loginUrl="/login"
+      messages={portalMessages}
+      notifications={portalNotifications}
+      calendarDays={portalCalendarDays}
+      messageCount={hub.messageCount}
+      notificationCount={hub.notificationCount}
+    >
+      {
+        Astro.slots.has("breadcrumbs") && (
+          <Fragment slot="breadcrumbs">
+            <slot name="breadcrumbs" />
+          </Fragment>
+        )
+      }
+    </PortalSubHeader>
+
+    <main class="portal-main">
+      <div class="portal-main__inner">
+        {
+          Astro.slots.has("actions") && (
+            <div class="portal-actions">
+              <slot name="actions" />
+            </div>
+          )
+        }
+        <slot />
+      </div>
+    </main>
+  </div>
+
+  <script is:inline>
+    (function () {
+      function syncNavPlanLinks() {
+        try {
+          var planId = sessionStorage.getItem("yorklanes-plan-id");
+          document.querySelectorAll("[data-plan-aware-nav]").forEach(function (link) {
+            var kind = link.getAttribute("data-plan-aware-nav");
+            if (planId) {
+              link.setAttribute(
+                "href",
+                kind === "progress"
+                  ? "/progress?planId=" + encodeURIComponent(planId)
+                  : "/plan?id=" + encodeURIComponent(planId),
+              );
+            } else {
+              link.setAttribute("href", kind === "progress" ? "/progress" : "/plan");
+            }
+          });
+        } catch (e) {}
+      }
+
+      syncNavPlanLinks();
+      document.addEventListener("astro:page-load", syncNavPlanLinks);
+      document.addEventListener("yorklanes:plan-id", syncNavPlanLinks);
+    })();
+  </script>
+
+  <script>
+    import { initPortalUtilities } from "../scripts/portal-utilities.ts";
+    initPortalUtilities();
+  </script>
+</BaseLayout>

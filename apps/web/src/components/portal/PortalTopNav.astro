@@ -1,0 +1,28 @@
+---
+import YorkMark from "../YorkMark.astro";
+---
+
+<header class="portal-topnav" transition:persist="portal-topnav">
+  <div class="portal-topnav__inner">
+    <a href="/dashboard" class="portal-topnav__brand" title="YorkLanes">
+      <YorkMark class="portal-topnav__mark" />
+      <span class="portal-topnav__divider" aria-hidden="true"></span>
+      <span class="portal-topnav__title">YorkLanes</span>
+    </a>
+
+    <ul class="portal-topnav__links">
+      <li>
+        <a href="/dashboard" class="portal-topnav__link">Dashboard</a>
+      </li>
+      <li>
+        <a href="/courses" class="portal-topnav__link">Courses</a>
+      </li>
+      <li>
+        <a href="/schedule" class="portal-topnav__link">Schedule</a>
+      </li>
+      <li>
+        <a href="/settings" class="portal-topnav__link">Settings</a>
+      </li>
+    </ul>
+  </div>
+</header>

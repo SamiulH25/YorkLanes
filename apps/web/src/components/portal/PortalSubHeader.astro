@@ -1,0 +1,149 @@
+---
+import PortalUtilityPanels, {
+  type PortalCalendarDay,
+  type PortalMessage,
+  type PortalNotification,
+} from "./PortalUtilityPanels.astro";
+
+interface Props {
+  displayName: string;
+  studentId?: string;
+  signedIn?: boolean;
+  signOutUrl?: string;
+  loginUrl?: string;
+  messages?: PortalMessage[];
+  notifications?: PortalNotification[];
+  calendarDays?: PortalCalendarDay[];
+  messageCount?: number;
+  notificationCount?: number;
+}
+
+const {
+  displayName,
+  studentId,
+  signedIn = false,
+  signOutUrl = "/api/auth/logout",
+  loginUrl = "/login",
+  messages = [],
+  notifications = [],
+  calendarDays = [],
+  messageCount = 0,
+  notificationCount = 0,
+} = Astro.props;
+
+const userInitial = displayName.charAt(0).toUpperCase();
+const hasBreadcrumbs = Astro.slots.has("breadcrumbs");
+---
+
+<header class="portal-subheader" transition:persist="portal-subheader">
+  <div class="portal-subheader__inner">
+    <div class="portal-subheader__breadcrumbs">
+      {
+        hasBreadcrumbs ? (
+          <slot name="breadcrumbs" />
+        ) : (
+          <nav aria-label="Breadcrumb">
+            <ol class="portal-breadcrumbs">
+              <li class="portal-breadcrumbs__item">
+                <a href="/dashboard" class="portal-breadcrumbs__link">
+                  Home
+                </a>
+              </li>
+              <li class="portal-breadcrumbs__item">
+                <span class="portal-breadcrumbs__current" aria-current="page">
+                  Dashboard
+                </span>
+              </li>
+            </ol>
+          </nav>
+        )
+      }
+    </div>
+
+    <div class="portal-subheader__search-wrap">
+      <form class="portal-subheader__search" role="search" action="/courses" method="get">
+        <svg class="portal-subheader__search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+          <circle cx="11" cy="11" r="7"></circle>
+          <path d="M20 20l-3.5-3.5" stroke-linecap="round"></path>
+        </svg>
+        <label class="sr-only" for="portal-search">Search</label>
+        <input
+          id="portal-search"
+          class="portal-subheader__search-input"
+          type="search"
+          name="search"
+          placeholder="Search courses..."
+          autocomplete="off"
+        />
+      </form>
+    </div>
+
+    <div class="portal-subheader__utilities">
+      <slot name="headerActions" />
+
+      <PortalUtilityPanels
+        messages={messages}
+        notifications={notifications}
+        calendarDays={calendarDays}
+        messageCount={messageCount}
+        notificationCount={notificationCount}
+      />
+
+      <div class="portal-subheader__profile" data-portal-profile>
+        <button
+          type="button"
+          class="portal-subheader__profile-toggle"
+          data-portal-profile-toggle
+          aria-expanded="false"
+          aria-haspopup="true"
+          aria-controls="portal-profile-panel"
+          title={displayName}
+        >
+          <div class="portal-subheader__avatar" aria-hidden="true">
+            {userInitial}
+          </div>
+          <div class="portal-subheader__profile-text">
+            <p class="portal-subheader__profile-name">
+              {displayName}
+              <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
+                <path d="M3 4.5L6 7.5L9 4.5" stroke-linecap="round" stroke-linejoin="round" />
+              </svg>
+            </p>
+            {studentId ? <p class="portal-subheader__profile-id">Student ID: {studentId}</p> : null}
+          </div>
+        </button>
+
+        <div
+          id="portal-profile-panel"
+          class="portal-profile-panel hidden"
+          data-portal-profile-panel
+          role="menu"
+          aria-label="Account menu"
+        >
+          <p class="portal-profile-panel__name">{displayName}</p>
+          {studentId ? <p class="portal-profile-panel__id">Student ID: {studentId}</p> : null}
+          <nav class="portal-profile-panel__nav" aria-label="Quick links">
+            <a href="/dashboard" class="portal-profile-panel__link" role="menuitem">Dashboard</a>
+            <a href="/messages" class="portal-profile-panel__link" role="menuitem">Messages</a>
+            <a href="/notifications" class="portal-profile-panel__link" role="menuitem">Notifications</a>
+            <a href="/schedule" class="portal-profile-panel__link" role="menuitem">Schedule</a>
+            <a href="/settings" class="portal-profile-panel__link" role="menuitem">Settings</a>
+          </nav>
+          <div class="portal-profile-panel__actions">
+            {
+              signedIn ? (
+                <a href={signOutUrl} data-astro-reload class="portal-profile-panel__link" role="menuitem">
+                  Sign out
+                </a>
+              ) : (
+                <a href={loginUrl} class="portal-profile-panel__link portal-profile-panel__link--primary" role="menuitem">
+                  Sign in
+                </a>
+              )
+            }
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</header>

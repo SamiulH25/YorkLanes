@@ -28,6 +28,8 @@ export interface ScheduleWeekState {
   planSeason: string;
   cdmTerm: string;
   entries: ScheduleGridEntry[];
+  /** Course codes pinned during shuffle (local persistence). */
+  pinnedCourses?: string[];
 }
 
 interface ScheduleStore {

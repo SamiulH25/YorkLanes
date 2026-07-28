@@ -462,6 +462,17 @@ export async function getActiveScheduleMeta(
   return { planYear: row.plan_year, planSeason: row.plan_season, cdmTerm: row.cdm_term };
 }
 
+export interface HubScheduleEntryRow {
+  id: string;
+  course_code: string;
+  section_code: string;
+  day: string;
+  start_time: string | Date;
+  end_time: string | Date;
+  room: string | null;
+  campus: string | null;
+}
+
 export async function listTodayClasses(
   pool: pg.Pool,
   userId: string,
@@ -474,6 +485,8 @@ export async function listTodayClasses(
   savedCount: number;
   todayBlockCount: number;
   totalBlockCount: number;
+  /** Full-week rows for hub calendar; avoids a second schedule query in dashboard buildHub. */
+  hubScheduleEntries: HubScheduleEntryRow[];
 }> {
   const [primary, savedCount] = await Promise.all([
     getPrimaryScheduleMeta(pool, userId),
@@ -488,6 +501,7 @@ export async function listTodayClasses(
       savedCount,
       todayBlockCount: 0,
       totalBlockCount: 0,
+      hubScheduleEntries: [],
     };
   }
 
@@ -504,6 +518,7 @@ export async function listTodayClasses(
       savedCount,
       todayBlockCount: 0,
       totalBlockCount: 0,
+      hubScheduleEntries: [],
     };
   }
 
@@ -567,5 +582,6 @@ export async function listTodayClasses(
     savedCount,
     todayBlockCount: todayRows.length,
     totalBlockCount: result.rows.length,
+    hubScheduleEntries: result.rows,
   };
 }

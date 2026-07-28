@@ -1,0 +1,201 @@
+---
+import PortalIcon, { type PortalIconName } from "../icons/PortalIcon.astro";
+import { capBadgeCount } from "../../lib/portal-hub";
+
+export interface PortalMessage {
+  title: string;
+  preview: string;
+  date: string;
+  href?: string;
+}
+
+export interface PortalNotification {
+  type: "assignment" | "grade" | "announcement" | "reminder" | "system";
+  title: string;
+  body: string;
+  date: string;
+  href?: string;
+}
+
+export interface PortalCalendarEvent {
+  title: string;
+  time?: string;
+  href?: string;
+}
+
+export interface PortalCalendarDay {
+  date: string;
+  events: PortalCalendarEvent[];
+}
+
+interface Props {
+  messages?: PortalMessage[];
+  notifications?: PortalNotification[];
+  calendarDays?: PortalCalendarDay[];
+  messageCount?: number;
+  notificationCount?: number;
+}
+
+const {
+  messages = [],
+  notifications = [],
+  messageCount = 0,
+  notificationCount = 0,
+} = Astro.props;
+
+const messageBadge = capBadgeCount(messageCount);
+const notificationBadge = capBadgeCount(notificationCount);
+
+function notificationIconName(type: PortalNotification["type"]): PortalIconName {
+  switch (type) {
+    case "assignment":
+      return "assignments";
+    case "grade":
+      return "chart";
+    case "announcement":
+      return "megaphone";
+    case "reminder":
+      return "calendar";
+    default:
+      return "notifications";
+  }
+}
+---
+
+<div class="portal-utility-panels" data-portal-utilities>
+  {/* Messages */}
+  <div class="portal-utility" data-portal-utility="messages">
+    <button
+      type="button"
+      class="portal-subheader__utility-btn"
+      data-portal-utility-toggle
+      aria-expanded="false"
+      aria-haspopup="true"
+      aria-controls="portal-messages-panel"
+      title="Messages"
+      aria-label={messageBadge ? `Messages, ${messageBadge} unread` : "Messages"}
+    >
+      <PortalIcon name="messages" size={20} />
+      {messageBadge ? <span class="portal-subheader__badge">{messageBadge}</span> : null}
+    </button>
+
+    <div
+      id="portal-messages-panel"
+      class="portal-utility-panel hidden"
+      data-portal-utility-panel
+      role="region"
+      aria-label="Messages"
+    >
+      <div class="portal-utility-panel__header">
+        <h3 class="portal-utility-panel__title">Messages</h3>
+        <a href="/messages" class="portal-utility-panel__link">View all</a>
+      </div>
+      {
+        messages.length > 0 ? (
+          <ul class="portal-utility-list">
+            {messages.map((message) => (
+              <li>
+                {
+                  message.href ? (
+                    <a href={message.href} class="portal-utility-list__item">
+                      <span class="portal-utility-list__item-title">{message.title}</span>
+                      <span class="portal-utility-list__item-preview">{message.preview}</span>
+                      <time class="portal-utility-list__item-date" datetime={message.date}>
+                        {message.date}
+                      </time>
+                    </a>
+                  ) : (
+                    <div class="portal-utility-list__item portal-utility-list__item--static">
+                      <span class="portal-utility-list__item-title">{message.title}</span>
+                      <span class="portal-utility-list__item-preview">{message.preview}</span>
+                      <time class="portal-utility-list__item-date" datetime={message.date}>
+                        {message.date}
+                      </time>
+                    </div>
+                  )
+                }
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <p class="portal-utility-panel__empty">No messages yet. Assignment reminders appear here when you have upcoming work.</p>
+        )
+      }
+    </div>
+  </div>
+
+  {/* Notifications */}
+  <div class="portal-utility" data-portal-utility="notifications">
+    <button
+      type="button"
+      class="portal-subheader__utility-btn"
+      data-portal-utility-toggle
+      aria-expanded="false"
+      aria-haspopup="true"
+      aria-controls="portal-notifications-panel"
+      title="Notifications"
+      aria-label={notificationBadge ? `Notifications, ${notificationBadge} unread` : "Notifications"}
+    >
+      <PortalIcon name="notifications" size={20} />
+      {notificationBadge ? <span class="portal-subheader__badge">{notificationBadge}</span> : null}
+    </button>
+
+    <div
+      id="portal-notifications-panel"
+      class="portal-utility-panel hidden"
+      data-portal-utility-panel
+      role="region"
+      aria-label="Notifications"
+    >
+      <div class="portal-utility-panel__header">
+        <h3 class="portal-utility-panel__title">Notifications</h3>
+        <a href="/notifications" class="portal-utility-panel__link">View all</a>
+      </div>
+      {
+        notifications.length > 0 ? (
+          <ul class="portal-utility-list">
+            {notifications.map((notification) => (
+              <li>
+                {
+                  notification.href ? (
+                    <a href={notification.href} class="portal-utility-list__item portal-utility-list__item--notification">
+                      <span class={`portal-utility-list__icon portal-utility-list__icon--${notification.type}`}>
+                        <PortalIcon name={notificationIconName(notification.type)} size={18} />
+                      </span>
+                      <span class="portal-utility-list__item-body">
+                        <span class="portal-utility-list__item-title">{notification.title}</span>
+                        <span class="portal-utility-list__item-preview">{notification.body}</span>
+                        <time class="portal-utility-list__item-date" datetime={notification.date}>
+                          {notification.date}
+                        </time>
+                      </span>
+                    </a>
+                  ) : (
+                    <div class="portal-utility-list__item portal-utility-list__item--notification portal-utility-list__item--static">
+                      <span class={`portal-utility-list__icon portal-utility-list__icon--${notification.type}`}>
+                        <PortalIcon name={notificationIconName(notification.type)} size={18} />
+                      </span>
+                      <span class="portal-utility-list__item-body">
+                        <span class="portal-utility-list__item-title">{notification.title}</span>
+                        <span class="portal-utility-list__item-preview">{notification.body}</span>
+                        <time class="portal-utility-list__item-date" datetime={notification.date}>
+                          {notification.date}
+                        </time>
+                      </span>
+                    </div>
+                  )
+                }
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <p class="portal-utility-panel__empty">You're all caught up.</p>
+        )
+      }
+    </div>
+  </div>
+
+  <a href="/schedule" class="portal-subheader__utility-btn" title="Schedule" aria-label="Schedule">
+    <PortalIcon name="calendar" size={20} />
+  </a>
+</div>

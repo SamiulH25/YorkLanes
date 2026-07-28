@@ -26,6 +26,12 @@ function isSettingsOpen(menu: HTMLElement): boolean {
 }
 
 export function initSettingsMenu(): void {
+  if (typeof window !== "undefined") {
+    const win = window as Window & { __yorklanesSettingsMenu?: boolean };
+    if (win.__yorklanesSettingsMenu) return;
+    win.__yorklanesSettingsMenu = true;
+  }
+
   document.addEventListener("click", (event) => {
     const target = event.target as Element | null;
     if (!target) return;

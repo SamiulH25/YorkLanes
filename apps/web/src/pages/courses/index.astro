@@ -1,5 +1,6 @@
 ---
-import DashboardLayout from "../../layouts/DashboardLayout.astro";
+import PortalLayout from "../../layouts/PortalLayout.astro";
+import PortalActionGrid from "../../components/portal/PortalActionGrid.astro";
 import { courseDetailPath, fetchCourses, fetchDepartments } from "../../lib/courses";
 
 export const prerender = false;
@@ -66,18 +67,31 @@ const resultLabel =
 const returnTo = Astro.url.search;
 ---
 
-<DashboardLayout title="Courses | YorkLanes" activeNav="courses">
-  <Fragment slot="header">
-    <div class="flex flex-wrap items-end justify-between gap-3">
-      <div>
-        <p class="text-xs font-medium text-york-muted">York Catalogue</p>
-        <h1 class="heading-page">Courses</h1>
-        <p class="mt-1 text-sm text-muted">
-          Search for a course to read its description, prerequisites, and sections.
-        </p>
-      </div>
-    </div>
+<PortalLayout title="Courses | YorkLanes" activeNav="courses">
+  <Fragment slot="actions">
+    <PortalActionGrid activeNav="courses" />
   </Fragment>
+
+  <Fragment slot="breadcrumbs">
+    <nav aria-label="Breadcrumb">
+      <ol class="portal-breadcrumbs">
+        <li class="portal-breadcrumbs__item">
+          <a href="/dashboard" class="portal-breadcrumbs__link">Home</a>
+        </li>
+        <li class="portal-breadcrumbs__item">
+          <span class="portal-breadcrumbs__current" aria-current="page">Courses</span>
+        </li>
+      </ol>
+    </nav>
+  </Fragment>
+
+  <div class="mb-6">
+    <p class="text-xs font-medium text-york-muted">York Catalogue</p>
+    <h1 class="heading-page">Courses</h1>
+    <p class="mt-1 text-sm text-muted">
+      Search for a course to read its description, prerequisites, and sections.
+    </p>
+  </div>
 
   {
     loadError && (
@@ -236,4 +250,4 @@ const returnTo = Astro.url.search;
       </div>
     )
   }
-</DashboardLayout>
+</PortalLayout>

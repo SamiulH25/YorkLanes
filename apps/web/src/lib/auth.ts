@@ -1,4 +1,5 @@
 import { getApiUrl } from "./api-url";
+import { dedupeSsrFetch } from "./ssr-request-cache";
 
 export interface SessionUser {
   id: string;
@@ -6,7 +7,7 @@ export interface SessionUser {
   displayName: string;
 }
 
-export async function fetchSessionUser(cookieHeader?: string | null): Promise<SessionUser | null> {
+async function fetchSessionUserUncached(cookieHeader?: string | null): Promise<SessionUser | null> {
   const headers: HeadersInit = {};
   if (cookieHeader) {
     headers.cookie = cookieHeader;
@@ -23,6 +24,10 @@ export async function fetchSessionUser(cookieHeader?: string | null): Promise<Se
   } catch {
     return null;
   }
+}
+
+export async function fetchSessionUser(cookieHeader?: string | null): Promise<SessionUser | null> {
+  return dedupeSsrFetch("session-user", cookieHeader, () => fetchSessionUserUncached(cookieHeader));
 }
 
 export async function fetchAuthStatus(): Promise<{

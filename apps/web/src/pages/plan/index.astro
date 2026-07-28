@@ -1,5 +1,6 @@
 ---
-import DashboardLayout from "../../layouts/DashboardLayout.astro";
+import PortalLayout from "../../layouts/PortalLayout.astro";
+import PortalActionGrid from "../../components/portal/PortalActionGrid.astro";
 import { fetchMyPlan, fetchPlan } from "../../lib/plans";
 import {
   formatTermCredits,
@@ -15,6 +16,7 @@ import {
   isComplementaryStubDraggable,
 } from "../../lib/complementary-stub";
 import type { PlanCourse, PlanTerm } from "../../types/plan";
+import "../../styles/plan-portal.css";
 
 // Must be server-rendered so ?id= query param and plan data resolve per request.
 export const prerender = false;
@@ -117,59 +119,62 @@ const showSummerRow = yearColumns.length > 0;
 const showComplementaryStudies = plan ? planExpectsComplementaryStudies(plan) : false;
 ---
 
-<DashboardLayout title="Degree Plan | YorkLanes" activeNav="plan" collapseSidebar>
-  <Fragment slot="header">
-    <div class="flex flex-wrap items-start justify-between gap-4">
-      <div>
-        <p class="text-xs font-medium text-york-muted">Degree plan editor</p>
-        <h1 class="heading-page">{plan?.programme_name ?? "Your degree plan"}</h1>
+<PortalLayout title="Degree Plan | YorkLanes" activeNav="plan">
+  <Fragment slot="actions">
+    <PortalActionGrid activeNav="plan" />
+  </Fragment>
+
+  <Fragment slot="breadcrumbs">
+    <nav aria-label="Breadcrumb">
+      <ol class="portal-breadcrumbs">
+        <li class="portal-breadcrumbs__item">
+          <a href="/dashboard" class="portal-breadcrumbs__link">Home</a>
+        </li>
+        <li class="portal-breadcrumbs__item">
+          <span class="portal-breadcrumbs__current" aria-current="page">Plan</span>
+        </li>
+      </ol>
+    </nav>
+  </Fragment>
+
+  <div class="plan-page">
+    <header class="plan-page-header">
+      <div class="plan-page-header__text">
+        <p class="plan-page-header__kicker">Degree plan editor</p>
+        <h1 class="plan-page-header__title">{plan?.programme_name ?? "Your degree plan"}</h1>
         {
           plan && (
-            <p class="mt-0.5 text-sm text-york-muted">
+            <p class="plan-page-header__meta">
               Started {plan.starting_year} · {yearColumns.length} year{yearColumns.length === 1 ? "" : "s"} · from {plan.source_filename}
             </p>
           )
         }
       </div>
-      <a href="/plan/setup" class="btn-york">Import new checklist</a>
-    </div>
-  </Fragment>
+      <a href="/plan/setup" class="btn-york plan-page-header__action">Import new checklist</a>
+    </header>
 
-  {
-    !planId && (
-      <div class="surface mx-auto max-w-lg rounded-2xl p-8 text-center">
-        <p class="text-xs font-medium uppercase tracking-widest text-york-red">Get started</p>
-        <h2 class="mt-2 font-display text-xl font-semibold text-york-black dark:text-white">Import your degree checklist</h2>
-        <p class="mt-2 text-sm leading-relaxed text-stone-600 dark:text-stone-300">
-          Download the checklist from your faculty site, upload it on the next screen, and we parse your courses into a term plan.
-        </p>
-        <ol class="mt-6 space-y-2 text-left text-sm text-stone-600 dark:text-stone-300">
-          <li><span class="font-semibold text-york-black dark:text-white">1.</span> Choose your faculty and programme details</li>
-          <li><span class="font-semibold text-york-black dark:text-white">2.</span> Download the PDF or DOCX checklist</li>
-          <li><span class="font-semibold text-york-black dark:text-white">3.</span> Upload the file and we build your plan</li>
-        </ol>
-        <a href="/plan/setup" class="btn-york mt-6 inline-flex">Go to checklist import</a>
-      </div>
-    )
-  }
+    {
+      !planId && (
+        <div class="plan-page-empty portal-card">
+          <p class="plan-page-empty__kicker">Get started</p>
+          <h2 class="plan-page-empty__title">Import your degree checklist</h2>
+          <p class="plan-page-empty__lead">
+            Download the checklist from your faculty site, upload it on the next screen, and we parse your courses into a term plan.
+          </p>
+          <ol class="plan-page-empty__steps">
+            <li><strong>1.</strong> Choose your faculty and programme details</li>
+            <li><strong>2.</strong> Download the PDF or DOCX checklist</li>
+            <li><strong>3.</strong> Upload the file and we build your plan</li>
+          </ol>
+          <a href="/plan/setup" class="btn-york plan-page-empty__cta">Go to checklist import</a>
+        </div>
+      )
+    }
 
   {
     loadError && (
       <div class="mb-6 rounded-xl border border-york-gold/40 bg-york-gold/10 px-4 py-3 text-sm">
         {loadError}. Try importing again from <a href="/plan/setup" class="text-york-red underline">plan setup</a>.
-      </div>
-    )
-  }
-
-  {
-    plan && plan.parse_warnings.length > 0 && (
-      <div class="plan-alert-panel plan-alert-panel--notes mb-4">
-        <p class="plan-alert-panel__title">Parser notes</p>
-        <ul class="plan-alert-panel__notes-list">
-          {plan.parse_warnings.map((warning) => (
-            <li>{warning}</li>
-          ))}
-        </ul>
       </div>
     )
   }
@@ -187,6 +192,7 @@ const showComplementaryStudies = plan ? planExpectsComplementaryStudies(plan) : 
 
   {
     plan && (
+      <div class="plan-editor-shell">
       <div id="plan-editor" data-plan-id={plan.id}>
         <script id="plan-data" type="application/json" is:inline set:html={JSON.stringify(plan)} />
 
@@ -219,49 +225,44 @@ const showComplementaryStudies = plan ? planExpectsComplementaryStudies(plan) : 
               )
             }
           </div>
-          <div class="text-right">
-            <p id="plan-selected-course" class="font-medium text-york-black dark:text-white" />
-            <p id="plan-link-legend" class="hidden mt-1 text-xs text-york-muted" />
-          </div>
-        </div>
-
-        <div id="plan-missing-required" class="plan-alert-panel plan-alert-panel--missing hidden" aria-live="polite" aria-hidden="true">
-          <p class="plan-alert-panel__title">Missing required courses</p>
-          <p class="plan-alert-panel__hint">
-            These checklist courses were removed from your plan. Re-add them with <strong>+ Add course</strong> or drag a replacement into the same term.
-          </p>
-          <ul id="plan-missing-required-list" class="plan-missing-required__list"></ul>
-        </div>
-
-        <div class="plan-alerts">
-        {
-          showComplementaryStudies && (
-            <div id="plan-complementary-warnings" class="plan-alert-panel plan-alert-panel--complementary hidden" aria-live="polite">
-              <div class="plan-alert-panel__header-row">
-                <p class="plan-alert-panel__title">Complementary studies</p>
-                <a
-                  id="plan-complementary-progress-link"
-                  class="plan-alert-panel__action hidden"
-                  href={`/progress?planId=${plan.id}#progress-electives`}
-                >
-                  View progress
-                </a>
+          <div class="plan-editor-toolbar__right">
+            <div class="plan-warnings-bubble" id="plan-warnings-bubble">
+              <button
+                type="button"
+                id="plan-warnings-toggle"
+                class="plan-warnings-bubble__btn hidden"
+                aria-expanded="false"
+                aria-controls="plan-warnings-panel"
+                aria-label="Plan issues"
+              >
+                <svg class="plan-warnings-bubble__icon" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                  <path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
+                  <line x1="12" y1="9" x2="12" y2="13" />
+                  <line x1="12" y1="17" x2="12.01" y2="17" />
+                </svg>
+                <span id="plan-warnings-count" class="plan-warnings-bubble__count" aria-hidden="true">0</span>
+              </button>
+              <div
+                id="plan-warnings-panel"
+                class="plan-warnings-panel hidden"
+                role="dialog"
+                aria-labelledby="plan-warnings-title"
+                aria-hidden="true"
+              >
+                <header class="plan-warnings-panel__header">
+                  <h2 id="plan-warnings-title" class="plan-warnings-panel__title">Plan issues</h2>
+                  <button type="button" class="plan-warnings-panel__close" data-action="close-warnings" aria-label="Close">
+                    ×
+                  </button>
+                </header>
+                <div id="plan-warnings-body" class="plan-warnings-panel__body" aria-live="polite" />
               </div>
-              <p class="plan-alert-panel__hint">
-                Progress toward your uploaded complementary availability PDF and open checklist slots.
-              </p>
-              <ul id="plan-complementary-warnings-list" class="plan-alert-panel__content"></ul>
             </div>
-          )
-        }
-
-        <div id="plan-schedule-warnings" class="plan-alert-panel plan-alert-panel--schedule hidden" aria-live="polite">
-          <p class="plan-alert-panel__title">Season offering alerts</p>
-          <p id="plan-schedule-warnings-hint" class="plan-alert-panel__hint">
-            Based on scraped York timetables (not year-specific).
-          </p>
-          <ul id="plan-schedule-warnings-list" class="plan-alert-panel__content"></ul>
-        </div>
+            <div class="plan-editor-toolbar__selection">
+              <p id="plan-selected-course" class="font-medium text-york-black dark:text-white" />
+              <p id="plan-link-legend" class="hidden mt-1 text-xs text-york-muted" />
+            </div>
+          </div>
         </div>
 
         <p id="plan-editor-status" class="mb-3 text-xs text-york-muted" />
@@ -585,14 +586,17 @@ const showComplementaryStudies = plan ? planExpectsComplementaryStudies(plan) : 
           Click a course to show prerequisite (blue) and co-requisite (amber dashed) links · click elsewhere to hide · tick courses you have already completed · drag a course to the trash to remove it · an <strong>S</strong> badge means scraped timetable history has no offerings in that Fall/Winter/Summer slot.
         </p>
       </div>
+      </div>
     )
   }
 
   {
     plan && (
       <script>
-        import "../../scripts/plan-editor.ts";
+        import { bootPlanEditor } from "../../scripts/plan-editor.ts";
+        bootPlanEditor();
       </script>
     )
   }
-</DashboardLayout>
+  </div>
+</PortalLayout>

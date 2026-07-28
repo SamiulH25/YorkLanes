@@ -7,10 +7,13 @@
  */
 import type { DashboardSummary } from "../types/dashboard";
 import { getApiUrl } from "./api-url";
+import { dedupeSsrFetch } from "./ssr-request-cache";
 
 const API_URL = getApiUrl();
 
-export async function fetchDashboardSummary(cookieHeader?: string | null): Promise<DashboardSummary> {
+async function fetchDashboardSummaryUncached(
+  cookieHeader?: string | null,
+): Promise<DashboardSummary> {
   const headers: HeadersInit = {};
   if (cookieHeader) {
     headers.cookie = cookieHeader;
@@ -26,4 +29,10 @@ export async function fetchDashboardSummary(cookieHeader?: string | null): Promi
   }
 
   return response.json() as Promise<DashboardSummary>;
+}
+
+export async function fetchDashboardSummary(cookieHeader?: string | null): Promise<DashboardSummary> {
+  return dedupeSsrFetch("dashboard-summary", cookieHeader, () =>
+    fetchDashboardSummaryUncached(cookieHeader),
+  );
 }

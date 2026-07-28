@@ -1,0 +1,130 @@
+---
+import { formatDashboardDueLabel } from "../../lib/assignment-dates";
+import type { AssignmentPreview, DashboardSummary } from "../../types/dashboard";
+
+interface Props {
+  assignments: DashboardSummary["assignments"];
+  guest?: boolean;
+}
+
+type TaskStatus = "reading" | "completed" | "submission";
+
+interface PortalTask {
+  id: string;
+  title: string;
+  dueLabel: string;
+  status: TaskStatus;
+  checked: boolean;
+}
+
+const { assignments, guest = false } = Astro.props;
+
+function assignmentToTask(item: AssignmentPreview): PortalTask {
+  return {
+    id: item.id,
+    title: item.title,
+    dueLabel: `Due ${formatDashboardDueLabel(item.dueAt)}`,
+    status: "submission",
+    checked: false,
+  };
+}
+
+const tasks: PortalTask[] = guest ? [] : assignments.upcoming.map(assignmentToTask);
+
+const statusLabels: Record<TaskStatus, string> = {
+  reading: "Reading",
+  completed: "Completed",
+  submission: "Submission",
+};
+---
+
+<section class="portal-card portal-tasks">
+  <h2 class="portal-card__title">Tasks</h2>
+
+  {
+    tasks.length > 0 ? (
+      <ul class="portal-tasks__list">
+        {tasks.map((task) => (
+          <li class="portal-tasks__item">
+            <span
+              class:list={["portal-tasks__check", task.checked && "portal-tasks__check--done"]}
+              aria-hidden="true"
+            >
+              {task.checked && (
+                <svg viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M2.5 6l2.5 2.5 4.5-5" stroke-linecap="round" stroke-linejoin="round" />
+                </svg>
+              )}
+            </span>
+            <div class="portal-tasks__body">
+              <p class:list={["portal-tasks__title", task.checked && "portal-tasks__title--done"]}>{task.title}</p>
+              <p class="portal-tasks__due">{task.dueLabel}</p>
+            </div>
+            <span class:list={["portal-pill", `portal-pill--${task.status}`]}>{statusLabels[task.status]}</span>
+          </li>
+        ))}
+      </ul>
+    ) : (
+      <p class="portal-tasks__empty">
+        {guest
+          ? "Sign in to sync your assignments and tasks."
+          : (assignments.message ?? "No tasks due right now.")}
+      </p>
+    )
+  }
+</section>
+
+<style>
+  .portal-tasks__list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 0.875rem;
+  }
+
+  .portal-tasks__item {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.625rem;
+    padding-bottom: 0.875rem;
+    border-bottom: 1px solid color-mix(in srgb, var(--theme-border) 55%, transparent);
+  }
+
+  .portal-tasks__item:last-child {
+    padding-bottom: 0;
+    border-bottom: none;
+  }
+
+  .portal-tasks__body {
+    min-width: 0;
+    flex: 1;
+  }
+
+  .portal-tasks__title {
+    margin: 0;
+    font-size: 0.8125rem;
+    font-weight: 600;
+    color: var(--theme-foreground);
+    line-height: 1.35;
+  }
+
+  .portal-tasks__title--done {
+    text-decoration: line-through;
+    color: var(--theme-muted);
+  }
+
+  .portal-tasks__due {
+    margin: 0.125rem 0 0;
+    font-size: 0.6875rem;
+    color: var(--theme-muted);
+  }
+
+  .portal-tasks__empty {
+    margin: 0;
+    font-size: 0.875rem;
+    line-height: 1.5;
+    color: var(--theme-muted);
+  }
+</style>

@@ -1,0 +1,140 @@
+---
+import PortalLayout from "../../layouts/PortalLayout.astro";
+import PortalActionGrid from "../../components/portal/PortalActionGrid.astro";
+import { themes } from "../../lib/themes";
+import { fetchSessionUser, signOutUrl } from "../../lib/auth";
+
+export const prerender = false;
+
+const cookie = Astro.request.headers.get("cookie");
+const sessionUser = await fetchSessionUser(cookie);
+const displayName = sessionUser?.displayName ?? "Guest";
+const signedIn = Boolean(sessionUser);
+const logoutUrl = signOutUrl();
+
+const swatches: Record<string, string> = Object.fromEntries(themes.map((theme) => [theme.id, theme.swatch]));
+---
+
+<PortalLayout title="Settings | YorkLanes">
+  <Fragment slot="actions">
+    <PortalActionGrid activeNav="dashboard" />
+  </Fragment>
+
+  <Fragment slot="breadcrumbs">
+    <nav aria-label="Breadcrumb">
+      <ol class="portal-breadcrumbs">
+        <li class="portal-breadcrumbs__item">
+          <a href="/dashboard" class="portal-breadcrumbs__link">Home</a>
+        </li>
+        <li class="portal-breadcrumbs__item">
+          <span class="portal-breadcrumbs__current" aria-current="page">Settings</span>
+        </li>
+      </ol>
+    </nav>
+  </Fragment>
+
+  <div class="portal-settings-page">
+    <header class="portal-inbox-page__header">
+      <div>
+        <p class="portal-inbox-page__eyebrow">Preferences</p>
+        <h1 class="portal-inbox-page__title">Settings</h1>
+        <p class="portal-inbox-page__subtitle">Customize appearance and manage your account.</p>
+      </div>
+    </header>
+
+    <div class="portal-settings-page__grid">
+      <section class="portal-settings-card">
+        <h2 class="portal-settings-card__title">Color theme</h2>
+        <p class="portal-settings-card__desc">Pick an accent color for buttons, links, and highlights.</p>
+        <div class="portal-settings-card__swatches" role="list">
+          {
+            themes.map((theme) => (
+              <button
+                type="button"
+                data-theme-id={theme.id}
+                class="settings-theme-option portal-settings-card__swatch"
+                aria-label={theme.label}
+                title={theme.label}
+              >
+                <span
+                  class="theme-swatch portal-settings-card__swatch-dot"
+                  style={`background: ${swatches[theme.id]}`}
+                  aria-hidden="true"
+                />
+                <span class="portal-settings-card__swatch-label">{theme.label}</span>
+              </button>
+            ))
+          }
+        </div>
+      </section>
+
+      <section class="portal-settings-card">
+        <h2 class="portal-settings-card__title">Appearance</h2>
+        <p class="portal-settings-card__desc">Switch between light and dark mode.</p>
+        <div
+          class="mode-toggle portal-settings-card__mode"
+          role="group"
+          aria-label="Color mode"
+        >
+          <button
+            type="button"
+            data-mode-pick="light"
+            class="mode-pick portal-settings-card__mode-btn"
+          >
+            Light
+          </button>
+          <button
+            type="button"
+            data-mode-pick="dark"
+            class="mode-pick portal-settings-card__mode-btn"
+          >
+            Dark
+          </button>
+        </div>
+      </section>
+
+      <section class="portal-settings-card">
+        <h2 class="portal-settings-card__title">Account</h2>
+        <p class="portal-settings-card__desc">
+          {signedIn ? `Signed in as ${displayName}.` : "Sign in to sync your degree plan and assignments."}
+        </p>
+        <div class="portal-settings-card__actions">
+          {
+            signedIn ? (
+              <a href={logoutUrl} data-astro-reload class="portal-inbox-page__cta">
+                Sign out
+              </a>
+            ) : (
+              <a href="/login" class="portal-inbox-page__cta">Sign in</a>
+            )
+          }
+          <a href="/onboarding" class="portal-settings-card__secondary">Setup wizard</a>
+        </div>
+      </section>
+    </div>
+  </div>
+</PortalLayout>
+
+<style>
+  :global(.settings-theme-option.is-active) {
+    border-color: color-mix(in srgb, var(--theme-primary) 35%, transparent);
+    background: color-mix(in srgb, var(--theme-primary) 8%, transparent);
+  }
+
+  :global(.settings-theme-option.is-active .theme-swatch) {
+    border-color: var(--theme-primary);
+    box-shadow: var(--theme-shadow-button);
+  }
+
+  :global(html:not(.dark) .mode-pick[data-mode-pick="light"]),
+  :global(html:not(.dark) .mode-pick.is-active[data-mode-pick="light"]) {
+    background: var(--theme-primary);
+    color: var(--theme-on-primary);
+  }
+
+  :global(html.dark .mode-pick[data-mode-pick="dark"]),
+  :global(html.dark .mode-pick.is-active[data-mode-pick="dark"]) {
+    background: var(--theme-primary);
+    color: var(--theme-on-primary);
+  }
+</style>

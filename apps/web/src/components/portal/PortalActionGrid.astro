@@ -1,0 +1,124 @@
+---
+import PortalIcon, { type PortalIconName } from "../icons/PortalIcon.astro";
+
+type ActiveNav =
+  | "dashboard"
+  | "onboarding"
+  | "plan"
+  | "courses"
+  | "schedule"
+  | "progress"
+  | "finance"
+  | "assignments";
+
+interface Props {
+  activeNav?: ActiveNav;
+}
+
+const { activeNav = "dashboard" } = Astro.props;
+
+const actions: {
+  id: ActiveNav | "finance";
+  label: string;
+  description: string;
+  href: string;
+  icon: PortalIconName;
+}[] = [
+  {
+    id: "dashboard",
+    label: "Home",
+    description: "Your dashboard overview",
+    href: "/dashboard",
+    icon: "home",
+  },
+  {
+    id: "plan",
+    label: "Plan",
+    description: "Plan your academic journey",
+    href: "/plan",
+    icon: "plan",
+  },
+  {
+    id: "progress",
+    label: "Progress",
+    description: "Track your academic progress",
+    href: "/progress",
+    icon: "progress",
+  },
+  {
+    id: "courses",
+    label: "Courses",
+    description: "View and manage your courses",
+    href: "/courses",
+    icon: "courses",
+  },
+  {
+    id: "schedule",
+    label: "Schedule",
+    description: "View your class schedule",
+    href: "/schedule",
+    icon: "schedule",
+  },
+  {
+    id: "assignments",
+    label: "Assignments",
+    description: "View and submit assignments",
+    href: "/assignments",
+    icon: "assignments",
+  },
+  {
+    id: "finance",
+    label: "Finance",
+    description: "View fees, payments and aid",
+    href: "/finance",
+    icon: "finance",
+  },
+];
+---
+
+<nav class="portal-action-grid" aria-label="Portal shortcuts">
+  {
+    actions.map((action) => (
+      <a
+        href={action.href}
+        data-plan-aware-nav={action.id === "plan" || action.id === "progress" ? action.id : undefined}
+        class:list={["portal-action-card", activeNav === action.id && "portal-action-card--active"]}
+        aria-current={activeNav === action.id ? "page" : undefined}
+      >
+        <span class="portal-action-card__icon" aria-hidden="true">
+          <PortalIcon name={action.icon} size={18} />
+        </span>
+        <h2 class="portal-action-card__title">{action.label}</h2>
+        <p class="portal-action-card__desc">{action.description}</p>
+        <PortalIcon name="chevron-down" size={12} class="portal-action-card__chevron" />
+      </a>
+    ))
+  }
+</nav>
+
+<script is:inline>
+  (function () {
+    function syncNavPlanLinks() {
+      try {
+        var planId = sessionStorage.getItem("yorklanes-plan-id");
+        document.querySelectorAll("[data-plan-aware-nav]").forEach(function (link) {
+          var kind = link.getAttribute("data-plan-aware-nav");
+          if (planId) {
+            link.setAttribute(
+              "href",
+              kind === "progress"
+                ? "/progress?planId=" + encodeURIComponent(planId)
+                : "/plan?id=" + encodeURIComponent(planId),
+            );
+          } else {
+            link.setAttribute("href", kind === "progress" ? "/progress" : "/plan");
+          }
+        });
+      } catch (e) {}
+    }
+
+    syncNavPlanLinks();
+    document.addEventListener("astro:page-load", syncNavPlanLinks);
+    document.addEventListener("yorklanes:plan-id", syncNavPlanLinks);
+  })();
+</script>

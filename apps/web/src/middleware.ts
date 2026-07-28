@@ -1,4 +1,5 @@
 import type { MiddlewareHandler } from "astro";
+import { runWithSsrRequestCache } from "./lib/ssr-request-cache";
 
 const API_ORIGIN = import.meta.env.API_INTERNAL_URL ?? "http://localhost:3001";
 
@@ -16,6 +17,9 @@ const PROTECTED_PATHS = [
   "/finance",
   "/assignments",
   "/onboarding",
+  "/messages",
+  "/notifications",
+  "/settings",
 ];
 
 function isProtectedPath(pathname: string): boolean {
@@ -76,18 +80,20 @@ async function requiresAuthRedirect(context: Parameters<MiddlewareHandler>[0]): 
 }
 
 export const onRequest: MiddlewareHandler = async (context, next) => {
-  const { pathname, search } = context.url;
+  return runWithSsrRequestCache(async () => {
+    const { pathname, search } = context.url;
 
-  if (pathname.startsWith("/api") || pathname === "/health") {
-    if (shouldProxyApi()) {
-      return proxyApiRequest(context);
+    if (pathname.startsWith("/api") || pathname === "/health") {
+      if (shouldProxyApi()) {
+        return proxyApiRequest(context);
+      }
+      return next();
     }
+
+    if (isProtectedPath(pathname) && (await requiresAuthRedirect(context))) {
+      return context.redirect(`/login?returnTo=${encodeURIComponent(`${pathname}${search}`)}`);
+    }
+
     return next();
-  }
-
-  if (isProtectedPath(pathname) && (await requiresAuthRedirect(context))) {
-    return context.redirect(`/login?returnTo=${encodeURIComponent(`${pathname}${search}`)}`);
-  }
-
-  return next();
+  });
 };

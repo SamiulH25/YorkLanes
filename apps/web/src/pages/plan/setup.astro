@@ -1,7 +1,9 @@
 ---
-import DashboardLayout from "../../layouts/DashboardLayout.astro";
+import PortalLayout from "../../layouts/PortalLayout.astro";
+import PortalActionGrid from "../../components/portal/PortalActionGrid.astro";
 import { fetchFaculties } from "../../lib/plans";
 import { getApiUrl } from "../../lib/api-url";
+import "../../styles/plan-portal.css";
 
 export const prerender = false;
 
@@ -18,34 +20,57 @@ try {
 }
 ---
 
-<DashboardLayout title="Import Checklist | YorkLanes" activeNav="plan">
-  <Fragment slot="header">
-    <div>
-      <p class="text-xs font-medium text-york-muted">Degree plan setup</p>
-      <h1 class="heading-page">Build your degree plan</h1>
-      <p class="mt-0.5 text-sm text-york-muted">Download your checklist from York, upload it here, and we detect your programme automatically</p>
-    </div>
+<PortalLayout title="Import Checklist | YorkLanes" activeNav="plan">
+  <Fragment slot="actions">
+    <PortalActionGrid activeNav="plan" />
   </Fragment>
 
-  {
-    loadError && (
-      <div class="mb-6 rounded-xl border border-york-gold/40 bg-york-gold/10 px-4 py-3 text-sm">
-        API offline ({loadError}). Faculty links below use built-in defaults. Start the API with{" "}
-        <code class="font-mono text-xs">npm run dev:api</code> before parsing a file.
-      </div>
-    )
-  }
+  <Fragment slot="breadcrumbs">
+    <nav aria-label="Breadcrumb">
+      <ol class="portal-breadcrumbs">
+        <li class="portal-breadcrumbs__item">
+          <a href="/dashboard" class="portal-breadcrumbs__link">Home</a>
+        </li>
+        <li class="portal-breadcrumbs__item">
+          <a href="/plan" class="portal-breadcrumbs__link">Plan</a>
+        </li>
+        <li class="portal-breadcrumbs__item">
+          <span class="portal-breadcrumbs__current" aria-current="page">Import Checklist</span>
+        </li>
+      </ol>
+    </nav>
+  </Fragment>
 
-  <form id="checklist-form" class="mx-auto max-w-2xl space-y-6" novalidate data-api-url={apiUrl}>
-    <section class="surface rounded-2xl p-6" aria-labelledby="step-download-heading">
-      <p class="label">Step 1</p>
-      <h2 id="step-download-heading" class="mt-1 flex items-center gap-2 font-display text-lg font-semibold text-york-black dark:text-white">
-        <span class="plan-step-badge" aria-hidden="true">1</span>
-        Download your official checklist
-      </h2>
-      <p class="mt-1 text-sm text-york-muted">
-        Pick your faculty to get the right link, then download the PDF or DOCX for your programme.
-      </p>
+  <div class="plan-page">
+    <header class="plan-page-header">
+      <div class="plan-page-header__text">
+        <p class="plan-page-header__kicker">Degree plan setup</p>
+        <h1 class="plan-page-header__title">Build your degree plan</h1>
+        <p class="plan-page-header__meta">
+          Download your checklist from York, upload it here, and we detect your programme automatically
+        </p>
+      </div>
+    </header>
+
+    {
+      loadError && (
+        <div class="mb-6 rounded-xl border border-york-gold/40 bg-york-gold/10 px-4 py-3 text-sm">
+          API offline ({loadError}). Faculty links below use built-in defaults. Start the API with{" "}
+          <code class="font-mono text-xs">npm run dev:api</code> before parsing a file.
+        </div>
+      )
+    }
+
+    <form id="checklist-form" class="plan-setup-form space-y-6" novalidate data-api-url={apiUrl}>
+      <section class="portal-card plan-setup-step" aria-labelledby="step-download-heading">
+        <p class="label">Step 1</p>
+        <h2 id="step-download-heading" class="plan-setup-step__title">
+          <span class="plan-step-badge" aria-hidden="true">1</span>
+          Download your official checklist
+        </h2>
+        <p class="plan-setup-step__lead">
+          Pick your faculty to get the right link, then download the PDF or DOCX for your programme.
+        </p>
 
       <div class="mt-5">
         <label for="facultyKey" class="mb-1.5 block text-sm font-medium">Faculty (for download link)</label>
@@ -84,13 +109,13 @@ try {
       <p class="mt-4 text-xs text-york-muted">Already have your checklist file? Skip to step 2 below.</p>
     </section>
 
-    <section class="surface rounded-2xl p-6" aria-labelledby="step-upload-heading">
+    <section class="portal-card plan-setup-step" aria-labelledby="step-upload-heading">
       <p class="label">Step 2</p>
-      <h2 id="step-upload-heading" class="mt-1 flex items-center gap-2 font-display text-lg font-semibold text-york-black dark:text-white">
+      <h2 id="step-upload-heading" class="plan-setup-step__title">
         <span class="plan-step-badge" aria-hidden="true">2</span>
         Upload your checklist
       </h2>
-      <p class="mt-1 text-sm text-york-muted">
+      <p class="plan-setup-step__lead">
         We read your programme name, start year, and courses directly from the file.
       </p>
 
@@ -109,17 +134,17 @@ try {
           <svg class="upload-glyph mx-auto mb-3 h-10 w-10 text-york-muted" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
             <path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5" />
           </svg>
-          <p class="text-sm font-medium text-york-black dark:text-white">Drop your checklist here</p>
+          <p class="text-sm font-medium text-foreground">Drop your checklist here</p>
           <p class="mt-1 text-xs text-york-muted">PDF or DOCX from your faculty site</p>
           <p class="mt-3 text-xs font-medium text-york-red">or click to browse</p>
         </div>
       </label>
 
-      <div id="file-preview" class="plan-file-preview mt-4 hidden rounded-xl border border-york-stone/60 bg-york-cream/50 px-4 py-3 dark:border-white/15 dark:bg-york-navy/40">
+      <div id="file-preview" class="plan-file-preview mt-4 hidden rounded-xl border px-4 py-3">
         <div class="flex items-center justify-between gap-3">
           <div class="min-w-0">
             <p class="text-xs font-medium uppercase tracking-widest text-york-muted">Selected file</p>
-            <p id="file-name" class="truncate text-sm font-semibold text-york-black dark:text-white"></p>
+            <p id="file-name" class="truncate text-sm font-semibold text-foreground"></p>
             <p id="file-size" class="text-xs text-york-muted"></p>
           </div>
           <button type="button" id="file-clear" class="shrink-0 text-sm font-medium text-york-red hover:underline">
@@ -133,10 +158,11 @@ try {
       </button>
       <p id="form-status" class="hidden mt-3 text-sm"></p>
     </section>
-  </form>
+    </form>
 
-  <script>
-    import { initPlanSetup } from "../../scripts/plan-setup.ts";
-    initPlanSetup();
-  </script>
-</DashboardLayout>
+    <script>
+      import { initPlanSetup } from "../../scripts/plan-setup.ts";
+      initPlanSetup();
+    </script>
+  </div>
+</PortalLayout>

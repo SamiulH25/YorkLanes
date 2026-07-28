@@ -1,5 +1,6 @@
 ---
-import DashboardLayout from "../../layouts/DashboardLayout.astro";
+import PortalLayout from "../../layouts/PortalLayout.astro";
+import PortalActionGrid from "../../components/portal/PortalActionGrid.astro";
 
 export const prerender = false;
 
@@ -9,19 +10,34 @@ const initialView = Astro.url.searchParams.get("view") === "timetable" ? "timeta
 const startNew = Astro.url.searchParams.get("new") === "1";
 ---
 
-<DashboardLayout title="Schedule | YorkLanes" activeNav="schedule">
-  <Fragment slot="header">
-    <div class="flex flex-wrap items-start justify-between gap-4">
-      <div>
-        <p class="label">This term</p>
-        <h1 class="heading-page" data-schedule-page-title>Weekly timetable</h1>
-        <p class="mt-1 text-sm text-muted" data-schedule-page-subtitle>
-          Open a saved timetable or create one for a plan year and semester.
-        </p>
-      </div>
-      <a href="/plan" class="btn-ghost shrink-0 px-4 py-2 text-sm">Open degree plan</a>
-    </div>
+<PortalLayout title="Schedule | YorkLanes" activeNav="schedule">
+  <Fragment slot="actions">
+    <PortalActionGrid activeNav="schedule" />
   </Fragment>
+
+  <Fragment slot="breadcrumbs">
+    <nav aria-label="Breadcrumb">
+      <ol class="portal-breadcrumbs">
+        <li class="portal-breadcrumbs__item">
+          <a href="/dashboard" class="portal-breadcrumbs__link">Home</a>
+        </li>
+        <li class="portal-breadcrumbs__item">
+          <span class="portal-breadcrumbs__current" aria-current="page">Schedule</span>
+        </li>
+      </ol>
+    </nav>
+  </Fragment>
+
+  <div class="mb-6 flex flex-wrap items-start justify-between gap-4">
+    <div>
+      <p class="label">This term</p>
+      <h1 class="heading-page" data-schedule-page-title>Weekly timetable</h1>
+      <p class="mt-1 text-sm text-muted" data-schedule-page-subtitle>
+        Open a saved timetable or create one for a plan year and semester.
+      </p>
+    </div>
+    <a href="/plan" class="btn-ghost shrink-0 px-4 py-2 text-sm">Open degree plan</a>
+  </div>
 
   <div
     class="schedule-layout"
@@ -169,9 +185,38 @@ const startNew = Astro.url.searchParams.get("new") === "1";
               <div>
                 <p class="label">Weekly timetable</p>
                 <p class="text-sm text-muted" data-schedule-timetable-subtitle>
-                  Every block repeats each week for the selected year and semester.
+                  Use the arrows to cycle lab and tutorial times while keeping lecture sections fixed.
                 </p>
               </div>
+              <div class="schedule-grid-toolbar__actions">
+                <div class="schedule-shuffle-nav" data-schedule-shuffle-nav>
+                  <button
+                    type="button"
+                    class="schedule-shuffle-nav__btn"
+                    data-schedule-shuffle-prev
+                    title="Previous timetable"
+                    aria-label="Previous timetable"
+                  >
+                    ←
+                  </button>
+                  <span class="schedule-shuffle-meta text-xs text-muted" data-schedule-shuffle-meta hidden></span>
+                  <button
+                    type="button"
+                    class="schedule-shuffle-nav__btn"
+                    data-schedule-shuffle-next
+                    title="Next timetable"
+                    aria-label="Next timetable"
+                  >
+                    →
+                  </button>
+                </div>
+              </div>
+            </div>
+            <div class="schedule-grid-empty hidden" data-schedule-grid-empty hidden>
+              <p class="schedule-status">No classes on this timetable yet.</p>
+              <p class="mt-2 text-sm text-muted">
+                Courses from your degree plan load here automatically when section data is available.
+              </p>
             </div>
             <div class="schedule-grid" data-schedule-grid>
               <div class="schedule-grid__header" data-schedule-grid-header>
@@ -213,6 +258,7 @@ const startNew = Astro.url.searchParams.get("new") === "1";
   </div>
 
   <script>
-    import "../../scripts/schedule-page.ts";
+    import { bootSchedulePage } from "../../scripts/schedule-page.ts";
+    bootSchedulePage();
   </script>
-</DashboardLayout>
+</PortalLayout>

@@ -1,0 +1,177 @@
+---
+const YORK_ADVISING_URL = "https://students.yorku.ca/contact";
+
+interface Props {
+  advisorName?: string;
+  advisorTitle?: string;
+  appointmentHref?: string;
+}
+
+const { advisorName, advisorTitle, appointmentHref = YORK_ADVISING_URL } = Astro.props;
+const hasNamedAdvisor = Boolean(advisorName?.trim());
+const displayName = hasNamedAdvisor ? advisorName! : "Academic advising";
+const displayTitle = hasNamedAdvisor
+  ? (advisorTitle ?? "Academic Advisor")
+  : "Connect with your faculty advisor through York U student services.";
+const initials = hasNamedAdvisor
+  ? advisorName!
+      .trim()
+      .split(/\s+/)
+      .map((part) => part.charAt(0))
+      .join("")
+      .slice(0, 2)
+      .toUpperCase()
+  : null;
+---
+
+<section class="portal-card portal-advisor" aria-label="Academic advisor">
+  <h2 class="portal-card__title portal-advisor__heading">Academic Advisor</h2>
+
+  <div class="portal-advisor__card">
+    <div class="portal-advisor__profile">
+      {
+        hasNamedAdvisor ? (
+          <div class="portal-advisor__avatar" aria-hidden="true">
+            <span class="portal-advisor__avatar-inner">
+              <span class="portal-advisor__initials">{initials}</span>
+            </span>
+          </div>
+        ) : (
+          <div class="portal-advisor__avatar portal-advisor__avatar--generic" aria-hidden="true">
+            <span class="portal-advisor__avatar-inner portal-advisor__avatar-inner--generic" />
+          </div>
+        )
+      }
+      <div class="portal-advisor__info">
+        <p class="portal-advisor__name">{displayName}</p>
+        <p class="portal-advisor__title">{displayTitle}</p>
+      </div>
+    </div>
+
+    <a
+      href={appointmentHref}
+      class="portal-advisor__cta"
+      target="_blank"
+      rel="noopener noreferrer"
+    >
+      {hasNamedAdvisor ? "Book appointment" : "Find advising"}
+    </a>
+  </div>
+</section>
+
+<style>
+  .portal-advisor.portal-card {
+    padding: 1.15rem 1.2rem;
+  }
+
+  .portal-advisor__heading {
+    margin: 0 0 0.85rem;
+  }
+
+  .portal-advisor__card {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 1rem;
+    padding: 1rem;
+    border-radius: max(0.625rem, calc(var(--theme-radius) * 0.85));
+    border: 1px solid var(--theme-border);
+    background: color-mix(in srgb, var(--theme-surface-muted) 35%, var(--theme-surface));
+    box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.5);
+  }
+
+  @media (min-width: 480px) {
+    .portal-advisor__card {
+      flex-direction: row;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+    }
+  }
+
+  .portal-advisor__profile {
+    display: flex;
+    align-items: center;
+    gap: 0.85rem;
+    min-width: 0;
+  }
+
+  .portal-advisor__avatar {
+    width: 3.25rem;
+    height: 3.25rem;
+    flex-shrink: 0;
+    border-radius: 999px;
+    overflow: hidden;
+    border: 2px solid color-mix(in srgb, var(--theme-primary) 20%, transparent);
+    background: color-mix(in srgb, var(--theme-surface-muted) 80%, white);
+  }
+
+  .portal-advisor__avatar-inner {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    height: 100%;
+    background:
+      radial-gradient(circle at 35% 28%, rgb(255 220 210), transparent 48%),
+      linear-gradient(160deg, rgb(196 156 136), rgb(128 96 82));
+  }
+
+  .portal-advisor__avatar-inner--generic {
+    background:
+      radial-gradient(circle at 30% 25%, rgb(255 255 255 / 0.35), transparent 45%),
+      linear-gradient(160deg, color-mix(in srgb, var(--theme-primary) 55%, #444), color-mix(in srgb, var(--theme-primary) 85%, #222));
+  }
+
+  .portal-advisor__initials {
+    font-size: 1rem;
+    font-weight: 800;
+    letter-spacing: 0.04em;
+    color: rgb(255 255 255 / 0.92);
+    text-shadow: 0 1px 2px rgb(0 0 0 / 0.15);
+  }
+
+  .portal-advisor__name {
+    font-size: 0.9rem;
+    font-weight: 700;
+    color: var(--theme-foreground);
+    line-height: 1.3;
+  }
+
+  .portal-advisor__title {
+    margin-top: 0.15rem;
+    font-size: 0.78rem;
+    color: var(--theme-muted);
+    line-height: 1.45;
+  }
+
+  .portal-advisor__cta {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0.55rem 1rem;
+    border-radius: var(--theme-radius-button, 0.75rem);
+    border: 1.5px solid var(--theme-primary);
+    background: transparent;
+    font-size: 0.78rem;
+    font-weight: 700;
+    color: var(--theme-primary);
+    text-decoration: none;
+    white-space: nowrap;
+    transition:
+      background-color var(--theme-duration-fast, 150ms),
+      color var(--theme-duration-fast, 150ms),
+      border-color var(--theme-duration-fast, 150ms);
+  }
+
+  .portal-advisor__cta:hover {
+    background: color-mix(in srgb, var(--theme-primary) 8%, transparent);
+    color: var(--theme-primary-hover);
+    border-color: var(--theme-primary-hover);
+  }
+
+  .portal-advisor__cta:focus-visible {
+    outline: 2px solid var(--theme-ring);
+    outline-offset: 2px;
+  }
+</style>

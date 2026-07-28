@@ -1,0 +1,110 @@
+---
+import PortalIcon, { type PortalIconName } from "../icons/PortalIcon.astro";
+import type { PortalPanelMessage, PortalPanelNotification } from "../../lib/portal-hub";
+
+interface Props {
+  kind: "messages" | "notifications";
+  messages?: PortalPanelMessage[];
+  notifications?: PortalPanelNotification[];
+  emptyTitle: string;
+  emptyBody: string;
+}
+
+const {
+  kind,
+  messages = [],
+  notifications = [],
+  emptyTitle,
+  emptyBody,
+} = Astro.props;
+
+function notificationIconName(type: PortalPanelNotification["type"]): PortalIconName {
+  switch (type) {
+    case "assignment":
+      return "assignments";
+    case "grade":
+      return "chart";
+    case "announcement":
+      return "megaphone";
+    case "reminder":
+      return "calendar";
+    default:
+      return "notifications";
+  }
+}
+
+const hasItems = kind === "messages" ? messages.length > 0 : notifications.length > 0;
+---
+
+<section class="portal-inbox">
+  {
+    hasItems ? (
+      <ul class="portal-inbox__list">
+        {
+          kind === "messages"
+            ? messages.map((message) => (
+                <li class="portal-inbox__item">
+                  {
+                    message.href ? (
+                      <a href={message.href} class="portal-inbox__link">
+                        <span class="portal-inbox__title">{message.title}</span>
+                        <span class="portal-inbox__preview">{message.preview}</span>
+                        <time class="portal-inbox__date" datetime={message.date}>
+                          {message.date}
+                        </time>
+                      </a>
+                    ) : (
+                      <div class="portal-inbox__link portal-inbox__link--static">
+                        <span class="portal-inbox__title">{message.title}</span>
+                        <span class="portal-inbox__preview">{message.preview}</span>
+                        <time class="portal-inbox__date" datetime={message.date}>
+                          {message.date}
+                        </time>
+                      </div>
+                    )
+                  }
+                </li>
+              ))
+            : notifications.map((notification) => (
+                <li class="portal-inbox__item">
+                  {
+                    notification.href ? (
+                      <a href={notification.href} class="portal-inbox__link portal-inbox__link--notification">
+                        <span class={`portal-inbox__icon portal-inbox__icon--${notification.type}`}>
+                          <PortalIcon name={notificationIconName(notification.type)} size={20} />
+                        </span>
+                        <span class="portal-inbox__body">
+                          <span class="portal-inbox__title">{notification.title}</span>
+                          <span class="portal-inbox__preview">{notification.body}</span>
+                          <time class="portal-inbox__date" datetime={notification.date}>
+                            {notification.date}
+                          </time>
+                        </span>
+                      </a>
+                    ) : (
+                      <div class="portal-inbox__link portal-inbox__link--notification portal-inbox__link--static">
+                        <span class={`portal-inbox__icon portal-inbox__icon--${notification.type}`}>
+                          <PortalIcon name={notificationIconName(notification.type)} size={20} />
+                        </span>
+                        <span class="portal-inbox__body">
+                          <span class="portal-inbox__title">{notification.title}</span>
+                          <span class="portal-inbox__preview">{notification.body}</span>
+                          <time class="portal-inbox__date" datetime={notification.date}>
+                            {notification.date}
+                          </time>
+                        </span>
+                      </div>
+                    )
+                  }
+                </li>
+              ))
+        }
+      </ul>
+    ) : (
+      <div class="portal-inbox__empty">
+        <p class="portal-inbox__empty-title">{emptyTitle}</p>
+        <p class="portal-inbox__empty-body">{emptyBody}</p>
+      </div>
+    )
+  }
+</section>

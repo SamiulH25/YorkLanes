@@ -1,7 +1,6 @@
 ---
 /** Assignment calendar — Sarah. Task guide: docs/tasks/assignments.md */
-import PortalLayout from "../../layouts/PortalLayout.astro";
-import PortalActionGrid from "../../components/portal/PortalActionGrid.astro";
+import DashboardLayout from "../../layouts/DashboardLayout.astro";
 import {
   fetchAssignments,
   createAssignment,
@@ -192,40 +191,25 @@ function dueTone(iso: string, done: boolean): "muted" | "soon" | "overdue" {
 }
 ---
 
-<PortalLayout title="Assignments | YorkLanes" activeNav="assignments">
-  <Fragment slot="actions">
-    <PortalActionGrid activeNav="assignments" />
-  </Fragment>
-
-  <Fragment slot="breadcrumbs">
-    <nav aria-label="Breadcrumb">
-      <ol class="portal-breadcrumbs">
-        <li class="portal-breadcrumbs__item">
-          <a href="/dashboard" class="portal-breadcrumbs__link">Home</a>
-        </li>
-        <li class="portal-breadcrumbs__item">
-          <span class="portal-breadcrumbs__current" aria-current="page">Assignments</span>
-        </li>
-      </ol>
-    </nav>
-  </Fragment>
-
-  <div class="mb-6 flex flex-wrap items-start justify-between gap-4">
-    <div>
-      <p class="text-xs font-medium text-york-muted">Deadlines</p>
-      <h1 class="heading-page">Assignments</h1>
-      <p class="mt-0.5 text-sm text-york-muted">
-        {
-          pendingCount === 0
-            ? "Nothing pending right now."
-            : `${pendingCount} pending · ${assignments.length} total`
-        }
-      </p>
+<DashboardLayout title="Assignments | YorkLanes" activeNav="assignments">
+  <Fragment slot="header">
+    <div class="flex flex-wrap items-start justify-between gap-4">
+      <div>
+        <p class="text-xs font-medium text-york-muted">Deadlines</p>
+        <h1 class="heading-page">Assignments</h1>
+        <p class="mt-0.5 text-sm text-york-muted">
+          {
+            pendingCount === 0
+              ? "Nothing pending right now."
+              : `${pendingCount} pending · ${assignments.length} total`
+          }
+        </p>
+      </div>
+      <button type="button" id="show-add-assignment-form-btn" class="btn-york shrink-0">
+        Add assignment
+      </button>
     </div>
-    <button type="button" id="show-add-assignment-form-btn" class="btn-york shrink-0">
-      Add assignment
-    </button>
-  </div>
+  </Fragment>
 
   {
     loadError && (
@@ -645,7 +629,7 @@ function dueTone(iso: string, done: boolean): "muted" | "soon" | "overdue" {
       </div>
     </div>
   </div>
-</PortalLayout>
+</DashboardLayout>
 
 <script>
   // BaseLayout uses <ClientRouter/> (View Transitions): the DOM is swapped on

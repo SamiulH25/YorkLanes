@@ -216,6 +216,26 @@ export function courseHasConflicts(courseCode: string, entries: ScheduleGridEntr
     .some((entry) => entryHasConflict(entry, entries));
 }
 
+export interface ScheduleConflictIndex {
+  conflictingEntryIds: Set<string>;
+  conflictingCourseCodes: Set<string>;
+}
+
+export function buildScheduleConflictIndex(entries: ScheduleGridEntry[]): ScheduleConflictIndex {
+  const conflictingEntryIds = new Set<string>();
+  const conflictingCourseCodes = new Set<string>();
+  const conflicts = findScheduleConflicts(entries);
+
+  for (const { entryA, entryB } of conflicts) {
+    conflictingEntryIds.add(entryA.id);
+    conflictingEntryIds.add(entryB.id);
+    conflictingCourseCodes.add(entryA.course_code.trim().toUpperCase());
+    conflictingCourseCodes.add(entryB.course_code.trim().toUpperCase());
+  }
+
+  return { conflictingEntryIds, conflictingCourseCodes };
+}
+
 export function summarizeScheduleConflicts(conflicts: ScheduleConflict[]): string {
   if (conflicts.length === 0) return "";
 

@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import type pg from "pg";
 import {
+  coerceScheduleUuid,
   listTodayClasses,
   normalizeScheduleDay,
   parseWallClockTime,
@@ -30,6 +31,14 @@ function createMockPool(
     },
   } as unknown as pg.Pool;
 }
+
+describe("coerceScheduleUuid", () => {
+  it("accepts valid UUIDs and rejects stable client entry keys", () => {
+    assert.equal(coerceScheduleUuid("550e8400-e29b-41d4-a716-446655440000"), "550e8400-e29b-41d4-a716-446655440000");
+    assert.equal(coerceScheduleUuid("CHEM 1100|LECT 01 (M)|Thursday|08:30"), null);
+    assert.equal(coerceScheduleUuid(null), null);
+  });
+});
 
 describe("normalizeScheduleDay", () => {
   it("maps scraper abbreviations and preserves full day names", () => {

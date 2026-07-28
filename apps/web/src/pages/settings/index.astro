@@ -1,6 +1,5 @@
 ---
-import PortalLayout from "../../layouts/PortalLayout.astro";
-import PortalActionGrid from "../../components/portal/PortalActionGrid.astro";
+import DashboardLayout from "../../layouts/DashboardLayout.astro";
 import { themes } from "../../lib/themes";
 import { fetchSessionUser, signOutUrl } from "../../lib/auth";
 
@@ -15,105 +14,74 @@ const logoutUrl = signOutUrl();
 const swatches: Record<string, string> = Object.fromEntries(themes.map((theme) => [theme.id, theme.swatch]));
 ---
 
-<PortalLayout title="Settings | YorkLanes">
-  <Fragment slot="actions">
-    <PortalActionGrid activeNav="dashboard" />
-  </Fragment>
-
-  <Fragment slot="breadcrumbs">
-    <nav aria-label="Breadcrumb">
-      <ol class="portal-breadcrumbs">
-        <li class="portal-breadcrumbs__item">
-          <a href="/dashboard" class="portal-breadcrumbs__link">Home</a>
-        </li>
-        <li class="portal-breadcrumbs__item">
-          <span class="portal-breadcrumbs__current" aria-current="page">Settings</span>
-        </li>
-      </ol>
-    </nav>
-  </Fragment>
-
-  <div class="portal-settings-page">
-    <header class="portal-inbox-page__header">
-      <div>
-        <p class="portal-inbox-page__eyebrow">Preferences</p>
-        <h1 class="portal-inbox-page__title">Settings</h1>
-        <p class="portal-inbox-page__subtitle">Customize appearance and manage your account.</p>
-      </div>
-    </header>
-
-    <div class="portal-settings-page__grid">
-      <section class="portal-settings-card">
-        <h2 class="portal-settings-card__title">Color theme</h2>
-        <p class="portal-settings-card__desc">Pick an accent color for buttons, links, and highlights.</p>
-        <div class="portal-settings-card__swatches" role="list">
-          {
-            themes.map((theme) => (
-              <button
-                type="button"
-                data-theme-id={theme.id}
-                class="settings-theme-option portal-settings-card__swatch"
-                aria-label={theme.label}
-                title={theme.label}
-              >
-                <span
-                  class="theme-swatch portal-settings-card__swatch-dot"
-                  style={`background: ${swatches[theme.id]}`}
-                  aria-hidden="true"
-                />
-                <span class="portal-settings-card__swatch-label">{theme.label}</span>
-              </button>
-            ))
-          }
-        </div>
-      </section>
-
-      <section class="portal-settings-card">
-        <h2 class="portal-settings-card__title">Appearance</h2>
-        <p class="portal-settings-card__desc">Switch between light and dark mode.</p>
-        <div
-          class="mode-toggle portal-settings-card__mode"
-          role="group"
-          aria-label="Color mode"
-        >
-          <button
-            type="button"
-            data-mode-pick="light"
-            class="mode-pick portal-settings-card__mode-btn"
-          >
-            Light
-          </button>
-          <button
-            type="button"
-            data-mode-pick="dark"
-            class="mode-pick portal-settings-card__mode-btn"
-          >
-            Dark
-          </button>
-        </div>
-      </section>
-
-      <section class="portal-settings-card">
-        <h2 class="portal-settings-card__title">Account</h2>
-        <p class="portal-settings-card__desc">
-          {signedIn ? `Signed in as ${displayName}.` : "Sign in to sync your degree plan and assignments."}
-        </p>
-        <div class="portal-settings-card__actions">
-          {
-            signedIn ? (
-              <a href={logoutUrl} data-astro-reload class="portal-inbox-page__cta">
-                Sign out
-              </a>
-            ) : (
-              <a href="/login" class="portal-inbox-page__cta">Sign in</a>
-            )
-          }
-          <a href="/onboarding" class="portal-settings-card__secondary">Setup wizard</a>
-        </div>
-      </section>
+<DashboardLayout title="Settings | YorkLanes">
+  <Fragment slot="header">
+    <div>
+      <p class="text-xs font-medium text-york-muted">Preferences</p>
+      <h1 class="heading-page">Settings</h1>
+      <p class="mt-0.5 text-sm text-muted">Customize appearance and manage your account.</p>
     </div>
+  </Fragment>
+
+  <div class="grid gap-5 lg:grid-cols-2">
+    <section class="surface p-5">
+      <h2 class="heading-widget">Color theme</h2>
+      <p class="mt-1 text-sm text-muted">Pick an accent color for buttons, links, and highlights.</p>
+      <div class="mt-4 flex flex-wrap gap-2" role="list">
+        {
+          themes.map((theme) => (
+            <button
+              type="button"
+              data-theme-id={theme.id}
+              class="settings-theme-option flex items-center gap-2 rounded-xl border border-york-stone/60 px-3 py-2 text-sm transition hover:border-york-red/40 dark:border-white/10"
+              aria-label={theme.label}
+              title={theme.label}
+            >
+              <span
+                class="theme-swatch h-5 w-5 rounded-full border border-black/10"
+                style={`background: ${swatches[theme.id]}`}
+                aria-hidden="true"
+              />
+              <span>{theme.label}</span>
+            </button>
+          ))
+        }
+      </div>
+    </section>
+
+    <section class="surface p-5">
+      <h2 class="heading-widget">Appearance</h2>
+      <p class="mt-1 text-sm text-muted">Switch between light and dark mode.</p>
+      <div class="mode-toggle mt-4 inline-flex rounded-xl border border-york-stone/60 p-1 dark:border-white/10" role="group" aria-label="Color mode">
+        <button type="button" data-mode-pick="light" class="mode-pick rounded-lg px-4 py-2 text-sm font-medium">
+          Light
+        </button>
+        <button type="button" data-mode-pick="dark" class="mode-pick rounded-lg px-4 py-2 text-sm font-medium">
+          Dark
+        </button>
+      </div>
+    </section>
+
+    <section class="surface p-5 lg:col-span-2">
+      <h2 class="heading-widget">Account</h2>
+      <p class="mt-1 text-sm text-muted">
+        {signedIn ? `Signed in as ${displayName}.` : "Sign in to sync your degree plan and assignments."}
+      </p>
+      <div class="mt-4 flex flex-wrap gap-3">
+        {
+          signedIn ? (
+            <a href={logoutUrl} data-astro-reload class="btn-york px-4 py-2 text-sm">
+              Sign out
+            </a>
+          ) : (
+            <a href="/login" class="btn-york px-4 py-2 text-sm">Sign in</a>
+          )
+        }
+        <a href="/onboarding" class="btn-ghost px-4 py-2 text-sm">Setup wizard</a>
+      </div>
+    </section>
   </div>
-</PortalLayout>
+</DashboardLayout>
 
 <style>
   :global(.settings-theme-option.is-active) {

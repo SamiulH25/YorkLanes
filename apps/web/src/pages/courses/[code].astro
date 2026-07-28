@@ -1,7 +1,5 @@
 ---
-import PortalLayout from "../../layouts/PortalLayout.astro";
-import PortalActionGrid from "../../components/portal/PortalActionGrid.astro";
-import { courseDetailPath, fetchCourse } from "../../lib/courses";
+import DashboardLayout from "../../layouts/DashboardLayout.astro";import { courseDetailPath, fetchCourse } from "../../lib/courses";
 import { fetchCourseOfferingSummary, fetchCourseSections } from "../../lib/course-sections";
 import type { CourseOfferingSummary } from "../../types/course-sections";
 
@@ -103,27 +101,16 @@ const typicalLine = offering ? typicalMeetingLine(offering) : null;
 const returnTo = Astro.url.searchParams.get("return");
 ---
 
-<PortalLayout title={course ? `${course.code} | YorkLanes` : "Course | YorkLanes"} activeNav="courses">
-  <Fragment slot="actions">
-    <PortalActionGrid activeNav="courses" />
+<DashboardLayout title={course ? `${course.code} | YorkLanes` : "Course | YorkLanes"} activeNav="courses">
+  <Fragment slot="header">
+    <div>
+      <p class="text-xs font-medium text-york-muted">York Catalogue</p>
+      <h1 class="heading-page">Courses</h1>
+      <p class="mt-1 text-sm text-muted">
+        Search for a course to read its description, prerequisites, and sections.
+      </p>
+    </div>
   </Fragment>
-
-  <Fragment slot="breadcrumbs">
-    <nav aria-label="Breadcrumb">
-      <ol class="portal-breadcrumbs">
-        <li class="portal-breadcrumbs__item">
-          <a href="/dashboard" class="portal-breadcrumbs__link">Home</a>
-        </li>
-        <li class="portal-breadcrumbs__item">
-          <a href="/courses" class="portal-breadcrumbs__link">Courses</a>
-        </li>
-        <li class="portal-breadcrumbs__item">
-          <span class="portal-breadcrumbs__current" aria-current="page">{course?.code ?? "Course"}</span>
-        </li>
-      </ol>
-    </nav>
-  </Fragment>
-
   <div class="back-to-courses">
     <a
       href={returnTo ? `/courses${decodeURIComponent(returnTo)}` : "/courses"}
@@ -449,4 +436,4 @@ const returnTo = Astro.url.searchParams.get("return");
       </script>
     )
   }
-</PortalLayout>
+</DashboardLayout>

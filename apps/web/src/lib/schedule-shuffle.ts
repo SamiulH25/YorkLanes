@@ -1,5 +1,6 @@
 import { toScheduleDay } from "./schedule-days";
 import {
+  entryKey,
   findCrossBundleConflicts,
   SCHEDULE_END_HOUR,
   SCHEDULE_START_HOUR,
@@ -31,7 +32,7 @@ function normalizeCourseCode(code: string): string {
   return code.trim().toUpperCase();
 }
 
-function filterValidEntries(entries: ScheduleGridEntry[]): ScheduleGridEntry[] {
+export function filterValidEntries(entries: ScheduleGridEntry[]): ScheduleGridEntry[] {
   return entries.filter((entry) => {
     const start = Number(entry.start_time.split(":")[0]);
     const end = Number(entry.end_time.split(":")[0]);
@@ -39,7 +40,7 @@ function filterValidEntries(entries: ScheduleGridEntry[]): ScheduleGridEntry[] {
   });
 }
 
-function entriesFromSections(
+export function entriesFromSections(
   courseCode: string,
   sections: CourseSection[],
   bundleId: string,
@@ -49,13 +50,20 @@ function entriesFromSections(
   for (const section of sections) {
     const component = parseSectionComponent(section.section_code);
     for (const meeting of section.meetings) {
+      const day = toScheduleDay(meeting.day);
+      const startTime = meeting.start_time.slice(0, 5);
       entries.push({
-        id: crypto.randomUUID(),
+        id: entryKey({
+          course_code: courseCode,
+          section_code: section.section_code,
+          day,
+          start_time: startTime,
+        }),
         course_code: courseCode,
         section_code: section.section_code,
         component_type: component.type,
-        day: toScheduleDay(meeting.day),
-        start_time: meeting.start_time.slice(0, 5),
+        day,
+        start_time: startTime,
         end_time: meeting.end_time.slice(0, 5),
         room: meeting.room,
         campus: meeting.campus,
@@ -67,6 +75,14 @@ function entriesFromSections(
     }
   }
   return entries;
+}
+
+function sectionGroupLookup(sectionGroups: SectionGroup[]): Map<string, SectionGroup> {
+  const lookup = new Map<string, SectionGroup>();
+  for (const group of sectionGroups) {
+    lookup.set(`${normalizeCourseCode(group.course_code)}|${group.term}`, group);
+  }
+  return lookup;
 }
 
 function lectureGroupForPick(sections: CourseSection[], lecturePick: string): string | null {
@@ -202,11 +218,10 @@ export function enumerateValidSchedules(
   const normalizedCourses = [...new Set(courseCodes.map(normalizeCourseCode))].filter(Boolean);
   const unpinned = normalizedCourses.filter((courseCode) => !pinnedCourses.has(courseCode));
   const optionsByCourse = new Map<string, CourseBundleOption[]>();
+  const groupLookup = sectionGroupLookup(sectionGroups);
 
   for (const courseCode of unpinned) {
-    const group = sectionGroups.find(
-      (item) => normalizeCourseCode(item.course_code) === courseCode && item.term === term,
-    );
+    const group = groupLookup.get(`${courseCode}|${term}`);
     if (!group || group.sections.length === 0) continue;
 
     const currentLecture = currentPicksByCourse.get(courseCode)?.get("lec");

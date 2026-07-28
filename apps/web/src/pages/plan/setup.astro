@@ -1,7 +1,5 @@
 ---
-import PortalLayout from "../../layouts/PortalLayout.astro";
-import PortalActionGrid from "../../components/portal/PortalActionGrid.astro";
-import { fetchFaculties } from "../../lib/plans";
+import DashboardLayout from "../../layouts/DashboardLayout.astro";import { fetchFaculties } from "../../lib/plans";
 import { getApiUrl } from "../../lib/api-url";
 import "../../styles/plan-portal.css";
 
@@ -20,26 +18,7 @@ try {
 }
 ---
 
-<PortalLayout title="Import Checklist | YorkLanes" activeNav="plan">
-  <Fragment slot="actions">
-    <PortalActionGrid activeNav="plan" />
-  </Fragment>
-
-  <Fragment slot="breadcrumbs">
-    <nav aria-label="Breadcrumb">
-      <ol class="portal-breadcrumbs">
-        <li class="portal-breadcrumbs__item">
-          <a href="/dashboard" class="portal-breadcrumbs__link">Home</a>
-        </li>
-        <li class="portal-breadcrumbs__item">
-          <a href="/plan" class="portal-breadcrumbs__link">Plan</a>
-        </li>
-        <li class="portal-breadcrumbs__item">
-          <span class="portal-breadcrumbs__current" aria-current="page">Import Checklist</span>
-        </li>
-      </ol>
-    </nav>
-  </Fragment>
+<DashboardLayout title="Import Checklist | YorkLanes" activeNav="plan" collapseSidebar>
 
   <div class="plan-page">
     <header class="plan-page-header">
@@ -165,4 +144,4 @@ try {
       initPlanSetup();
     </script>
   </div>
-</PortalLayout>
+</DashboardLayout>

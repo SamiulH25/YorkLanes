@@ -1,17 +1,13 @@
 ---
-import PortalLayout from "../../layouts/PortalLayout.astro";
-import PortalActionGrid from "../../components/portal/PortalActionGrid.astro";
-import PortalWelcomeBanner from "../../components/portal/PortalWelcomeBanner.astro";
-import PortalCoursesSection, { type PortalCourse } from "../../components/portal/PortalCoursesSection.astro";
-import PortalAnnouncements from "../../components/portal/PortalAnnouncements.astro";
-import PortalAdvisorCard from "../../components/portal/PortalAdvisorCard.astro";
-import PortalUpcoming from "../../components/portal/PortalUpcoming.astro";
-import PortalTasks from "../../components/portal/PortalTasks.astro";
-import PortalQuickLinks from "../../components/portal/PortalQuickLinks.astro";
+import DashboardLayout from "../../layouts/DashboardLayout.astro";
+import ProgressWidget from "../../components/dashboard/ProgressWidget.astro";
+import AssignmentsWidget from "../../components/dashboard/AssignmentsWidget.astro";
+import TodayClassesWidget from "../../components/dashboard/TodayClassesWidget.astro";
+import FinanceWidget from "../../components/dashboard/FinanceWidget.astro";
 import { fetchDashboardSummary } from "../../lib/api";
 import { fetchSessionUser } from "../../lib/auth";
 import { fetchOnboardingStatus } from "../../lib/onboarding";
-import { emptyHubFallback, guestHubFallback, hubAnnouncementsFromSummary, hubFromSummary } from "../../lib/portal-hub";
+import { guestHubFallback, emptyHubFallback } from "../../lib/portal-hub";
 import type { DashboardSummary } from "../../types/dashboard";
 
 export const prerender = false;
@@ -57,7 +53,6 @@ let loadError: string | null = null;
 let showOnboardingBanner = false;
 
 const sessionUser = await fetchSessionUser(cookie);
-const isGuest = !sessionUser;
 
 try {
   if (!sessionUser) {
@@ -95,48 +90,41 @@ try {
   }
 }
 
+const today = new Date().toLocaleDateString("en-CA", {
+  weekday: "long",
+  month: "long",
+  day: "numeric",
+});
+
 const classCount = summary.schedule.today.length;
 const deadlineCount = summary.assignments.upcoming.length;
 const progressPct = summary.progress.percentComplete;
-const coursesTotal = summary.progress.total ?? 0;
-const creditsCompleted = summary.progress.completed ?? 0;
-const creditsTotal = coursesTotal;
 
-function portalCoursesFromSchedule(
-  today: DashboardSummary["schedule"]["today"],
-): PortalCourse[] {
-  const seen = new Set<string>();
-  const result: PortalCourse[] = [];
-
-  for (const item of today) {
-    const code = item.courseCode.trim();
-    if (!code || seen.has(code)) continue;
-    seen.add(code);
-    result.push({
-      code,
-      title: code,
-      credits: 3,
-      gradePercent: null,
-      letterGrade: null,
-    });
-  }
-
-  return result;
-}
-
-const portalCourses = portalCoursesFromSchedule(summary.schedule.today);
-const announcementItems = hubAnnouncementsFromSummary(summary);
-const portalHub = hubFromSummary(summary);
+const money = new Intl.NumberFormat("en-CA", {
+  style: "currency",
+  currency: summary.finance.currency || "CAD",
+  maximumFractionDigits: 0,
+});
 ---
 
-<PortalLayout title="Dashboard | YorkLanes" activeNav="dashboard" hub={portalHub}>
-  <Fragment slot="actions">
-    <PortalActionGrid activeNav="dashboard" />
+<DashboardLayout title="Dashboard | YorkLanes" activeNav="dashboard">
+  <Fragment slot="header">
+    <div>
+      <p class="text-xs font-medium text-muted">{today}</p>
+      <h1 class="heading-page">Hey, {summary.user.displayName}</h1>
+      <p class="mt-0.5 text-sm text-muted">
+        {
+          summary.user.programme
+            ? `${summary.user.programme} · Class of ${(summary.user.startingYear ?? 0) + 4}`
+            : "Your academic hub at York University"
+        }
+      </p>
+    </div>
   </Fragment>
 
   {
     loadError && (
-      <div class="mb-5 rounded-xl border border-accent-soft bg-accent-soft px-4 py-3 text-sm text-secondary">
+      <div class="mb-6 rounded-xl border border-accent-soft bg-accent-soft px-4 py-3 text-sm text-secondary">
         API offline: {loadError}. Run <code class="rounded bg-black/5 px-1.5 py-0.5 font-mono text-xs dark:bg-white/10">npm run start:dev</code>
       </div>
     )
@@ -144,7 +132,7 @@ const portalHub = hubFromSummary(summary);
 
   {
     showOnboardingBanner && (
-      <div class="mb-5 surface-elevated flex flex-wrap items-center justify-between gap-4 border border-brand-soft bg-brand-subtle p-5">
+      <div class="mb-6 surface-elevated flex flex-wrap items-center justify-between gap-4 border border-brand-soft bg-brand-subtle p-5">
         <div>
           <p class="text-sm font-semibold text-foreground">Finish setting up YorkLanes</p>
           <p class="mt-0.5 text-sm text-muted">
@@ -156,36 +144,35 @@ const portalHub = hubFromSummary(summary);
     )
   }
 
-  <div class="portal-dashboard-grid">
-    <div class="portal-dashboard-main">
-      <PortalWelcomeBanner
-        guest={isGuest}
-        displayName={summary.user.displayName}
-        classCount={classCount}
-        assignmentCount={deadlineCount}
-        courseAverage={null}
-        holdCount={0}
-      />
-
-      <PortalCoursesSection
-        guest={isGuest}
-        courses={portalCourses}
-        creditsCompleted={creditsCompleted}
-        creditsTotal={creditsTotal}
-        percent={progressPct}
-        emptyMessage={summary.schedule.message ?? summary.progress.label}
-      />
-
-      <div class="portal-dashboard-bottom">
-        <PortalAnnouncements items={announcementItems ?? []} />
-        <PortalAdvisorCard />
-      </div>
+  <div class="dashboard-stats mb-6">
+    <div class="dashboard-stat">
+      <p class="dashboard-stat__value">{classCount}</p>
+      <p class="dashboard-stat__label">Classes today</p>
     </div>
-
-    <aside class="portal-sidebar" aria-label="Dashboard sidebar">
-      <PortalUpcoming schedule={summary.schedule} />
-      <PortalTasks assignments={summary.assignments} guest={isGuest} />
-      <PortalQuickLinks />
-    </aside>
+    <div class="dashboard-stat">
+      <p class="dashboard-stat__value">{deadlineCount}</p>
+      <p class="dashboard-stat__label">Due this week</p>
+    </div>
+    <div class="dashboard-stat">
+      <p class="dashboard-stat__value">{progressPct}%</p>
+      <p class="dashboard-stat__label">Degree progress</p>
+    </div>
+    <div class="dashboard-stat">
+      <p class="dashboard-stat__value">{money.format(summary.finance.balance)}</p>
+      <p class="dashboard-stat__label">Balance</p>
+    </div>
   </div>
-</PortalLayout>
+
+  <div class="grid gap-5 lg:grid-cols-12">
+    <div class="lg:col-span-5">
+      <ProgressWidget progress={summary.progress} />
+    </div>
+    <div class="flex flex-col gap-5 lg:col-span-7">
+      <TodayClassesWidget schedule={summary.schedule} />
+      <AssignmentsWidget assignments={summary.assignments} />
+    </div>
+    <div class="lg:col-span-12">
+      <FinanceWidget finance={summary.finance} />
+    </div>
+  </div>
+</DashboardLayout>

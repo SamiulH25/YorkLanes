@@ -1,6 +1,6 @@
 ---
-import PortalLayout from "../../layouts/PortalLayout.astro";
-import PortalActionGrid from "../../components/portal/PortalActionGrid.astro";
+import DashboardLayout from "../../layouts/DashboardLayout.astro";
+import "../../styles/schedule-shuffle.css";
 
 export const prerender = false;
 
@@ -10,34 +10,19 @@ const initialView = Astro.url.searchParams.get("view") === "timetable" ? "timeta
 const startNew = Astro.url.searchParams.get("new") === "1";
 ---
 
-<PortalLayout title="Schedule | YorkLanes" activeNav="schedule">
-  <Fragment slot="actions">
-    <PortalActionGrid activeNav="schedule" />
-  </Fragment>
-
-  <Fragment slot="breadcrumbs">
-    <nav aria-label="Breadcrumb">
-      <ol class="portal-breadcrumbs">
-        <li class="portal-breadcrumbs__item">
-          <a href="/dashboard" class="portal-breadcrumbs__link">Home</a>
-        </li>
-        <li class="portal-breadcrumbs__item">
-          <span class="portal-breadcrumbs__current" aria-current="page">Schedule</span>
-        </li>
-      </ol>
-    </nav>
-  </Fragment>
-
-  <div class="mb-6 flex flex-wrap items-start justify-between gap-4">
-    <div>
-      <p class="label">This term</p>
-      <h1 class="heading-page" data-schedule-page-title>Weekly timetable</h1>
-      <p class="mt-1 text-sm text-muted" data-schedule-page-subtitle>
-        Open a saved timetable or create one for a plan year and semester.
-      </p>
+<DashboardLayout title="Schedule | YorkLanes" activeNav="schedule">
+  <Fragment slot="header">
+    <div class="flex flex-wrap items-start justify-between gap-4">
+      <div>
+        <p class="label">This term</p>
+        <h1 class="heading-page" data-schedule-page-title>Weekly timetable</h1>
+        <p class="mt-1 text-sm text-muted" data-schedule-page-subtitle>
+          Open a saved timetable or create one for a plan year and semester.
+        </p>
+      </div>
+      <a href="/plan" class="btn-ghost shrink-0 px-4 py-2 text-sm">Open degree plan</a>
     </div>
-    <a href="/plan" class="btn-ghost shrink-0 px-4 py-2 text-sm">Open degree plan</a>
-  </div>
+  </Fragment>
 
   <div
     class="schedule-layout"
@@ -178,14 +163,14 @@ const startNew = Astro.url.searchParams.get("new") === "1";
         </aside>
 
         <div class="schedule-main-panel">
-          <p data-schedule-status class="schedule-status" hidden></p>
+          <p data-schedule-status class="schedule-status" role="status" aria-live="polite" hidden></p>
 
           <section class="schedule-grid-shell">
             <div class="schedule-grid-toolbar">
               <div>
                 <p class="label">Weekly timetable</p>
                 <p class="text-sm text-muted" data-schedule-timetable-subtitle>
-                  Use the arrows to cycle lab and tutorial times while keeping lecture sections fixed.
+                  All courses from your degree plan are included. Use ← → to cycle conflict-free timetables (labs and tutorials change; pin a course to lock it).
                 </p>
               </div>
               <div class="schedule-grid-toolbar__actions">
@@ -261,4 +246,4 @@ const startNew = Astro.url.searchParams.get("new") === "1";
     import { bootSchedulePage } from "../../scripts/schedule-page.ts";
     bootSchedulePage();
   </script>
-</PortalLayout>
+</DashboardLayout>

@@ -1,0 +1,107 @@
+@layer components {
+  .portal-inbox {
+    border: 1px solid var(--theme-border);
+    border-radius: max(0.75rem, calc(var(--theme-radius) * 0.9));
+    background: var(--theme-surface);
+    overflow: hidden;
+  }
+
+  .portal-inbox__list {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  .portal-inbox__item:not(:last-child) {
+    border-bottom: 1px solid var(--theme-border);
+  }
+
+  .portal-inbox__link {
+    display: block;
+    padding: 1rem 1.125rem;
+    text-decoration: none;
+    color: inherit;
+    transition: background-color 150ms ease;
+  }
+
+  .portal-inbox__link:hover {
+    background: color-mix(in srgb, var(--theme-muted) 8%, var(--theme-surface));
+  }
+
+  .portal-inbox__link--notification {
+    display: flex;
+    gap: 0.75rem;
+    align-items: flex-start;
+  }
+
+  .portal-inbox__body {
+    min-width: 0;
+    flex: 1;
+  }
+
+  .portal-inbox__title {
+    display: block;
+    font-size: 0.9375rem;
+    font-weight: 600;
+    color: var(--theme-foreground);
+    line-height: 1.35;
+  }
+
+  .portal-inbox__preview {
+    display: block;
+    margin-top: 0.25rem;
+    font-size: 0.8125rem;
+    line-height: 1.45;
+    color: var(--theme-muted);
+  }
+
+  .portal-inbox__date {
+    display: block;
+    margin-top: 0.375rem;
+    font-size: 0.6875rem;
+    font-weight: 500;
+    color: color-mix(in srgb, var(--theme-muted) 85%, transparent);
+  }
+
+  .portal-inbox__icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 2.25rem;
+    height: 2.25rem;
+    flex-shrink: 0;
+    border-radius: 0.5rem;
+    background: color-mix(in srgb, var(--theme-muted) 10%, var(--theme-surface));
+    color: var(--theme-muted);
+  }
+
+  .portal-inbox__icon--assignment {
+    color: var(--theme-primary);
+    background: color-mix(in srgb, var(--theme-primary) 12%, var(--theme-surface));
+  }
+
+  .portal-inbox__icon--reminder {
+    color: #2563eb;
+    background: color-mix(in srgb, #2563eb 12%, var(--theme-surface));
+  }
+
+  .portal-inbox__empty {
+    padding: 2.5rem 1.5rem;
+    text-align: center;
+  }
+
+  .portal-inbox__empty-title {
+    margin: 0;
+    font-size: 1rem;
+    font-weight: 600;
+    color: var(--theme-foreground);
+  }
+
+  .portal-inbox__empty-body {
+    margin: 0.5rem auto 0;
+    max-width: 24rem;
+    font-size: 0.875rem;
+    line-height: 1.5;
+    color: var(--theme-muted);
+  }
+}

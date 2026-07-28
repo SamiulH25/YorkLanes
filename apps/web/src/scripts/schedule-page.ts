@@ -1,16 +1,13 @@
 import { fetchCdmTerms, fetchCourseSections } from "../lib/course-sections";
-import { formatClock, toScheduleDay } from "../lib/schedule-days";
+import { formatClock } from "../lib/schedule-days";
 import {
+  buildScheduleConflictIndex,
   computeEventLayout,
-  courseHasConflicts,
-  entryHasConflict,
   findCrossBundleConflicts,
   findScheduleConflicts,
   gridHours,
   listLocalSavedSchedules,
   readScheduleWeekState,
-  SCHEDULE_END_HOUR,
-  SCHEDULE_START_HOUR,
   sectionSelectionKey,
   summarizeScheduleConflicts,
   TIME_COLUMN_WIDTH,
@@ -36,7 +33,9 @@ import {
   type PlanSeasonFilter,
 } from "../lib/plan-store";
 import {
+  entriesFromSections,
   enumerateValidSchedules,
+  filterValidEntries,
   findAlternativeIndex,
   PINNED_PICK_KEY,
   type ScheduleAlternative,
@@ -45,7 +44,6 @@ import {
   componentLabel,
   filterSectionsForLecture,
   groupSectionsByComponent,
-  parseSectionComponent,
   sectionBundleKey,
   summarizeWeeklyPattern,
   type SectionComponentType,
@@ -95,46 +93,20 @@ function normalizeCourseCode(code: string): string {
   return code.trim().toUpperCase();
 }
 
+function sectionGroupKey(courseCode: string, term: string): string {
+  return `${normalizeCourseCode(courseCode)}|${term}`;
+}
+
 function meetingInstructors(section: CourseSection): string {
   return [...new Set(section.meetings.map((meeting) => meeting.instructor).filter(Boolean))].join(", ");
 }
 
-function entriesFromSections(
-  courseCode: string,
-  sections: CourseSection[],
-  bundleId: string,
-  context: Pick<ScheduleWeekState, "planYear" | "planSeason" | "cdmTerm">,
-): ScheduleGridEntry[] {
-  const entries: ScheduleGridEntry[] = [];
-  for (const section of sections) {
-    const component = parseSectionComponent(section.section_code);
-    for (const meeting of section.meetings) {
-      entries.push({
-        id: crypto.randomUUID(),
-        course_code: courseCode,
-        section_code: section.section_code,
-        component_type: component.type,
-        day: toScheduleDay(meeting.day),
-        start_time: meeting.start_time.slice(0, 5),
-        end_time: meeting.end_time.slice(0, 5),
-        room: meeting.room,
-        campus: meeting.campus,
-        bundle_id: bundleId,
-        plan_year: context.planYear,
-        plan_season: context.planSeason,
-        cdm_term: context.cdmTerm,
-      });
-    }
+function rebuildSectionGroupLookup(groups: SectionGroup[]): Map<string, SectionGroup> {
+  const lookup = new Map<string, SectionGroup>();
+  for (const group of groups) {
+    lookup.set(sectionGroupKey(group.course_code, group.term), group);
   }
-  return entries;
-}
-
-function filterValidEntries(entries: ScheduleGridEntry[]): ScheduleGridEntry[] {
-  return entries.filter((entry) => {
-    const start = Number(entry.start_time.split(":")[0]);
-    const end = Number(entry.end_time.split(":")[0]);
-    return start >= SCHEDULE_START_HOUR && end <= SCHEDULE_END_HOUR;
-  });
+  return lookup;
 }
 
 export function initSchedulePage(options: SchedulePageOptions = {}): void {
@@ -181,6 +153,7 @@ export function initSchedulePage(options: SchedulePageOptions = {}): void {
   let activeCourse = options.focusCourse?.trim().toUpperCase() || "";
   let entries: ScheduleGridEntry[] = [];
   let sectionGroups: SectionGroup[] = [];
+  let sectionGroupLookup = rebuildSectionGroupLookup(sectionGroups);
   let availableTerms: string[] = options.focusTerm ? [options.focusTerm] : [];
   let savedSchedules: MergedSavedSchedule[] = [];
   let currentIsActive = false;
@@ -194,16 +167,26 @@ export function initSchedulePage(options: SchedulePageOptions = {}): void {
   let scheduleAlternatives: ScheduleAlternative[] = [];
   let shuffleIndex = 0;
 
-  function selectedCdmTerm(): string {
+  function selectedTerm(): string {
     return resolveSelectedTerm(termSelect, availableTerms, options.focusTerm);
   }
 
+  function sectionGroupForCourse(courseCode: string, term = selectedTerm()): SectionGroup | undefined {
+    if (!term) return undefined;
+    return sectionGroupLookup.get(sectionGroupKey(courseCode, term));
+  }
+
+  function updateSectionGroups(nextGroups: SectionGroup[]): void {
+    sectionGroups = nextGroups;
+    sectionGroupLookup = rebuildSectionGroupLookup(sectionGroups);
+  }
+
   function hasScheduleContext(): boolean {
-    return Boolean(selectedCdmTerm());
+    return Boolean(selectedTerm());
   }
 
   function updateConfirmButton(): void {
-    const cdmTerm = selectedCdmTerm();
+    const cdmTerm = selectedTerm();
     if (confirmButton) confirmButton.disabled = !cdmTerm;
     if (setupHint) {
       setupHint.textContent = cdmTerm
@@ -216,7 +199,7 @@ export function initSchedulePage(options: SchedulePageOptions = {}): void {
 
   function updateContextLabel(): void {
     if (!contextLabel) return;
-    const cdmTerm = selectedCdmTerm();
+    const cdmTerm = selectedTerm();
     contextLabel.textContent = `Year ${planYear} · ${seasonLabel(planSeason)}${cdmTerm ? ` · ${cdmTerm}` : ""}`;
   }
 
@@ -287,6 +270,7 @@ export function initSchedulePage(options: SchedulePageOptions = {}): void {
     panelCollapsed = collapsePanel;
     updatePanelState();
     await loadWeekFromCloud();
+    refreshConflictIndex();
     renderGridStructure();
     updateContextLabel();
     updateTimetableSubtitle();
@@ -308,7 +292,7 @@ export function initSchedulePage(options: SchedulePageOptions = {}): void {
 
     activeCourse = options.focusCourse?.trim().toUpperCase() || courses[0];
     await refreshVisibleCourses();
-    await ensureAllPlannedCoursesOnSchedule();
+    bootstrapPlannedSchedule();
     renderConflictBanner();
   }
 
@@ -349,7 +333,7 @@ export function initSchedulePage(options: SchedulePageOptions = {}): void {
       setStatus("Choose a CDM term before continuing.", "error");
       return;
     }
-    const cdmTerm = selectedCdmTerm();
+    const cdmTerm = selectedTerm();
     await openSchedule(planYear, planSeason, cdmTerm, false);
     setStatus(`Loaded courses for Year ${planYear}.`, "success");
   }
@@ -373,6 +357,7 @@ export function initSchedulePage(options: SchedulePageOptions = {}): void {
       pinnedCourses.add(normalizeCourseCode(courseCode));
     }
     currentIsActive = false;
+    refreshConflictIndex();
   }
 
   function picksWithoutMeta(picks: Record<string, string>): Record<string, string> {
@@ -465,19 +450,36 @@ export function initSchedulePage(options: SchedulePageOptions = {}): void {
     persistWeek();
     renderCourseChips();
     renderSectionBrowser();
-    renderGridStructure();
+    renderGridEvents();
     updateShuffleMeta();
   }
 
+  function coursesWithSectionData(): string[] {
+    const term = selectedTerm();
+    if (!term) return [];
+    return plannedCourses().filter((courseCode) => {
+      const group = sectionGroupForCourse(courseCode, term);
+      return Boolean(group?.sections.length);
+    });
+  }
+
   function coursesForShuffle(): string[] {
-    return plannedCourses();
+    return coursesWithSectionData();
+  }
+
+  function primeComponentPicksForPlannedCourses(): void {
+    for (const courseCode of coursesWithSectionData()) {
+      const group = sectionGroupForCourse(courseCode);
+      if (!group) continue;
+      const groups = groupSectionsByComponent(group.sections);
+      ensureDefaultPicks(courseCode, groups);
+      syncDependentPicks(courseCode, groups);
+    }
   }
 
   function rebuildScheduleAlternatives(): void {
     const term = resolveSelectedTerm(termSelect, availableTerms, options.focusTerm);
-    const courseCodes = coursesForShuffle().filter(
-      (courseCode) => onScheduleSections(courseCode).size > 0,
-    );
+    const courseCodes = coursesForShuffle();
     if (courseCodes.length === 0) {
       scheduleAlternatives = [];
       shuffleIndex = 0;
@@ -500,9 +502,7 @@ export function initSchedulePage(options: SchedulePageOptions = {}): void {
 
   function updateShuffleMeta(): void {
     if (!shufflePrev || !shuffleNext || !shuffleMeta) return;
-    const courseCodes = coursesForShuffle().filter(
-      (courseCode) => onScheduleSections(courseCode).size > 0,
-    );
+    const courseCodes = coursesForShuffle();
     const unpinnedCount = courseCodes.filter((code) => !isCoursePinned(code)).length;
     const show = mode === "editor" && courseCodes.length > 0;
     const alternativeCount = scheduleAlternatives.length;
@@ -539,18 +539,21 @@ export function initSchedulePage(options: SchedulePageOptions = {}): void {
   }
 
   function stepScheduleAlternative(direction: -1 | 1): void {
+    primeComponentPicksForPlannedCourses();
     rebuildScheduleAlternatives();
     if (scheduleAlternatives.length <= 1) {
       setStatus(
         scheduleAlternatives.length === 0
-          ? "No other conflict-free timetables found. Try unpinning a course or changing lecture sections."
-          : "Already on the only valid timetable for your lecture sections.",
+          ? "No conflict-free timetables found for your planned courses. Try unpinning a course or changing lecture sections."
+          : "Already on the only valid timetable for your planned courses.",
         "error",
       );
+      updateShuffleMeta();
       return;
     }
 
-    shuffleIndex = (shuffleIndex + direction + scheduleAlternatives.length) % scheduleAlternatives.length;
+    const baseIndex = findAlternativeIndex(scheduleAlternatives, componentPicks);
+    shuffleIndex = (baseIndex + direction + scheduleAlternatives.length) % scheduleAlternatives.length;
     applyScheduleAlternative(scheduleAlternatives[shuffleIndex]!);
     updateShuffleMeta();
     setStatus(`Showing timetable ${shuffleIndex + 1} of ${scheduleAlternatives.length}.`, "success");
@@ -569,10 +572,11 @@ export function initSchedulePage(options: SchedulePageOptions = {}): void {
       componentPicks.set(courseCode, new Map(picks));
     }
     entries = alternative.entries.map((entry) => ({ ...entry }));
+    refreshConflictIndex();
     persistWeek();
     renderCourseChips();
     renderSectionBrowser();
-    renderGridStructure();
+    renderGridEvents();
     updateSetActiveButton();
     updateGridEmptyState();
     renderConflictBanner();
@@ -603,7 +607,6 @@ export function initSchedulePage(options: SchedulePageOptions = {}): void {
       }
       cloudSyncEnabled = true;
       currentIsActive = saved.isActive;
-      await refreshSavedSchedules();
       updateSetActiveButton();
       if (entries.length > 0 && currentIsActive) {
         setStatus("Timetable saved — today's classes will show on your dashboard.", "success");
@@ -650,6 +653,7 @@ export function initSchedulePage(options: SchedulePageOptions = {}): void {
     if (loadedFromLocal) {
       persistWeek();
     }
+    refreshConflictIndex();
   }
 
   function mergeSavedSchedules(
@@ -720,7 +724,7 @@ export function initSchedulePage(options: SchedulePageOptions = {}): void {
   }
 
   async function ensureScheduleSavedToCloud(): Promise<boolean> {
-    const cdmTerm = selectedCdmTerm();
+    const cdmTerm = selectedTerm();
     if (!cdmTerm) return false;
 
     if (scheduleExistsInCloud(planYear, planSeason, cdmTerm)) {
@@ -753,7 +757,7 @@ export function initSchedulePage(options: SchedulePageOptions = {}): void {
     const matchesCurrent =
       targetPlanYear === planYear &&
       targetPlanSeason === planSeason &&
-      targetCdmTerm === selectedCdmTerm();
+      targetCdmTerm === selectedTerm();
 
     if (matchesCurrent) {
       const saved = await ensureScheduleSavedToCloud();
@@ -781,7 +785,7 @@ export function initSchedulePage(options: SchedulePageOptions = {}): void {
 
   function updateSetActiveButton(): void {
     if (!setActiveButton) return;
-    const cdmTerm = selectedCdmTerm();
+    const cdmTerm = selectedTerm();
     const showInEditor = mode === "editor" && Boolean(cdmTerm);
     setActiveButton.hidden = !showInEditor;
     setActiveButton.disabled = !showInEditor || currentIsActive;
@@ -856,7 +860,7 @@ export function initSchedulePage(options: SchedulePageOptions = {}): void {
 
   function updateTimetableSubtitle(): void {
     if (!timetableSubtitle) return;
-    const cdmTerm = selectedCdmTerm();
+    const cdmTerm = selectedTerm();
     timetableSubtitle.textContent = `Year ${planYear} · ${seasonLabel(planSeason)} · ${cdmTerm || "No term selected"}`;
   }
 
@@ -872,6 +876,16 @@ export function initSchedulePage(options: SchedulePageOptions = {}): void {
     status.classList.remove("schedule-status--error", "schedule-status--success");
     if (type === "error") status.classList.add("schedule-status--error");
     if (type === "success") status.classList.add("schedule-status--success");
+    if (message) {
+      status.setAttribute("role", "status");
+      status.setAttribute("aria-live", "polite");
+    }
+  }
+
+  let conflictIndex = buildScheduleConflictIndex(entries);
+
+  function refreshConflictIndex(): void {
+    conflictIndex = buildScheduleConflictIndex(entries);
   }
 
   function renderConflictBanner(): void {
@@ -888,11 +902,7 @@ export function initSchedulePage(options: SchedulePageOptions = {}): void {
   }
 
   function selectedBundleSections(courseCode: string): CourseSection[] {
-    const term = resolveSelectedTerm(termSelect, availableTerms, options.focusTerm);
-    const group = sectionGroups.find(
-      (item) =>
-        normalizeCourseCode(item.course_code) === normalizeCourseCode(courseCode) && item.term === term,
-    );
+    const group = sectionGroupForCourse(courseCode);
     if (!group) return [];
 
     const picks = componentPicks.get(normalizeCourseCode(courseCode));
@@ -914,11 +924,7 @@ export function initSchedulePage(options: SchedulePageOptions = {}): void {
   }
 
   function lectureGroupForPick(courseCode: string, lecturePick: string): string | null {
-    const term = resolveSelectedTerm(termSelect, availableTerms, options.focusTerm);
-    const group = sectionGroups.find(
-      (item) =>
-        normalizeCourseCode(item.course_code) === normalizeCourseCode(courseCode) && item.term === term,
-    );
+    const group = sectionGroupForCourse(courseCode);
     const section = group?.sections.find((item) => item.section_code === lecturePick);
     return section?.section_group ?? sectionBundleKey(lecturePick) ?? null;
   }
@@ -987,7 +993,8 @@ export function initSchedulePage(options: SchedulePageOptions = {}): void {
           ? scheduleWarningForCourse(planSnapshot, placement.course_id)
           : undefined;
         const onSchedule = onScheduleSections(courseCode).size > 0;
-        const hasConflict = onSchedule && courseHasConflicts(courseCode, entries);
+        const hasConflict =
+          onSchedule && conflictIndex.conflictingCourseCodes.has(normalizeCourseCode(courseCode));
         const pinned = onSchedule && isCoursePinned(courseCode);
         return `
           <div class="schedule-course-row${courseCode === activeCourse ? " is-active" : ""}${onSchedule ? " is-on-schedule" : ""}${hasConflict ? " is-conflict" : ""}">
@@ -1142,11 +1149,8 @@ export function initSchedulePage(options: SchedulePageOptions = {}): void {
       return;
     }
 
-    const term = resolveSelectedTerm(termSelect, availableTerms, options.focusTerm);
-    const group = sectionGroups.find(
-      (item) =>
-        normalizeCourseCode(item.course_code) === normalizeCourseCode(activeCourse) && item.term === term,
-    );
+    const term = selectedTerm();
+    const group = sectionGroupForCourse(activeCourse, term);
 
     sectionHeading.textContent = `${activeCourse} · ${term || "No term"}`;
 
@@ -1211,7 +1215,6 @@ export function initSchedulePage(options: SchedulePageOptions = {}): void {
 
     renderGridEvents(days);
     updateGridEmptyState();
-    rebuildScheduleAlternatives();
   }
 
   function renderGridEvents(days = weeklyGridDays()): void {
@@ -1220,12 +1223,13 @@ export function initSchedulePage(options: SchedulePageOptions = {}): void {
 
     const dayCount = days.length;
     const columnWidth = `calc((100% - ${TIME_COLUMN_WIDTH}px) / ${dayCount})`;
+    const { conflictingEntryIds } = conflictIndex;
 
     for (const entry of entries) {
       const layout = computeEventLayout(entry.day, entry.start_time, entry.end_time, days);
       if (!layout) continue;
 
-      const conflict = entryHasConflict(entry, entries);
+      const conflict = conflictingEntryIds.has(entry.id);
       const pinned = isCoursePinned(entry.course_code);
 
       const card = document.createElement("article");
@@ -1238,10 +1242,15 @@ export function initSchedulePage(options: SchedulePageOptions = {}): void {
       card.dataset.courseCode = entry.course_code;
 
       const place = [entry.campus, entry.room].filter(Boolean).join(" · ");
+      const timeLabel = `${formatClock(entry.start_time)} – ${formatClock(entry.end_time)}`;
+      card.setAttribute(
+        "aria-label",
+        `${entry.course_code} ${componentLabel(entry.component_type)} ${entry.section_code}, ${entry.day} ${timeLabel}${place ? `, ${place}` : ""}${conflict ? ", time conflict" : ""}`,
+      );
       card.innerHTML = `
         <p class="schedule-event__code">${pinned ? `<span class="schedule-event__pin-icon" aria-hidden="true">📌</span>` : ""}${entry.course_code}</p>
         <p class="schedule-event__section">${componentLabel(entry.component_type)} · ${entry.section_code}</p>
-        <p class="schedule-event__time">${formatClock(entry.start_time)} – ${formatClock(entry.end_time)}</p>
+        <p class="schedule-event__time">${timeLabel}</p>
         ${place ? `<p class="schedule-event__place">${place}</p>` : ""}
         ${conflict ? `<p class="schedule-event__conflict">Time conflict</p>` : ""}
       `;
@@ -1277,11 +1286,7 @@ export function initSchedulePage(options: SchedulePageOptions = {}): void {
     courseCode: string,
     syncOptions: { silent?: boolean } = {},
   ): boolean {
-    const term = resolveSelectedTerm(termSelect, availableTerms, options.focusTerm);
-    const group = sectionGroups.find(
-      (item) =>
-        normalizeCourseCode(item.course_code) === normalizeCourseCode(courseCode) && item.term === term,
-    );
+    const group = sectionGroupForCourse(courseCode);
     if (!group) {
       if (!syncOptions.silent) {
         setStatus(`No section data loaded for ${courseCode}.`, "error");
@@ -1348,11 +1353,13 @@ export function initSchedulePage(options: SchedulePageOptions = {}): void {
     }
 
     entries = [...remaining, ...newEntries];
+    refreshConflictIndex();
+    rebuildScheduleAlternatives();
 
     persistWeek();
     renderCourseChips();
     renderSectionBrowser();
-    renderGridStructure();
+    renderGridEvents();
     updateSetActiveButton();
     if (!syncOptions.silent) {
       setStatus(`Updated ${courseCode} on your Year ${planYear} weekly timetable.`, "success");
@@ -1365,21 +1372,53 @@ export function initSchedulePage(options: SchedulePageOptions = {}): void {
     syncCourseBundleToSchedule(courseCode);
   }
 
-  async function ensureAllPlannedCoursesOnSchedule(): Promise<void> {
-    const courses = plannedCourses();
-    if (courses.length === 0) return;
+  function bootstrapPlannedSchedule(): void {
+    const planned = plannedCourses();
+    if (planned.length === 0) return;
+
+    primeComponentPicksForPlannedCourses();
+    rebuildScheduleAlternatives();
+
+    const withData = coursesWithSectionData();
+    const missingFromPlan = withData.filter((code) => onScheduleSections(code).size === 0);
+
+    if (missingFromPlan.length === 0 && entries.length > 0 && scheduleAlternatives.length > 0) {
+      shuffleIndex = findAlternativeIndex(scheduleAlternatives, componentPicks);
+      updateShuffleMeta();
+      return;
+    }
+
+    if (scheduleAlternatives.length > 0) {
+      shuffleIndex = entries.length > 0
+        ? findAlternativeIndex(scheduleAlternatives, componentPicks)
+        : 0;
+      applyScheduleAlternative(scheduleAlternatives[shuffleIndex]!);
+      setStatus(
+        `Loaded ${withData.length} planned course${withData.length === 1 ? "" : "s"} onto your timetable. Use ← → to cycle conflict-free schedules.`,
+        "success",
+      );
+      return;
+    }
 
     let added = 0;
-    for (const courseCode of courses) {
+    for (const courseCode of planned) {
       if (onScheduleSections(courseCode).size > 0) continue;
       if (syncCourseBundleToSchedule(courseCode, { silent: true })) {
         added += 1;
       }
     }
-
     rebuildScheduleAlternatives();
+
     if (added > 0) {
       setStatus(`Loaded ${added} course${added === 1 ? "" : "s"} from your degree plan onto the timetable.`, "success");
+      return;
+    }
+
+    if (coursesWithSectionData().length > 0) {
+      setStatus(
+        "No conflict-free timetable found for all planned courses. Try unpinning a course or changing lecture sections.",
+        "error",
+      );
     }
   }
 
@@ -1390,12 +1429,13 @@ export function initSchedulePage(options: SchedulePageOptions = {}): void {
     );
     componentPicks.delete(normalized);
     pinnedCourses.delete(normalized);
+    refreshConflictIndex();
+    rebuildScheduleAlternatives();
     persistWeek();
     renderCourseChips();
     renderSectionBrowser();
-    renderGridStructure();
+    renderGridEvents();
     updateSetActiveButton();
-    rebuildScheduleAlternatives();
     setStatus(`Removed ${courseCode} from your weekly timetable.`, "success");
     renderConflictBanner();
   }
@@ -1411,12 +1451,12 @@ export function initSchedulePage(options: SchedulePageOptions = {}): void {
       const courseGroups = response.groups.filter(
         (group) => normalizeCourseCode(group.course_code) === normalizeCourseCode(courseCode),
       );
-      sectionGroups = [
+      updateSectionGroups([
         ...sectionGroups.filter(
           (group) => normalizeCourseCode(group.course_code) !== normalizeCourseCode(courseCode),
         ),
         ...courseGroups,
-      ];
+      ]);
       const terms = uniqueTerms(courseGroups);
       if (terms.length > 0) {
         availableTerms = mergeTerms(availableTerms, terms);
@@ -1436,12 +1476,49 @@ export function initSchedulePage(options: SchedulePageOptions = {}): void {
       renderSectionBrowser();
       return;
     }
-    for (const courseCode of courses) {
-      await loadSectionsForCourse(courseCode);
+
+    setStatus(`Loading sections for ${courses.length} course${courses.length === 1 ? "" : "s"}…`);
+    const results = await Promise.allSettled(
+      courses.map(async (courseCode) => {
+        if (!courseCode || mode !== "editor") return;
+        const response = await fetchCourseSections({
+          courseCode,
+          term: selectedTerm() || undefined,
+        });
+        return {
+          courseCode,
+          courseGroups: response.groups.filter(
+            (group) => normalizeCourseCode(group.course_code) === normalizeCourseCode(courseCode),
+          ),
+        };
+      }),
+    );
+
+    let loadedCount = 0;
+    for (const result of results) {
+      if (result.status !== "fulfilled") continue;
+      const { courseCode, courseGroups } = result.value;
+      if (courseGroups.length === 0) continue;
+      loadedCount += 1;
+      updateSectionGroups([
+        ...sectionGroups.filter(
+          (group) => normalizeCourseCode(group.course_code) !== normalizeCourseCode(courseCode),
+        ),
+        ...courseGroups,
+      ]);
+      const terms = uniqueTerms(courseGroups);
+      if (terms.length > 0) {
+        availableTerms = mergeTerms(availableTerms, terms);
+      }
+    }
+
+    if (loadedCount > 0) {
+      renderTermOptions();
     }
     if (activeCourse) {
       renderSectionBrowser();
     }
+    setStatus(loadedCount > 0 ? "" : "Could not load section data for your planned courses.", loadedCount > 0 ? "info" : "error");
     renderConflictBanner();
   }
 
@@ -1543,11 +1620,7 @@ export function initSchedulePage(options: SchedulePageOptions = {}): void {
     picks.set(input.dataset.componentType as SectionComponentType, input.value);
 
     if (input.dataset.componentType === "lec" && activeCourse) {
-      const term = resolveSelectedTerm(termSelect, availableTerms, options.focusTerm);
-      const group = sectionGroups.find(
-        (item) =>
-          normalizeCourseCode(item.course_code) === normalizeCourseCode(activeCourse) && item.term === term,
-      );
+      const group = sectionGroupForCourse(activeCourse);
       if (group) {
         const groups = groupSectionsByComponent(group.sections);
         syncDependentPicks(activeCourse, groups);
@@ -1637,7 +1710,7 @@ export function initSchedulePage(options: SchedulePageOptions = {}): void {
   });
 
   setActiveButton?.addEventListener("click", () => {
-    const cdmTerm = selectedCdmTerm();
+    const cdmTerm = selectedTerm();
     if (!cdmTerm) return;
     void activateForDashboard(planYear, planSeason, cdmTerm).then((ok) => {
       if (!ok) {

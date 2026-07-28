@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import {
+  buildScheduleConflictIndex,
   computeEventLayout,
   convertTimeToMinutes,
   courseBundleKey,
@@ -140,6 +141,20 @@ describe("schedule conflict helpers", () => {
     const summary = summarizeScheduleConflicts(conflicts);
     assert.match(summary, /EECS 1011/);
     assert.match(summary, /MATH 1013/);
+  });
+
+  it("builds a conflict index for fast grid and chip rendering", () => {
+    const entries = [
+      gridEntry({ id: "a", course_code: "EECS 1011", day: "Monday", start_time: "10:00", end_time: "11:00" }),
+      gridEntry({ id: "b", course_code: "MATH 1013", day: "Monday", start_time: "10:30", end_time: "11:30" }),
+      gridEntry({ id: "c", course_code: "PHYS 1010", day: "Tuesday", start_time: "10:30", end_time: "11:30" }),
+    ];
+
+    const index = buildScheduleConflictIndex(entries);
+    assert.equal(index.conflictingEntryIds.size, 2);
+    assert.equal(index.conflictingCourseCodes.size, 2);
+    assert.equal(index.conflictingEntryIds.has("a"), true);
+    assert.equal(index.conflictingEntryIds.has("c"), false);
   });
 });
 

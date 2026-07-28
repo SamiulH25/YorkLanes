@@ -1,6 +1,5 @@
 ---
-import PortalLayout from "../../layouts/PortalLayout.astro";
-import PortalActionGrid from "../../components/portal/PortalActionGrid.astro";
+import DashboardLayout from "../../layouts/DashboardLayout.astro";
 import { fetchMyPlan, fetchPlan } from "../../lib/plans";
 import {
   formatTermCredits,
@@ -119,23 +118,7 @@ const showSummerRow = yearColumns.length > 0;
 const showComplementaryStudies = plan ? planExpectsComplementaryStudies(plan) : false;
 ---
 
-<PortalLayout title="Degree Plan | YorkLanes" activeNav="plan">
-  <Fragment slot="actions">
-    <PortalActionGrid activeNav="plan" />
-  </Fragment>
-
-  <Fragment slot="breadcrumbs">
-    <nav aria-label="Breadcrumb">
-      <ol class="portal-breadcrumbs">
-        <li class="portal-breadcrumbs__item">
-          <a href="/dashboard" class="portal-breadcrumbs__link">Home</a>
-        </li>
-        <li class="portal-breadcrumbs__item">
-          <span class="portal-breadcrumbs__current" aria-current="page">Plan</span>
-        </li>
-      </ol>
-    </nav>
-  </Fragment>
+<DashboardLayout title="Degree Plan | YorkLanes" activeNav="plan" collapseSidebar>
 
   <div class="plan-page">
     <header class="plan-page-header">
@@ -599,4 +582,4 @@ const showComplementaryStudies = plan ? planExpectsComplementaryStudies(plan) : 
     )
   }
   </div>
-</PortalLayout>
+</DashboardLayout>

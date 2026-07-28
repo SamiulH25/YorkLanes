@@ -1,6 +1,5 @@
 ---
-import PortalLayout from "../../layouts/PortalLayout.astro";
-import PortalActionGrid from "../../components/portal/PortalActionGrid.astro";
+import DashboardLayout from "../../layouts/DashboardLayout.astro";
 import PortalHubFeed from "../../components/portal/PortalHubFeed.astro";
 import { fetchDashboardSummary } from "../../lib/api";
 import { fetchSessionUser } from "../../lib/auth";
@@ -28,41 +27,26 @@ if (sessionUser) {
 const notifications = hubNotificationsForPanels(hub);
 ---
 
-<PortalLayout title="Notifications | YorkLanes" hub={hub}>
-  <Fragment slot="actions">
-    <PortalActionGrid activeNav="dashboard" />
-  </Fragment>
-
-  <Fragment slot="breadcrumbs">
-    <nav aria-label="Breadcrumb">
-      <ol class="portal-breadcrumbs">
-        <li class="portal-breadcrumbs__item">
-          <a href="/dashboard" class="portal-breadcrumbs__link">Home</a>
-        </li>
-        <li class="portal-breadcrumbs__item">
-          <span class="portal-breadcrumbs__current" aria-current="page">Notifications</span>
-        </li>
-      </ol>
-    </nav>
-  </Fragment>
-
-  <div class="portal-inbox-page">
-    <header class="portal-inbox-page__header">
+<DashboardLayout title="Notifications | YorkLanes" activeNav="dashboard">
+  <Fragment slot="header">
+    <div class="flex flex-wrap items-start justify-between gap-4">
       <div>
-        <p class="portal-inbox-page__eyebrow">Activity</p>
-        <h1 class="portal-inbox-page__title">Notifications</h1>
-        <p class="portal-inbox-page__subtitle">
+        <p class="text-xs font-medium text-york-muted">Activity</p>
+        <h1 class="heading-page">Notifications</h1>
+        <p class="mt-0.5 text-sm text-muted">
           Assignment due dates, schedule changes, finance alerts, and setup reminders.
         </p>
       </div>
-      <a href="/dashboard" class="portal-inbox-page__cta">Back to dashboard</a>
-    </header>
+      <a href="/dashboard" class="btn-ghost shrink-0 px-4 py-2 text-sm">Back to dashboard</a>
+    </div>
+  </Fragment>
 
+  <section class="surface p-5">
     <PortalHubFeed
       kind="notifications"
       notifications={notifications}
       emptyTitle="You're all caught up"
       emptyBody="New notifications from assignments, your schedule, and finances will appear here."
     />
-  </div>
-</PortalLayout>
+  </section>
+</DashboardLayout>

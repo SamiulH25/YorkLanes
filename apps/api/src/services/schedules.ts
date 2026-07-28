@@ -78,6 +78,15 @@ export interface TodayClassPreview {
 /** York campus wall-clock for "today" filtering on the dashboard. */
 export const SCHEDULE_TIMEZONE = "America/Toronto";
 
+const UUID_RE =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
+/** Client-side stable keys are not always UUIDs; only persist valid UUIDs to Postgres. */
+export function coerceScheduleUuid(value: string | undefined | null): string | null {
+  if (!value) return null;
+  return UUID_RE.test(value) ? value : null;
+}
+
 const DAY_ABBREV_TO_FULL: Record<string, string> = {
   SUN: "Sunday",
   SUNDAY: "Sunday",
@@ -290,37 +299,62 @@ export async function upsertScheduleWeek(
     await client.query(`delete from public.schedule_entries where schedule_id = $1`, [scheduleId]);
     await client.query(`delete from public.schedule_course_bundles where schedule_id = $1`, [scheduleId]);
 
+    const entryPlaceholders: string[] = [];
+    const entryValues: unknown[] = [];
+    let paramIndex = 1;
     for (const [index, entry] of payload.entries.entries()) {
-      const bundleId = entry.bundle_id ?? randomUUID();
+      const bundleId = coerceScheduleUuid(entry.bundle_id) ?? randomUUID();
+      entryPlaceholders.push(
+        `(coalesce($${paramIndex}::uuid, gen_random_uuid()), $${paramIndex + 1}, $${paramIndex + 2}, $${paramIndex + 3}, $${paramIndex + 4}, $${paramIndex + 5}, $${paramIndex + 6}::time, $${paramIndex + 7}::time, $${paramIndex + 8}, $${paramIndex + 9}, $${paramIndex + 10}::uuid, $${paramIndex + 11})`,
+      );
+      entryValues.push(
+        coerceScheduleUuid(entry.id),
+        scheduleId,
+        entry.course_code,
+        entry.section_code,
+        entry.component_type,
+        normalizeScheduleDay(entry.day),
+        entry.start_time,
+        entry.end_time,
+        entry.room ?? null,
+        entry.campus ?? null,
+        bundleId,
+        index,
+      );
+      paramIndex += 12;
+    }
+
+    if (entryPlaceholders.length > 0) {
       await client.query(
         `insert into public.schedule_entries (
            id, schedule_id, course_code, section_code, component_type, day,
            start_time, end_time, room, campus, bundle_id, sort_order
-         ) values (
-           coalesce($1::uuid, gen_random_uuid()), $2, $3, $4, $5, $6, $7::time, $8::time, $9, $10, $11::uuid, $12
-         )`,
-        [
-          entry.id ?? null,
-          scheduleId,
-          entry.course_code,
-          entry.section_code,
-          entry.component_type,
-          normalizeScheduleDay(entry.day),
-          entry.start_time,
-          entry.end_time,
-          entry.room ?? null,
-          entry.campus ?? null,
-          bundleId,
-          index,
-        ],
+         ) values ${entryPlaceholders.join(", ")}`,
+        entryValues,
       );
     }
 
+    const bundlePlaceholders: string[] = [];
+    const bundleValues: unknown[] = [];
+    let bundleParamIndex = 1;
     for (const bundle of payload.bundles ?? []) {
+      bundlePlaceholders.push(
+        `($${bundleParamIndex}, $${bundleParamIndex + 1}, $${bundleParamIndex + 2}::uuid, $${bundleParamIndex + 3}::jsonb)`,
+      );
+      bundleValues.push(
+        scheduleId,
+        bundle.course_code,
+        coerceScheduleUuid(bundle.bundle_id) ?? randomUUID(),
+        JSON.stringify(bundle.picks ?? {}),
+      );
+      bundleParamIndex += 4;
+    }
+
+    if (bundlePlaceholders.length > 0) {
       await client.query(
         `insert into public.schedule_course_bundles (schedule_id, course_code, bundle_id, picks)
-         values ($1, $2, $3::uuid, $4::jsonb)`,
-        [scheduleId, bundle.course_code, bundle.bundle_id, JSON.stringify(bundle.picks ?? {})],
+         values ${bundlePlaceholders.join(", ")}`,
+        bundleValues,
       );
     }
 

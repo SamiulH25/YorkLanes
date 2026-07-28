@@ -177,7 +177,6 @@ const showComplementaryStudies = plan ? planExpectsComplementaryStudies(plan) : 
     plan && (
       <div class="plan-editor-shell">
       <div id="plan-editor" data-plan-id={plan.id}>
-        <script id="plan-data" type="application/json" is:inline set:html={JSON.stringify(plan)} />
 
         <div class="plan-editor-toolbar">
           <div class="plan-editor-toolbar__left">
@@ -576,8 +575,8 @@ const showComplementaryStudies = plan ? planExpectsComplementaryStudies(plan) : 
   {
     plan && (
       <script>
-        import { bootPlanEditor } from "../../scripts/plan-editor.ts";
-        bootPlanEditor();
+        const { bootPlanEditor } = await import("../../scripts/plan-editor.ts");
+        void bootPlanEditor();
       </script>
     )
   }

@@ -64,7 +64,7 @@ export async function listCourseSections(filters: ListSectionFilters = {}): Prom
 
   if (filters.courseCode?.trim()) {
     params.push(filters.courseCode.trim().toUpperCase());
-    conditions.push(`upper(cs.course_code) = $${params.length}`);
+    conditions.push(`cs.course_code = $${params.length}`);
   }
 
   if (filters.term?.trim()) {
@@ -79,8 +79,8 @@ export async function listCourseSections(filters: ListSectionFilters = {}): Prom
 
   const where = conditions.length > 0 ? `WHERE ${conditions.join(" AND ")}` : "";
   const join = filters.department?.trim()
-    ? "JOIN courses c ON upper(c.code) = upper(cs.course_code)"
-    : "LEFT JOIN courses c ON upper(c.code) = upper(cs.course_code)";
+    ? "JOIN courses c ON c.code = cs.course_code"
+    : "LEFT JOIN courses c ON c.code = cs.course_code";
 
   const result = await getPool().query<SectionRow>(
     `SELECT
@@ -149,7 +149,7 @@ export async function listCdmTerms(courseCode?: string): Promise<string[]> {
   let where = "";
   if (courseCode?.trim()) {
     params.push(courseCode.trim().toUpperCase());
-    where = `WHERE upper(course_code) = $1`;
+    where = `WHERE course_code = $1`;
   }
 
   const result = await getPool().query<{ term: string }>(

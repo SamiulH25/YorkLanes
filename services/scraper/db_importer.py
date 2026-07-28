@@ -137,6 +137,16 @@ def upsert_sections(sections: Iterable[SectionRecord], dry_run: bool = False) ->
     conn = psycopg2.connect(resolve_database_url())
     try:
         with conn.cursor() as cur:
+            by_term_courses: dict[str, set[str]] = {}
+            for section in section_list:
+                by_term_courses.setdefault(section.term, set()).add(section.course_code)
+
+            for term, course_codes in by_term_courses.items():
+                cur.execute(
+                    "DELETE FROM course_sections WHERE term = %s AND course_code = ANY(%s)",
+                    (term, list(course_codes)),
+                )
+
             section_rows = [
                 (
                     s.term,
@@ -170,6 +180,8 @@ def upsert_sections(sections: Iterable[SectionRecord], dry_run: bool = False) ->
                 section_rows,
                 template="(%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, NOW())",
             )
+
+            cur.execute("SELECT public.refresh_course_offering_summaries()")
 
         conn.commit()
         return {"sections": len(section_list)}

@@ -38,9 +38,11 @@ export interface CourseOfferingSummary {
   last_scraped_at: string | null;
 }
 
-interface TermRow {
+interface OfferingSummaryRow {
   course_code: string;
-  term: string;
+  terms_seen: string[];
+  section_count: number;
+  last_scraped_at: Date | string | null;
 }
 
 interface MeetingRow {
@@ -52,7 +54,7 @@ interface MeetingRow {
   end_time: string;
   campus: string | null;
   delivery_mode: string | null;
-  scraped_at: Date | string | null;
+  scraped_at?: Date | string | null;
 }
 
 const DAY_ORDER = ["MON", "TUE", "WED", "THU", "FRI", "SAT", "SUN"];
@@ -113,28 +115,46 @@ export async function getSeasonHistoryForCourses(
   if (unique.length === 0) return map;
 
   try {
-    const result = await getPool().query<TermRow>(
-      `SELECT DISTINCT upper(course_code) AS course_code, term
-       FROM course_sections
-       WHERE upper(course_code) = ANY($1::text[])
-       ORDER BY course_code, term DESC`,
+    const result = await getPool().query<OfferingSummaryRow>(
+      `SELECT course_code, terms_seen, section_count, last_scraped_at
+       FROM course_offering_summaries
+       WHERE course_code = ANY($1::text[])`,
       [unique],
     );
 
-    const termsByCode = new Map<string, string[]>();
     for (const row of result.rows) {
-      const list = termsByCode.get(row.course_code) ?? [];
-      list.push(row.term);
-      termsByCode.set(row.course_code, list);
-    }
-
-    for (const code of unique) {
-      map.set(code, buildSeasonHistory(code, termsByCode.get(code) ?? []));
+      const terms = Array.isArray(row.terms_seen) ? row.terms_seen : [];
+      map.set(row.course_code, buildSeasonHistory(row.course_code, terms));
     }
   } catch (error) {
-    // Missing table / empty DB should not break the plan graph.
     const message = error instanceof Error ? error.message : String(error);
-    if (!/course_sections|relation .* does not exist/i.test(message)) {
+    if (/course_offering_summaries|course_sections|relation .* does not exist/i.test(message)) {
+      try {
+        const fallback = await getPool().query<{ course_code: string; term: string }>(
+          `SELECT DISTINCT course_code, term
+           FROM course_sections
+           WHERE course_code = ANY($1::text[])
+           ORDER BY course_code, term DESC`,
+          [unique],
+        );
+
+        const termsByCode = new Map<string, string[]>();
+        for (const row of fallback.rows) {
+          const list = termsByCode.get(row.course_code) ?? [];
+          list.push(row.term);
+          termsByCode.set(row.course_code, list);
+        }
+
+        for (const code of unique) {
+          map.set(code, buildSeasonHistory(code, termsByCode.get(code) ?? []));
+        }
+      } catch (inner) {
+        const innerMessage = inner instanceof Error ? inner.message : String(inner);
+        if (!/course_sections|relation .* does not exist/i.test(innerMessage)) {
+          throw inner;
+        }
+      }
+    } else {
       throw error;
     }
   }
@@ -178,9 +198,76 @@ export async function getCourseOfferingSummary(courseCode: string): Promise<Cour
   if (!code) return empty;
 
   try {
-    const result = await getPool().query<MeetingRow>(
+    const summaryResult = await getPool().query<OfferingSummaryRow>(
+      `SELECT course_code, terms_seen, section_count, last_scraped_at
+       FROM course_offering_summaries
+       WHERE course_code = $1`,
+      [code],
+    );
+
+    const summaryRow = summaryResult.rows[0];
+    if (!summaryRow) return empty;
+
+    const termsSeen = Array.isArray(summaryRow.terms_seen) ? summaryRow.terms_seen : [];
+    const history = buildSeasonHistory(code, termsSeen);
+
+    const meetingsResult = await getPool().query<MeetingRow>(
       `SELECT
-         upper(course_code) AS course_code,
+         course_code,
+         term,
+         section_code,
+         day,
+         start_time::text AS start_time,
+         end_time::text AS end_time,
+         campus,
+         delivery_mode
+       FROM course_sections
+       WHERE course_code = $1
+         AND section_code ILIKE 'LEC%'
+       ORDER BY term DESC, section_code, day, start_time
+       LIMIT 250`,
+      [code],
+    );
+
+    let lastScraped: string | null = null;
+    if (summaryRow.last_scraped_at) {
+      lastScraped =
+        summaryRow.last_scraped_at instanceof Date
+          ? summaryRow.last_scraped_at.toISOString()
+          : String(summaryRow.last_scraped_at);
+    }
+
+    const seasonsOffered = (["fall", "winter", "summer"] as Season[]).filter(
+      (season) => history.seasons[season],
+    );
+
+    return {
+      course_code: code,
+      has_history: true,
+      terms_seen: history.terms_seen,
+      seasons: history.seasons,
+      seasons_offered: seasonsOffered,
+      section_count: summaryRow.section_count,
+      typical: buildTypical(meetingsResult.rows),
+      last_scraped_at: lastScraped,
+    };
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    if (/course_offering_summaries|course_sections|relation .* does not exist/i.test(message)) {
+      return getCourseOfferingSummaryFallback(code, empty);
+    }
+    throw error;
+  }
+}
+
+async function getCourseOfferingSummaryFallback(
+  code: string,
+  empty: CourseOfferingSummary,
+): Promise<CourseOfferingSummary> {
+  try {
+    const result = await getPool().query<MeetingRow & { scraped_at: Date | string | null }>(
+      `SELECT
+         course_code,
          term,
          section_code,
          day,
@@ -190,7 +277,7 @@ export async function getCourseOfferingSummary(courseCode: string): Promise<Cour
          delivery_mode,
          scraped_at
        FROM course_sections
-       WHERE upper(course_code) = $1
+       WHERE course_code = $1
        ORDER BY term DESC, section_code, day, start_time`,
       [code],
     );

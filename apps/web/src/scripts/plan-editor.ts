@@ -1,7 +1,7 @@
 /**
  * Interactive degree plan editor — drag-and-drop, course selection, SVG dependency lines.
  *
- * Data: plan JSON embedded in the page (#plan-data), graph from GET /api/plans/:id/graph
+ * Data: plan loaded via GET /api/plans/:id/graph (no inline JSON blob).
  * Entry: initPlanEditor() called from apps/web/src/pages/plan/index.astro
  */
 import {
@@ -2679,7 +2679,10 @@ async function loadGraph(state: EditorState): Promise<void> {
   }
 }
 
-export function initPlanEditor(plan: DegreePlan): void {
+export function initPlanEditor(
+  plan: DegreePlan,
+  preloadedGraph?: Omit<PlanGraphSnapshot, "plan" | "updated_at"> | null,
+): void {
   const root = document.getElementById("plan-editor");
   if (!root) return;
 
@@ -2727,7 +2730,16 @@ export function initPlanEditor(plan: DegreePlan): void {
   void loadComplementarySummary(state).then(() => {
     focusComplementaryFromUrl(state);
   });
-  void loadGraph(state);
+  if (preloadedGraph) {
+    applyGraphResponse(state, { plan, graph: preloadedGraph });
+    updateDependencySummary(state);
+    setStatus("Click a course to see prereqs · season alerts use scraped F/W/S history");
+    scheduleRedraw(state, { chrome: true, animate: false });
+    updateSelectionLegend(state);
+    focusComplementaryFromUrl(state);
+  } else {
+    void loadGraph(state);
+  }
 }
 
 export function readPlanFromPage(): DegreePlan | null {
@@ -2740,14 +2752,26 @@ export function readPlanFromPage(): DegreePlan | null {
   }
 }
 
-export function bootPlanEditor(): void {
+export async function bootPlanEditor(): Promise<void> {
   const root = document.getElementById("plan-editor");
   if (!root || root.dataset.planEditorReady === "true") return;
   root.dataset.planEditorReady = "true";
 
-  const planData = readPlanFromPage();
-  if (planData) {
-    initPlanEditor(planData);
+  const embedded = readPlanFromPage();
+  if (embedded) {
+    initPlanEditor(embedded);
+    return;
+  }
+
+  const planId = root.dataset.planId?.trim();
+  if (!planId) return;
+
+  setStatus("Loading degree plan…");
+  try {
+    const response = await fetchPlanGraph(planId);
+    initPlanEditor(response.plan, response.graph);
+  } catch (error) {
+    setStatus(error instanceof Error ? error.message : "Could not load degree plan", true);
   }
 }
 
@@ -2756,7 +2780,7 @@ document.addEventListener("astro:page-load", () => {
   if (root) {
     delete root.dataset.planEditorReady;
   }
-  bootPlanEditor();
+  void bootPlanEditor();
 });
 
-bootPlanEditor();
+void bootPlanEditor();

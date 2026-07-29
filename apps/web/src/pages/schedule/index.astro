@@ -2,13 +2,34 @@
 import DashboardLayout from "../../layouts/DashboardLayout.astro";
 import "../../styles/schedule-page.css";
 import "../../styles/schedule-shuffle.css";
+import { fetchSessionUser } from "../../lib/auth";
+import { fetchSavedSchedules, type SavedScheduleSummary } from "../../lib/schedules";
 
 export const prerender = false;
+
+const cookie = Astro.request.headers.get("cookie");
+const sessionUser = await fetchSessionUser(cookie);
 
 const focusCourse = Astro.url.searchParams.get("course")?.trim().toUpperCase() ?? "";
 const focusTerm = Astro.url.searchParams.get("term")?.trim() ?? "";
 const initialView = Astro.url.searchParams.get("view") === "timetable" ? "timetable" : "build";
 const startNew = Astro.url.searchParams.get("new") === "1";
+
+let savedSchedules: SavedScheduleSummary[] = [];
+let schedulesLoadError: string | null = null;
+
+if (sessionUser) {
+  try {
+    savedSchedules = await fetchSavedSchedules(cookie);
+  } catch (error) {
+    schedulesLoadError = error instanceof Error ? error.message : "Could not load saved schedules";
+  }
+}
+
+const scheduleSsrPayload = JSON.stringify({
+  schedules: savedSchedules,
+  error: schedulesLoadError,
+});
 ---
 
 <DashboardLayout title="Schedule | YorkLanes" activeNav="schedule">
@@ -35,6 +56,7 @@ const startNew = Astro.url.searchParams.get("new") === "1";
     data-schedule-mode="home"
     style={`--schedule-day-count: 5; --schedule-row-height: 5rem;`}
   >
+    <script id="schedule-ssr" type="application/json" set:html={scheduleSsrPayload}></script>
     <section class="surface p-5 schedule-home" data-schedule-home>
       <div class="flex flex-wrap items-center justify-between gap-3">
         <div>
@@ -50,7 +72,17 @@ const startNew = Astro.url.searchParams.get("new") === "1";
         </button>
       </div>
       <div class="schedule-saved-list mt-5" data-schedule-saved>
-        <p class="schedule-status">Loading saved schedules…</p>
+        {
+          schedulesLoadError ? (
+            <p class="schedule-status">{schedulesLoadError}</p>
+          ) : savedSchedules.length > 0 ? (
+            <p class="schedule-status">{savedSchedules.length} saved timetable{savedSchedules.length === 1 ? "" : "s"} loaded.</p>
+          ) : sessionUser ? (
+            <p class="schedule-status">No saved timetables yet.</p>
+          ) : (
+            <p class="schedule-status">Sign in to load saved schedules from your account.</p>
+          )
+        }
       </div>
       <p class="schedule-dashboard-hint mt-3 text-xs text-muted hidden" data-schedule-dashboard-hint hidden>
         Choose a dashboard schedule so the home page can show today&apos;s classes.
@@ -244,6 +276,7 @@ const startNew = Astro.url.searchParams.get("new") === "1";
   </div>
 
   <script>
-    import "../../scripts/schedule-page.ts";
+    const { bootSchedulePage } = await import("../../scripts/schedule-page.ts");
+    bootSchedulePage();
   </script>
 </DashboardLayout>

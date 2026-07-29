@@ -5,6 +5,7 @@ import {
   type FinanceRecurrence,
 } from "../lib/finance-recurrence";
 import { fetchWithRetry } from "../lib/fetch-retry";
+import { registerPageBoot } from "../lib/page-boot";
 import {
   budgetProgress,
   filterListEntries,
@@ -199,6 +200,34 @@ function normalizeEntry(entry: FinanceEntry): FinanceEntry {
     ...entry,
     recurrence: normalizeRecurrence(entry.recurrence),
   };
+}
+
+function readFinanceSsrPayload(): {
+  data: {
+    entries: FinanceEntry[];
+    budgetCents: number;
+    month: string;
+    recurrenceSupported: boolean;
+  } | null;
+  error: string | null;
+} {
+  const el = document.getElementById("finance-ssr");
+  if (!el?.textContent) {
+    return { data: null, error: null };
+  }
+  try {
+    return JSON.parse(el.textContent) as {
+      data: {
+        entries: FinanceEntry[];
+        budgetCents: number;
+        month: string;
+        recurrenceSupported: boolean;
+      } | null;
+      error: string | null;
+    };
+  } catch {
+    return { data: null, error: null };
+  }
 }
 
 async function financeFetch(path: string, init?: RequestInit): Promise<Response> {
@@ -840,6 +869,21 @@ async function initFinance(root: HTMLElement): Promise<void> {
   const ssrSignedIn = root.dataset.signedIn === "true";
   setSignInPrompt(root, !ssrSignedIn);
 
+  const ssr = readFinanceSsrPayload();
+  if (ssr.data) {
+    entries = ssr.data.entries.map(normalizeEntry);
+    budgetCents = ssr.data.budgetCents;
+    selectedMonth = ssr.data.month;
+    if (monthInput) monthInput.value = selectedMonth;
+    recurrenceSupported = ssr.data.recurrenceSupported;
+    apiAvailable = true;
+    paint();
+    setMode(root, "database");
+    setRecurrenceAvailability(root, apiAvailable, recurrenceSupported);
+  } else if (ssr.error && ssrSignedIn) {
+    setMode(root, "sync-delayed");
+  }
+
   const signedIn = await fetchSignedIn(ssrSignedIn);
   if (!root.isConnected) return;
   setSignInPrompt(root, !signedIn);
@@ -1139,13 +1183,6 @@ function bootFinance(): void {
   void initFinance(root);
 }
 
-function handleFinancePageLoad(): void {
-  document.querySelectorAll<HTMLElement>("[data-finance-root]").forEach((root) => {
-    delete root.dataset.financeInit;
-  });
-  bootFinance();
-}
+registerPageBoot("[data-finance-root]", "financeInit", bootFinance);
 
-document.addEventListener("astro:page-load", handleFinancePageLoad);
-
-export {};
+export { bootFinance };

@@ -51,8 +51,12 @@ export class SchedulesApiError extends Error {
   }
 }
 
-async function scheduleFetch(path: string, init?: RequestInit): Promise<Response> {
-  return fetchWithRetry(apiUrl(path), apiRequestInit(null, init), {
+async function scheduleFetch(
+  path: string,
+  init?: RequestInit,
+  cookieHeader?: string | null,
+): Promise<Response> {
+  return fetchWithRetry(apiUrl(path), apiRequestInit(cookieHeader, init), {
     attempts: 3,
     baseDelayMs: 500,
   });
@@ -65,8 +69,8 @@ async function readSchedulesError(response: Response): Promise<string> {
   return parts.join(" ");
 }
 
-export async function fetchSavedSchedules(): Promise<SavedScheduleSummary[]> {
-  const response = await scheduleFetch("/api/schedules");
+export async function fetchSavedSchedules(cookieHeader?: string | null): Promise<SavedScheduleSummary[]> {
+  const response = await scheduleFetch("/api/schedules", undefined, cookieHeader);
   if (response.status === 401) {
     throw new SchedulesApiError("Sign in to load saved schedules from your account.", 401);
   }

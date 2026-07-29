@@ -3,6 +3,7 @@
  * Form POSTs do not persist reliably with Astro View Transitions (ClientRouter),
  * so saves go directly to /api/assignments from the browser (proxied with session cookies).
  */
+import { registerPageBoot } from "../lib/page-boot";
 import {
   createAssignment,
   deleteAssignment,
@@ -352,8 +353,6 @@ function bootAssignmentsPage(): void {
   initAssignmentsPage();
 }
 
-// View Transitions swap the DOM on navigation; astro:page-load is the single init hook.
-// Do not also call bootAssignmentsPage() at module load — that double-binds listeners on first paint.
-document.addEventListener("astro:page-load", bootAssignmentsPage);
+registerPageBoot("#assignments-root", "assignmentsInit", bootAssignmentsPage);
 
-export {};
+export { bootAssignmentsPage };

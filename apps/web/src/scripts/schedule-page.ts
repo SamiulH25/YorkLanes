@@ -33,6 +33,7 @@ import {
   scheduleWarningForCourse,
   type PlanSeasonFilter,
 } from "../lib/plan-store";
+import { registerPageBoot } from "../lib/page-boot";
 import {
   entriesFromSections,
   enumerateValidSchedules,
@@ -108,6 +109,28 @@ function rebuildSectionGroupLookup(groups: SectionGroup[]): Map<string, SectionG
     lookup.set(sectionGroupKey(group.course_code, group.term), group);
   }
   return lookup;
+}
+
+function readScheduleSsrPayload(): {
+  schedules: SavedScheduleSummary[];
+  error: string | null;
+} {
+  const el = document.getElementById("schedule-ssr");
+  if (!el?.textContent) {
+    return { schedules: [], error: null };
+  }
+  try {
+    const data = JSON.parse(el.textContent) as {
+      schedules?: SavedScheduleSummary[];
+      error?: string | null;
+    };
+    return {
+      schedules: data.schedules ?? [],
+      error: data.error ?? null,
+    };
+  } catch {
+    return { schedules: [], error: null };
+  }
 }
 
 export function initSchedulePage(options: SchedulePageOptions = {}): void {
@@ -692,19 +715,32 @@ export function initSchedulePage(options: SchedulePageOptions = {}): void {
   }
 
   async function refreshSavedSchedules(): Promise<void> {
-    let cloud: SavedScheduleSummary[] = [];
+    const ssr = readScheduleSsrPayload();
+    let cloud: SavedScheduleSummary[] = ssr.schedules;
+    if (ssr.error) {
+      setStatus(ssr.error, "error");
+    }
+    if (cloud.length > 0) {
+      cloudSyncEnabled = true;
+      savedSchedules = mergeSavedSchedules(cloud, listLocalSavedSchedules());
+      renderSavedSchedules();
+    }
+
     try {
-      cloud = await fetchSavedSchedules();
+      const fetched = await fetchSavedSchedules();
+      cloud = fetched;
       if (cloud.length > 0) cloudSyncEnabled = true;
     } catch (error) {
-      cloud = [];
-      const local = listLocalSavedSchedules();
-      if (error instanceof SchedulesApiError) {
-        if (error.status !== 401 || local.length === 0) {
+      if (cloud.length === 0) {
+        cloud = [];
+        const local = listLocalSavedSchedules();
+        if (error instanceof SchedulesApiError) {
+          if (error.status !== 401 || local.length === 0) {
+            setStatus(error.message, "error");
+          }
+        } else if (error instanceof Error) {
           setStatus(error.message, "error");
         }
-      } else if (error instanceof Error) {
-        setStatus(error.message, "error");
       }
     }
     savedSchedules = mergeSavedSchedules(cloud, listLocalSavedSchedules());
@@ -1745,14 +1781,4 @@ export function bootSchedulePage(): void {
   });
 }
 
-function handleSchedulePageLoad(): void {
-  document.querySelectorAll<HTMLElement>("[data-schedule-root]").forEach((root) => {
-    delete root.dataset.scheduleReady;
-  });
-  bootSchedulePage();
-}
-
-// View Transitions swap the DOM on navigation; astro:page-load is the single init hook.
-document.addEventListener("astro:page-load", handleSchedulePageLoad);
-
-export {};
+registerPageBoot("[data-schedule-root]", "scheduleReady", bootSchedulePage);

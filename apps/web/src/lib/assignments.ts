@@ -27,18 +27,73 @@ export interface CreateAssignmentInput {
   dueDate: string;
 }
 
+function normalizeAssignment(value: unknown): Assignment {
+  if (!value || typeof value !== "object") {
+    throw new Error("Assignments API returned an invalid assignment.");
+  }
+
+  const row = value as Record<string, unknown>;
+  const title = row.title;
+  const id = row.id;
+  if (typeof title !== "string" || typeof id !== "string") {
+    throw new Error("Assignments API returned an invalid assignment.");
+  }
+
+  return {
+    id,
+    title,
+    courseCode: String(row.courseCode ?? row.course_code ?? ""),
+    description: (row.description as string | null | undefined) ?? null,
+    dueAt: String(row.dueAt ?? row.due_at ?? ""),
+    done: Boolean(row.done),
+    starred: Boolean(row.starred),
+    createdAt:
+      typeof row.createdAt === "string"
+        ? row.createdAt
+        : typeof row.created_at === "string"
+          ? row.created_at
+          : undefined,
+    updatedAt:
+      typeof row.updatedAt === "string"
+        ? row.updatedAt
+        : typeof row.updated_at === "string"
+          ? row.updated_at
+          : undefined,
+  };
+}
+
 function parseAssignmentPayload(data: unknown): Assignment {
   if (!data || typeof data !== "object") {
     throw new Error("Assignments API returned an empty response.");
   }
 
-  const record = data as { assignment?: Assignment; error?: string };
-  const assignment = record.assignment;
-  if (!assignment || typeof assignment.title !== "string") {
-    throw new Error(record.error ?? "Assignments API returned an invalid assignment.");
+  const record = data as Record<string, unknown>;
+  if (record.assignment) {
+    return normalizeAssignment(record.assignment);
   }
 
-  return assignment;
+  if (typeof record.title === "string" && typeof record.id === "string") {
+    return normalizeAssignment(record);
+  }
+
+  throw new Error(
+    typeof record.error === "string"
+      ? record.error
+      : "Assignments API returned an invalid assignment.",
+  );
+}
+
+async function readAssignmentError(response: Response): Promise<string> {
+  const data = (await response.json().catch(() => ({}))) as { error?: string };
+  return data.error ?? `Assignments API error: ${response.status}`;
+}
+
+function tryParseAssignmentPayload(data: unknown): Assignment | null {
+  try {
+    return parseAssignmentPayload(data);
+  } catch {
+    return null;
+  }
 }
 
 export async function fetchAssignments(cookieHeader?: string | null): Promise<AssignmentsResponse> {
@@ -50,7 +105,7 @@ export async function fetchAssignments(cookieHeader?: string | null): Promise<As
 export async function createAssignment(
   input: CreateAssignmentInput,
   cookieHeader?: string | null,
-): Promise<Assignment> {
+): Promise<void> {
   const response = await fetch(
     apiUrl("/api/assignments"),
     apiRequestInit(cookieHeader, {
@@ -60,23 +115,23 @@ export async function createAssignment(
     }),
   );
 
-  const data = (await response.json().catch(() => ({}))) as {
-    assignment?: Assignment;
-    error?: string;
-  };
-
   if (!response.ok) {
-    throw new Error(data.error ?? `Assignments API error: ${response.status}`);
+    throw new Error(await readAssignmentError(response));
   }
 
-  return parseAssignmentPayload(data);
+  // Mutation succeeded — the page reloads to refresh the list. Body may be empty
+  // behind some proxies even when the row was created.
+  if (response.status !== 204) {
+    const data = await response.json().catch(() => ({}));
+    tryParseAssignmentPayload(data);
+  }
 }
 
 async function patchAssignment(
   assignmentId: string,
   body: { done?: boolean; starred?: boolean },
   cookieHeader?: string | null,
-): Promise<Assignment> {
+): Promise<void> {
   const response = await fetch(
     apiUrl(`/api/assignments/${assignmentId}`),
     apiRequestInit(cookieHeader, {
@@ -86,23 +141,21 @@ async function patchAssignment(
     }),
   );
 
-  const data = (await response.json().catch(() => ({}))) as {
-    assignment?: Assignment;
-    error?: string;
-  };
-
   if (!response.ok) {
-    throw new Error(data.error ?? `Assignments API error: ${response.status}`);
+    throw new Error(await readAssignmentError(response));
   }
 
-  return parseAssignmentPayload(data);
+  if (response.status !== 204) {
+    const data = await response.json().catch(() => ({}));
+    tryParseAssignmentPayload(data);
+  }
 }
 
 export function setAssignmentDone(
   assignmentId: string,
   done: boolean,
   cookieHeader?: string | null,
-): Promise<Assignment> {
+): Promise<void> {
   return patchAssignment(assignmentId, { done }, cookieHeader);
 }
 
@@ -110,7 +163,7 @@ export function setAssignmentStarred(
   assignmentId: string,
   starred: boolean,
   cookieHeader?: string | null,
-): Promise<Assignment> {
+): Promise<void> {
   return patchAssignment(assignmentId, { starred }, cookieHeader);
 }
 
@@ -143,7 +196,7 @@ export async function updateAssignment(
     dueDate: string;
   },
   cookieHeader?: string | null,
-): Promise<Assignment> {
+): Promise<void> {
   if (!id) {
     throw new Error("Assignment ID is required for update");
   }
@@ -162,14 +215,12 @@ export async function updateAssignment(
     }),
   );
 
-  const responseData = (await response.json().catch(() => ({}))) as {
-    assignment?: Assignment;
-    error?: string;
-  };
-
   if (!response.ok) {
-    throw new Error(responseData.error || `Failed to update assignment: ${response.status}`);
+    throw new Error(await readAssignmentError(response));
   }
 
-  return parseAssignmentPayload(responseData);
+  if (response.status !== 204) {
+    const responseData = await response.json().catch(() => ({}));
+    tryParseAssignmentPayload(responseData);
+  }
 }

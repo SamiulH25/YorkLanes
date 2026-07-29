@@ -1,108 +1,14 @@
 ---
 /** Assignment calendar — Sarah. Task guide: docs/tasks/assignments.md */
 import DashboardLayout from "../../layouts/DashboardLayout.astro";
-import {
-  fetchAssignments,
-  createAssignment,
-  updateAssignment,
-  deleteAssignment,
-  setAssignmentDone,
-  setAssignmentStarred,
-  type Assignment,
-} from "../../lib/assignments";
+import { fetchAssignments, type Assignment } from "../../lib/assignments";
 
 export const prerender = false;
 
 let loadError: string | null = null;
 let assignments: Assignment[] = [];
-let successMessage: string | null = null;
-let formError: string | null = null;
-let editError: string | null = null;
-let editSuccess: string | null = null;
 
 const cookie = Astro.request.headers.get("cookie");
-
-if (Astro.request.method === "POST") {
-  const formData = await Astro.request.formData();
-  const action = formData.get("_action")?.toString() ?? "";
-  const id = formData.get("id")?.toString() ?? "";
-
-  // Toggle done / undone
-  if (action === "toggle-done" && id) {
-    try {
-      await setAssignmentDone(id, formData.get("done")?.toString() === "true", cookie);
-    } catch (error) {
-      editError = error instanceof Error ? error.message : "Failed to update assignment.";
-    }
-  }
-
-  // Star / unstar
-  if (action === "toggle-star" && id) {
-    try {
-      await setAssignmentStarred(id, formData.get("starred")?.toString() === "true", cookie);
-    } catch (error) {
-      editError = error instanceof Error ? error.message : "Failed to update assignment.";
-    }
-  }
-
-  // Update
-  if (action === "update" && id) {
-    try {
-      const title = formData.get("title")?.toString().trim() ?? "";
-      const courseCode = formData.get("courseCode")?.toString().trim() ?? "";
-      const description = formData.get("description")?.toString().trim() ?? "";
-      const dueDate = formData.get("dueDate")?.toString().trim() ?? "";
-
-      if (!title || !courseCode || !dueDate) {
-        throw new Error("Title, course code, and due date are required.");
-      }
-
-      const updated = await updateAssignment(
-        id,
-        { title, courseCode, description, dueDate },
-        cookie,
-      );
-      editSuccess = `Updated "${updated.title}"`;
-    } catch (error) {
-      editError =
-        error instanceof Error ? error.message : "Failed to update assignment.";
-    }
-  }
-
-  // Delete
-  if (action === "delete" && id) {
-    try {
-      await deleteAssignment(id, cookie);
-      successMessage = "Assignment deleted successfully";
-    } catch (error) {
-      editError =
-        error instanceof Error ? error.message : "Failed to delete assignment.";
-    }
-  }
-
-  // Create
-  if (!action || action === "create") {
-    try {
-      const title = formData.get("title")?.toString().trim() ?? "";
-      const courseCode = formData.get("courseCode")?.toString().trim() ?? "";
-      const description = formData.get("description")?.toString().trim() ?? "";
-      const dueDate = formData.get("dueDate")?.toString().trim() ?? "";
-
-      if (!title || !courseCode || !dueDate) {
-        throw new Error("Title, course code, and due date are required.");
-      }
-
-      const created = await createAssignment(
-        { title, courseCode, description, dueDate },
-        cookie,
-      );
-      successMessage = `Added "${created.title}"`;
-    } catch (error) {
-      formError =
-        error instanceof Error ? error.message : "Failed to add assignment.";
-    }
-  }
-}
 
 // --- View / sort / month from query string ---------------------------------
 const view = Astro.url.searchParams.get("view") === "calendar" ? "calendar" : "list";
@@ -222,15 +128,13 @@ function dueTone(iso: string, done: boolean): "muted" | "soon" | "overdue" {
     )
   }
 
-  {
-    successMessage && (
-      <div class="mb-5 rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-800 dark:text-emerald-200">
-        {successMessage}
-      </div>
-    )
-  }
+  <div
+    id="assignments-flash-banner"
+    class="mb-5 hidden rounded-xl border px-4 py-3 text-sm"
+    role="status"
+  />
 
-  <div class="grid gap-5 xl:grid-cols-[minmax(0,1fr)_22rem]">
+  <div id="assignments-root" class="grid gap-5 xl:grid-cols-[minmax(0,1fr)_22rem]">
     <!-- Left Column: List / Calendar -->
     <section class="surface p-5 sm:p-6">
       <!-- Toolbar: view toggle + sort / month nav -->
@@ -362,7 +266,7 @@ function dueTone(iso: string, done: boolean): "muted" | "soon" | "overdue" {
                         </time>
                         <div class="flex items-center gap-1.5">
                           {/* Star toggle */}
-                          <form method="POST" class="js-inline-action">
+                          <form class="js-inline-action">
                             <input type="hidden" name="_action" value="toggle-star" />
                             <input type="hidden" name="id" value={assignment.id} />
                             <input type="hidden" name="starred" value={(!assignment.starred).toString()} />
@@ -381,7 +285,7 @@ function dueTone(iso: string, done: boolean): "muted" | "soon" | "overdue" {
                             </button>
                           </form>
                           {/* Done toggle */}
-                          <form method="POST" class="js-inline-action">
+                          <form class="js-inline-action">
                             <input type="hidden" name="_action" value="toggle-done" />
                             <input type="hidden" name="id" value={assignment.id} />
                             <input type="hidden" name="done" value={(!assignment.done).toString()} />
@@ -496,18 +400,15 @@ function dueTone(iso: string, done: boolean): "muted" | "soon" | "overdue" {
           </div>
         </div>
 
-        {
-          formError && (
-            <p class="mt-4 rounded-lg border border-york-red/30 bg-york-red/5 px-3 py-2 text-sm text-york-red">
-              {formError}
-            </p>
-          )
-        }
+        <p
+          id="assignments-form-error"
+          class="mt-4 hidden rounded-lg border border-york-red/30 bg-york-red/5 px-3 py-2 text-sm text-york-red"
+          role="alert"
+        />
 
         <form
           id="add-assignment-form"
-          class:list={["mt-5 space-y-4", !formError && "hidden"]}
-          method="POST"
+          class="mt-5 hidden space-y-4"
         >
           <input type="hidden" name="_action" value="create" />
           <label class="block">
@@ -534,7 +435,7 @@ function dueTone(iso: string, done: boolean): "muted" | "soon" | "overdue" {
 
         <p
           id="add-assignment-form-hint"
-          class:list={["mt-5 text-sm text-york-muted", formError && "hidden"]}
+          class="mt-5 text-sm text-york-muted"
         >
           Use <span class="font-medium text-york-black dark:text-white">Add assignment</span> in the
           header to open the form.
@@ -557,23 +458,19 @@ function dueTone(iso: string, done: boolean): "muted" | "soon" | "overdue" {
           </button>
         </div>
 
-        {
-          editSuccess && (
-            <div class="mt-4 rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-800 dark:text-emerald-200">
-              {editSuccess}
-            </div>
-          )
-        }
+        <p
+          id="assignments-edit-success"
+          class="mt-4 hidden rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-800 dark:text-emerald-200"
+          role="status"
+        />
 
-        {
-          editError && (
-            <p class="mt-4 rounded-lg border border-york-red/30 bg-york-red/5 px-3 py-2 text-sm text-york-red">
-              {editError}
-            </p>
-          )
-        }
+        <p
+          id="assignments-edit-error"
+          class="mt-4 hidden rounded-lg border border-york-red/30 bg-york-red/5 px-3 py-2 text-sm text-york-red"
+          role="alert"
+        />
 
-        <form id="edit-assignment-form" class="mt-5 space-y-4 hidden" method="POST">
+        <form id="edit-assignment-form" class="mt-5 hidden space-y-4">
           <input type="hidden" name="_action" value="update" />
           <input type="hidden" name="id" id="edit-id" />
 
@@ -620,7 +517,7 @@ function dueTone(iso: string, done: boolean): "muted" | "soon" | "overdue" {
         <p class="text-xs text-york-muted" id="delete-due"></p>
       </div>
       <div class="flex gap-3 mt-5">
-        <form method="POST" class="flex-1">
+        <form class="flex-1">
           <input type="hidden" name="_action" value="delete" />
           <input type="hidden" name="id" id="delete-id" />
           <button type="submit" class="w-full btn-york bg-york-red hover:bg-york-red/90">Yes, delete</button>
@@ -629,153 +526,8 @@ function dueTone(iso: string, done: boolean): "muted" | "soon" | "overdue" {
       </div>
     </div>
   </div>
+
+  <script>
+    import "../../scripts/assignments-page.ts";
+  </script>
 </DashboardLayout>
-
-<script>
-  // BaseLayout uses <ClientRouter/> (View Transitions): the DOM is swapped on
-  // every navigation (including form POSTs) without re-running module scripts,
-  // so all listeners must be (re)bound on each astro:page-load, not once.
-  function initAssignmentsPage() {
-  const showBtn = document.getElementById("show-add-assignment-form-btn");
-  const hideBtn = document.getElementById("hide-add-assignment-form-btn");
-  const form = document.getElementById("add-assignment-form");
-  const hint = document.getElementById("add-assignment-form-hint");
-  const addDueInput = document.getElementById("add-due") as HTMLInputElement | null;
-
-  const editForm = document.getElementById("edit-assignment-form");
-  const editHint = document.getElementById("edit-assignment-form-hint");
-  const editHideBtn = document.getElementById("hide-edit-assignment-form-btn");
-  const deleteBtn = document.getElementById("delete-assignment-btn");
-
-  const deleteModal = document.getElementById("delete-modal");
-  const cancelDeleteBtn = document.getElementById("cancel-delete-btn");
-  const deleteIdInput = document.getElementById("delete-id") as HTMLInputElement | null;
-  const deleteTitleEl = document.getElementById("delete-title");
-  const deleteCourseEl = document.getElementById("delete-course");
-  const deleteDueEl = document.getElementById("delete-due");
-
-  const editIdInput = document.getElementById("edit-id") as HTMLInputElement | null;
-  const editTitleInput = document.getElementById("edit-title") as HTMLInputElement | null;
-  const editCourseInput = document.getElementById("edit-course") as HTMLInputElement | null;
-  const editDescriptionInput = document.getElementById("edit-description") as HTMLInputElement | null;
-  const editDueInput = document.getElementById("edit-due") as HTMLInputElement | null;
-
-  type EditData = {
-    id?: string;
-    title?: string;
-    course?: string;
-    description?: string;
-    due?: string;
-  };
-
-  function formatDateForInput(dateString?: string) {
-    if (!dateString) return "";
-    // dueAt is stored as UTC midnight for date-only entries — take the date part directly.
-    if (/^\d{4}-\d{2}-\d{2}/.test(dateString)) return dateString.slice(0, 10);
-    const date = new Date(dateString);
-    if (isNaN(date.getTime())) return "";
-    const year = date.getUTCFullYear();
-    const month = String(date.getUTCMonth() + 1).padStart(2, "0");
-    const day = String(date.getUTCDate()).padStart(2, "0");
-    return `${year}-${month}-${day}`;
-  }
-
-  function setFormOpen(open: boolean) {
-    form?.classList.toggle("hidden", !open);
-    hint?.classList.toggle("hidden", open);
-  }
-
-  function setEditFormOpen(open: boolean, assignmentData: EditData | null = null) {
-    if (open && assignmentData && editIdInput) {
-      editIdInput.value = assignmentData.id ?? "";
-      editTitleInput!.value = assignmentData.title ?? "";
-      editCourseInput!.value = assignmentData.course ?? "";
-      editDescriptionInput!.value = assignmentData.description || "";
-      editDueInput!.value = formatDateForInput(assignmentData.due);
-
-      deleteBtn?.classList.remove("hidden");
-      if (deleteBtn) {
-        deleteBtn.dataset.id = assignmentData.id ?? "";
-        deleteBtn.dataset.title = assignmentData.title ?? "";
-        deleteBtn.dataset.course = assignmentData.course ?? "";
-        deleteBtn.dataset.due = assignmentData.due ?? "";
-      }
-    }
-
-    editForm?.classList.toggle("hidden", !open);
-    editHint?.classList.toggle("hidden", open);
-    if (open) editForm?.scrollIntoView({ behavior: "smooth", block: "nearest" });
-  }
-
-  showBtn?.addEventListener("click", () => {
-    setFormOpen(true);
-    setEditFormOpen(false);
-  });
-  hideBtn?.addEventListener("click", () => setFormOpen(false));
-  editHideBtn?.addEventListener("click", () => setEditFormOpen(false));
-
-  // Open edit form from a list item or a calendar chip.
-  document.querySelectorAll(".js-edit-trigger").forEach((item) => {
-    item.addEventListener("click", (event) => {
-      // Ignore clicks on the inline star/done action forms.
-      if ((event.target as HTMLElement).closest(".js-inline-action")) return;
-      const el = item as HTMLElement;
-      setEditFormOpen(true, {
-        id: el.dataset.id,
-        title: el.dataset.title,
-        course: el.dataset.course,
-        description: el.dataset.description,
-        due: el.dataset.due,
-      });
-      setFormOpen(false);
-    });
-  });
-
-  // Click a calendar day → open the add form with that due date prefilled.
-  document.querySelectorAll(".js-day").forEach((cell) => {
-    cell.addEventListener("click", (event) => {
-      if ((event.target as HTMLElement).closest(".js-edit-trigger")) return;
-      const date = (cell as HTMLElement).dataset.date;
-      if (addDueInput && date) addDueInput.value = date;
-      setFormOpen(true);
-      setEditFormOpen(false);
-      form?.scrollIntoView({ behavior: "smooth", block: "nearest" });
-    });
-  });
-
-  // Delete button → confirmation modal.
-  deleteBtn?.addEventListener("click", () => {
-    const id = deleteBtn.dataset.id;
-    if (!id || !deleteIdInput) return;
-    deleteIdInput.value = id;
-    if (deleteTitleEl) deleteTitleEl.textContent = deleteBtn.dataset.title || "Untitled";
-    if (deleteCourseEl) deleteCourseEl.textContent = deleteBtn.dataset.course || "No course code";
-    if (deleteDueEl) {
-      const due = deleteBtn.dataset.due;
-      deleteDueEl.textContent = due
-        ? `Due: ${new Date(due).toLocaleDateString("en-CA", {
-            weekday: "short",
-            month: "short",
-            day: "numeric",
-            year: "numeric",
-            timeZone: "UTC",
-          })}`
-        : "";
-    }
-    deleteModal?.classList.remove("hidden");
-  });
-
-  cancelDeleteBtn?.addEventListener("click", () => deleteModal?.classList.add("hidden"));
-  deleteModal?.addEventListener("click", (e) => {
-    if (e.target === deleteModal) deleteModal.classList.add("hidden");
-  });
-
-  // Reopen the relevant form after a server round-trip that reported an error.
-  if (document.querySelector(".border-emerald-500")) setEditFormOpen(false);
-  const editErrorEl = editForm?.closest("section")?.querySelector(".border-york-red\\/30");
-  if (editErrorEl) setEditFormOpen(true);
-  }
-
-  // Fires on the initial load and after every View Transitions navigation.
-  document.addEventListener("astro:page-load", initAssignmentsPage);
-</script>

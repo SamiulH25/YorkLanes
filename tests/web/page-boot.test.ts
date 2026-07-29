@@ -16,10 +16,10 @@ describe("page boot pattern", () => {
 
     assert.match(schedulePage, /fetchSavedSchedules\(cookie\)/);
     assert.match(schedulePage, /schedule-ssr/);
-    assert.match(schedulePage, /bootSchedulePage\(\)/);
+    assert.match(schedulePage, /import "\.\.\/\.\.\/scripts\/schedule-page\.ts"/);
 
     assert.match(financePage, /fetchFinance\(cookie\)/);
     assert.match(financePage, /finance-ssr/);
-    assert.match(financePage, /bootFinance\(\)/);
+    assert.match(financePage, /import "\.\.\/\.\.\/scripts\/finance\.ts"/);
   });
 });

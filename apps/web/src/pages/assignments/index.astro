@@ -528,7 +528,6 @@ function dueTone(iso: string, done: boolean): "muted" | "soon" | "overdue" {
   </div>
 
   <script>
-    const { bootAssignmentsPage } = await import("../../scripts/assignments-page.ts");
-    bootAssignmentsPage();
+    import "../../scripts/assignments-page.ts";
   </script>
 </DashboardLayout>

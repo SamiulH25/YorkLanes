@@ -34,6 +34,7 @@ import {
   type PlanSeasonFilter,
 } from "../lib/plan-store";
 import { registerPageBoot } from "../lib/page-boot";
+import { parseScriptJson } from "../lib/serialize-for-script";
 import {
   entriesFromSections,
   enumerateValidSchedules,
@@ -116,21 +117,12 @@ function readScheduleSsrPayload(): {
   error: string | null;
 } {
   const el = document.getElementById("schedule-ssr");
-  if (!el?.textContent) {
-    return { schedules: [], error: null };
-  }
-  try {
-    const data = JSON.parse(el.textContent) as {
+  return (
+    parseScriptJson<{
       schedules?: SavedScheduleSummary[];
       error?: string | null;
-    };
-    return {
-      schedules: data.schedules ?? [],
-      error: data.error ?? null,
-    };
-  } catch {
-    return { schedules: [], error: null };
-  }
+    }>(el?.textContent ?? null) ?? { schedules: [], error: null }
+  );
 }
 
 export function initSchedulePage(options: SchedulePageOptions = {}): void {

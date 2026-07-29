@@ -6,6 +6,7 @@ import {
 } from "../lib/finance-recurrence";
 import { fetchWithRetry } from "../lib/fetch-retry";
 import { registerPageBoot } from "../lib/page-boot";
+import { parseScriptJson } from "../lib/serialize-for-script";
 import {
   budgetProgress,
   filterListEntries,
@@ -212,11 +213,8 @@ function readFinanceSsrPayload(): {
   error: string | null;
 } {
   const el = document.getElementById("finance-ssr");
-  if (!el?.textContent) {
-    return { data: null, error: null };
-  }
-  try {
-    return JSON.parse(el.textContent) as {
+  return (
+    parseScriptJson<{
       data: {
         entries: FinanceEntry[];
         budgetCents: number;
@@ -224,10 +222,8 @@ function readFinanceSsrPayload(): {
         recurrenceSupported: boolean;
       } | null;
       error: string | null;
-    };
-  } catch {
-    return { data: null, error: null };
-  }
+    }>(el?.textContent ?? null) ?? { data: null, error: null }
+  );
 }
 
 async function financeFetch(path: string, init?: RequestInit): Promise<Response> {

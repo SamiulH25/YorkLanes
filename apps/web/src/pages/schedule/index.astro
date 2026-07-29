@@ -4,6 +4,7 @@ import "../../styles/schedule-page.css";
 import "../../styles/schedule-shuffle.css";
 import { fetchSessionUser } from "../../lib/auth";
 import { fetchSavedSchedules, type SavedScheduleSummary } from "../../lib/schedules";
+import { serializeForScript } from "../../lib/serialize-for-script";
 
 export const prerender = false;
 
@@ -26,7 +27,7 @@ if (sessionUser) {
   }
 }
 
-const scheduleSsrPayload = JSON.stringify({
+const scheduleSsrPayload = serializeForScript({
   schedules: savedSchedules,
   error: schedulesLoadError,
 });
@@ -276,7 +277,6 @@ const scheduleSsrPayload = JSON.stringify({
   </div>
 
   <script>
-    const { bootSchedulePage } = await import("../../scripts/schedule-page.ts");
-    bootSchedulePage();
+    import "../../scripts/schedule-page.ts";
   </script>
 </DashboardLayout>

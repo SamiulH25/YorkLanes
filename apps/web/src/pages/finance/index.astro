@@ -4,6 +4,7 @@ import DashboardLayout from "../../layouts/DashboardLayout.astro";
 import { EXPENSE_CATEGORIES, INCOME_CATEGORIES } from "../../lib/finance-categories";
 import { fetchSessionUser } from "../../lib/auth";
 import { fetchFinance, fetchFinanceBudget } from "../../lib/finance";
+import { serializeForScript } from "../../lib/serialize-for-script";
 
 export const prerender = false;
 
@@ -36,7 +37,7 @@ if (sessionUser) {
   }
 }
 
-const financeSsrJson = JSON.stringify({
+const financeSsrJson = serializeForScript({
   data: financeSsrPayload,
   error: financeLoadError,
 });
@@ -376,7 +377,6 @@ const financeSsrJson = JSON.stringify({
   </div>
 
   <script>
-    const { bootFinance } = await import("../../scripts/finance.ts");
-    bootFinance();
+    import "../../scripts/finance.ts";
   </script>
 </DashboardLayout>

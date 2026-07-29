@@ -1,6 +1,7 @@
 ---
 import DashboardLayout from "../../layouts/DashboardLayout.astro";
-import { fetchMyPlan, fetchPlan } from "../../lib/plans";
+import { fetchMyPlan, fetchPlan, fetchPlanGraph } from "../../lib/plans";
+import { serializeForScript } from "../../lib/serialize-for-script";
 import {
   formatTermCredits,
   formatYearCredits,
@@ -44,6 +45,21 @@ if (planIdParam) {
 }
 
 const planId = plan?.id ?? planIdParam ?? "";
+
+let planGraphPayload: string | null = null;
+let planGraphError: string | null = null;
+
+if (plan) {
+  try {
+    const graphResponse = await fetchPlanGraph(plan.id, cookie);
+    planGraphPayload = serializeForScript({
+      plan: graphResponse.plan,
+      graph: graphResponse.graph,
+    });
+  } catch (error) {
+    planGraphError = error instanceof Error ? error.message : "Could not load prerequisite graph";
+  }
+}
 
 type Season = "fall" | "winter" | "summer" | "other";
 
@@ -177,6 +193,12 @@ const showComplementaryStudies = plan ? planExpectsComplementaryStudies(plan) : 
     plan && (
       <div class="plan-editor-shell">
       <div id="plan-editor" data-plan-id={plan.id}>
+        {planGraphPayload && (
+          <script id="plan-graph-ssr" type="application/json" set:html={planGraphPayload}></script>
+        )}
+        {planGraphError && (
+          <p class="mb-3 text-xs text-york-red" data-plan-graph-error>{planGraphError}</p>
+        )}
 
         <div class="plan-editor-toolbar">
           <div class="plan-editor-toolbar__left">
@@ -575,8 +597,7 @@ const showComplementaryStudies = plan ? planExpectsComplementaryStudies(plan) : 
   {
     plan && (
       <script>
-        const { bootPlanEditor } = await import("../../scripts/plan-editor.ts");
-        void bootPlanEditor();
+        import "../../scripts/plan-editor.ts";
       </script>
     )
   }

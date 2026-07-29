@@ -4,6 +4,8 @@
 import type { DegreePlan, FacultyChecklistInfo } from "../types/plan";
 import type { PlanGraphSnapshot } from "./plan-store";
 import { getApiUrl } from "./api-url";
+import { apiUrl } from "./api-request";
+import { readJsonResponse } from "./serialize-for-script";
 
 export interface PlanLayoutMove {
   courseId: string;
@@ -119,15 +121,15 @@ export async function importChecklist(formData: FormData): Promise<{ plan: Degre
   return payload as { plan: DegreePlan };
 }
 
-export async function fetchPlanGraph(planId: string): Promise<PlanGraphResponse> {
+export async function fetchPlanGraph(
+  planId: string,
+  cookieHeader?: string | null,
+): Promise<PlanGraphResponse> {
   const response = await fetch(
-    `${getApiUrl()}/api/plans/${planId}/graph`,
-    planRequestInit(),
+    apiUrl(`/api/plans/${planId}/graph`),
+    planRequestInit(cookieHeader),
   );
-  if (!response.ok) {
-    throw new Error("Failed to load plan graph");
-  }
-  return response.json() as Promise<PlanGraphResponse>;
+  return readJsonResponse<PlanGraphResponse>(response, "Plan graph");
 }
 
 export async function updatePlanCourseCompletion(

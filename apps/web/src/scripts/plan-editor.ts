@@ -29,8 +29,11 @@ import {
   updatePlanCourseCompletion,
   updatePlanLayout,
   uploadComplementaryPdf,
+  type PlanGraphResponse,
   type PlanLayoutMove,
 } from "../lib/plans";
+import { parseScriptJson } from "../lib/serialize-for-script";
+import { registerPageBoot } from "../lib/page-boot";
 import { fetchCourses } from "../lib/courses";
 import { planExpectsComplementaryStudies } from "../lib/plan-complementary";
 import {
@@ -2742,6 +2745,11 @@ export function initPlanEditor(
   }
 }
 
+export function readPlanGraphFromPage(): PlanGraphResponse | null {
+  const el = document.getElementById("plan-graph-ssr");
+  return parseScriptJson<PlanGraphResponse>(el?.textContent ?? null);
+}
+
 export function readPlanFromPage(): DegreePlan | null {
   const el = document.getElementById("plan-data");
   if (!el?.textContent) return null;
@@ -2757,6 +2765,12 @@ export async function bootPlanEditor(): Promise<void> {
   if (!root || root.dataset.planEditorReady === "true") return;
   root.dataset.planEditorReady = "true";
 
+  const ssrGraph = readPlanGraphFromPage();
+  if (ssrGraph) {
+    initPlanEditor(ssrGraph.plan, ssrGraph.graph);
+    return;
+  }
+
   const embedded = readPlanFromPage();
   if (embedded) {
     initPlanEditor(embedded);
@@ -2765,6 +2779,12 @@ export async function bootPlanEditor(): Promise<void> {
 
   const planId = root.dataset.planId?.trim();
   if (!planId) return;
+
+  const graphError = document.querySelector<HTMLElement>("[data-plan-graph-error]");
+  if (graphError?.textContent) {
+    setStatus(graphError.textContent, true);
+    return;
+  }
 
   setStatus("Loading degree plan…");
   try {
@@ -2775,12 +2795,6 @@ export async function bootPlanEditor(): Promise<void> {
   }
 }
 
-document.addEventListener("astro:page-load", () => {
-  const root = document.getElementById("plan-editor");
-  if (root) {
-    delete root.dataset.planEditorReady;
-  }
+registerPageBoot("#plan-editor", "planEditorReady", () => {
   void bootPlanEditor();
 });
-
-void bootPlanEditor();

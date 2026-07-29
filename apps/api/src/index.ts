@@ -70,6 +70,15 @@ app.use((_req, res) => {
   res.status(404).json({ error: "Not Found", service: "yorklanes-api" });
 });
 
+app.use((error: unknown, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
+  console.error("[api] unhandled error:", error);
+  if (res.headersSent) return;
+  res.status(503).json({
+    error: "Service temporarily unavailable.",
+    hint: "Try again in a few seconds.",
+  });
+});
+
 app.listen(port, host, () => {
   console.log(`YorkLanes API listening on http://${host}:${port}`);
   console.log(`Database target: ${getDatabaseTarget()}`);

@@ -1,0 +1,68 @@
+%% YorkLanes — core data model (simplified ER)
+erDiagram
+  users ||--o| user_programmes : has
+  users ||--o{ degree_plans : owns
+  users ||--o{ assignments : tracks
+  users ||--o{ finance_entries : logs
+  users ||--o{ user_schedules : saves
+
+  degree_plans ||--|{ plan_terms : contains
+  plan_terms ||--|{ plan_courses : contains
+
+  courses ||--o{ course_prerequisites : requires
+  courses ||--o{ course_sections : offers
+
+  user_schedules ||--|{ schedule_entries : contains
+  user_schedules ||--o{ schedule_course_bundles : picks
+
+  users {
+    uuid id PK
+    text google_id
+    text email
+    text display_name
+  }
+
+  degree_plans {
+    uuid id PK
+    uuid user_id FK
+    text faculty_key
+    text programme_name
+  }
+
+  plan_courses {
+    uuid id PK
+    uuid term_id FK
+    text course_code
+    boolean completed
+  }
+
+  course_sections {
+    uuid id PK
+    text course_code
+    text term
+    text section_code
+    text day
+  }
+
+  user_schedules {
+    uuid id PK
+    uuid user_id FK
+    int plan_year
+    text cdm_term
+    boolean is_active
+  }
+
+  assignments {
+    uuid id PK
+    uuid user_id FK
+    text title
+    timestamptz due_at
+    boolean done
+  }
+
+  finance_entries {
+    uuid id PK
+    uuid user_id FK
+    int amount_cents
+    text kind
+  }

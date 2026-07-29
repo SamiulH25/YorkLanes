@@ -1,0 +1,30 @@
+%% YorkLanes — SSR page load with session
+sequenceDiagram
+  autonumber
+  actor User
+  participant Nginx as nginx :443
+  participant Web as apps/web Astro
+  participant API as apps/api Express
+  participant DB as Supabase Postgres
+
+  User->>Nginx: GET /schedule (Cookie yorklanes.sid)
+  Nginx->>Web: proxy to :4321
+  Web->>Web: fetchSessionUser(cookie)
+  Web->>API: GET /api/auth/me (Cookie header)
+  API->>DB: SELECT users by session
+  DB-->>API: user row
+  API-->>Web: JSON user
+  par SSR data fetches
+    Web->>API: GET /api/course-sections/terms
+    API->>DB: SELECT DISTINCT term
+    DB-->>API: terms[]
+    Web->>API: GET /api/schedules
+    API->>DB: list saved schedules
+    DB-->>API: schedules[]
+  end
+  API-->>Web: JSON responses
+  Web->>Web: serializeForScript → HTML + #schedule-ssr JSON
+  Web-->>Nginx: HTML
+  Nginx-->>User: page + embedded SSR payload
+  User->>Web: client init schedule-page.ts
+  Web->>Web: hydrate from SSR, background refresh

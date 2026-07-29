@@ -23,6 +23,8 @@
     "test:unit": "tsx --test tests/**/*.test.ts",
     "test:web": "tsx --test tests/web/**/*.test.ts",
     "test:api": "tsx --test tests/api/**/*.test.ts",
+    "test:parser": "node scripts/tools.mjs parser",
+    "diagrams:render": "node scripts/render-diagrams.mjs",
     "check": "npm run build -w apps/api && npm run check -w apps/web",
     "build": "npm run build -w apps/web && npm run build -w apps/api",
     "build:prod": "npm run build:prod -w apps/web && npm run build -w apps/api",

@@ -25,6 +25,9 @@ You do **not** need a Supabase login or dashboard access for normal feature work
 | [Data lake](./data-lake.md) | Supabase Storage raw scrape archives |
 | [Deployment](./deployment.md) | Production hosting and release checklist |
 | [Manual testing](./manual-testing.md) | Browser QA checklist for all features |
+| [Demo & Q&A](./demo/README.md) | Per-page implementation notes for presentation |
+| [Test cases](./demo/test-cases.md) | Automated + manual test inventory |
+| [Architecture diagrams](./diagrams/README.md) | Mermaid sources + PNG exports |
 | [Finance RTM](./rtm/finance-rtm.md) | Finance requirements traceability (Taziz) |
 | [Finance test cases](./testing/finance-test-cases.md) | Finance unit/manual tests tied to RTM + outcomes |
 | [Degree plan feature](./features/degree-plan.md) | Checklist import, parser, editor, prereq graph |

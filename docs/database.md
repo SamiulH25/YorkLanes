@@ -14,15 +14,9 @@ All feature pages talk to Express; the API talks to Postgres directly.
 
 ## Entity relationship (simplified)
 
-```mermaid
-erDiagram
-  users ||--o| user_programmes : has
-  users ||--o{ degree_plans : owns
-  degree_plans ||--|{ plan_terms : contains
-  plan_terms ||--|{ plan_courses : contains
-  courses ||--|{ course_prerequisites : requires
-  users ||--o{ finance_entries : logs
-```
+![Core ER diagram](./diagrams/png/05-database-er.png)
+
+*Source: [`diagrams/src/05-database-er.mmd`](./diagrams/src/05-database-er.mmd)*
 
 ## Tables
 

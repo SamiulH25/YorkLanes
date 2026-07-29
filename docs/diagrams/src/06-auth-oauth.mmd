@@ -1,0 +1,24 @@
+%% YorkLanes — Google OAuth + session cookie
+sequenceDiagram
+  autonumber
+  actor User
+  participant Web as apps/web origin
+  participant API as apps/api
+  participant Google as Google OAuth
+  participant DB as Supabase Postgres
+
+  User->>Web: GET /login
+  User->>Web: click Sign in with Google
+  Web->>API: GET /api/auth/google?returnTo=/dashboard
+  API->>Google: redirect authorization
+  Google-->>User: consent screen
+  User->>Google: approve
+  Google->>Web: GET /api/auth/google/callback?code=...
+  Web->>API: proxy callback
+  API->>Google: exchange code for tokens
+  Google-->>API: id_token + profile
+  API->>DB: UPSERT users
+  API->>API: create session yorklanes.sid
+  API-->>Web: Set-Cookie + redirect /dashboard
+  Web-->>User: dashboard HTML
+  Note over Web,API: Browser sends cookie on same origin\nWeb SSR forwards Cookie to API_INTERNAL_URL

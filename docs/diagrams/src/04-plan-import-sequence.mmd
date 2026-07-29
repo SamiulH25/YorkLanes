@@ -1,0 +1,25 @@
+%% YorkLanes — checklist import sequence
+sequenceDiagram
+  autonumber
+  actor User
+  participant Web as apps/web
+  participant API as apps/api
+  participant Py as checklist-parser
+  participant DB as Supabase Postgres
+
+  User->>Web: POST /api/plans/import (multipart PDF)
+  Web->>API: proxy + session cookie
+  API->>API: requireAuth
+  API->>Py: spawn parse_checklist.py (temp file)
+  Py-->>API: stdout JSON courses + sections
+  API->>API: inferChecklistMetadata + planGenerator
+  API->>DB: INSERT degree_plans, plan_terms, plan_courses
+  DB-->>API: plan id
+  API-->>Web: 201 { plan, parsed, inferred }
+  Web-->>User: redirect /plan?id=uuid
+  User->>Web: GET /plan?id=uuid (SSR)
+  Web->>API: GET /api/plans/:id/graph
+  API->>DB: JOIN courses, prerequisites
+  DB-->>API: graph JSON
+  API-->>Web: graph
+  Web-->>User: HTML + plan-editor.ts interactivity

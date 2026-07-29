@@ -1,0 +1,42 @@
+%% YorkLanes — logical system architecture
+flowchart TB
+  subgraph client["Browser"]
+    UI["Astro pages SSR + client scripts"]
+    Store["sessionStorage / localStorage"]
+  end
+
+  subgraph webApp["apps/web — Astro Node :4321"]
+    MW["middleware.ts\n/api proxy + auth redirect"]
+    SSR["SSR frontmatter\nfetch + serializeForScript"]
+    UI --> MW
+    SSR --> MW
+  end
+
+  subgraph apiApp["apps/api — Express :3001"]
+    Routes["routes/*.ts\nthin HTTP layer"]
+    Services["services/*.ts\nbusiness logic"]
+    Pool["pg connection pool"]
+    Session["express-session\nyorklanes.sid"]
+    Routes --> Services
+    Services --> Pool
+    Routes --> Session
+  end
+
+  subgraph python["services/ — Python"]
+    Parser["checklist-parser\nparse_checklist.py"]
+    Scraper["scraper CLI\ncourses + CDM sections"]
+  end
+
+  subgraph supabase["Hosted Supabase"]
+    PG[("PostgreSQL")]
+    Storage[("Storage\ndata-lake archives")]
+  end
+
+  UI -->|"same-origin /api/*"| MW
+  MW -->|"API_INTERNAL_URL"| Routes
+  SSR -->|"Cookie forwarded"| Routes
+  Store -.->|"plan graph cache"| UI
+  Services -->|"spawn on import"| Parser
+  Pool --> PG
+  Scraper -->|"maintainer import"| PG
+  Scraper --> Storage

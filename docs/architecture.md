@@ -4,45 +4,22 @@ YorkLanes is an **npm workspaces monorepo** with a browser UI, a Node API, Pytho
 
 ## System diagram
 
-```mermaid
-flowchart TB
-  subgraph browser [Browser]
-    AstroPages[Astro pages SSR]
-    ClientJS[Client scripts plan-editor.ts]
-    SessionStore[sessionStorage plan graph]
-  end
+![YorkLanes system overview](./diagrams/png/01-system-overview.png)
 
-  subgraph web [apps/web]
-    AstroPages
-    ClientJS
-    SessionStore
-  end
+*Source: [`diagrams/src/01-system-overview.mmd`](./diagrams/src/01-system-overview.mmd) — regenerate with `npm run diagrams:render`.*
 
-  subgraph api [apps/api]
-    Express[Express routers]
-    Services[planGenerator planGraph checklistParser]
-    PG[pg connection pool]
-  end
+### Related diagrams
 
-  subgraph python [services/]
-    Parser[checklist-parser]
-    Scraper[scraper]
-  end
+| Diagram | Use |
+|---------|-----|
+| [Deployment (self-hosted)](./diagrams/png/02-deployment-self-hosted.png) | Demo infra: nginx, Docker, Supabase |
+| [SSR request flow](./diagrams/png/03-ssr-request-flow.png) | Sequence: session + SSR embed |
+| [Plan import](./diagrams/png/04-plan-import-sequence.png) | Checklist upload pipeline |
+| [Database ER](./diagrams/png/05-database-er.png) | Core tables |
+| [OAuth](./diagrams/png/06-auth-oauth.png) | Google sign-in + cookie |
+| [Monorepo layers](./diagrams/png/07-monorepo-layers.png) | Code organization |
 
-  subgraph data [Hosted Supabase]
-    Postgres[(PostgreSQL warehouse)]
-    Storage[(Storage data-lake)]
-  end
-
-  AstroPages -->|fetch PUBLIC_API_URL| Express
-  ClientJS -->|fetch REST| Express
-  Express --> Services
-  Services --> PG
-  PG --> Postgres
-  Express -->|spawn PYTHON| Parser
-  Scraper -->|optional import| Postgres
-  Scraper -->|raw JSON archives| Storage
-```
+All PNGs: [`docs/diagrams/`](./diagrams/README.md)
 
 ## Design principles
 
@@ -122,13 +99,13 @@ Edges come from:
 
 An edge is **satisfied** when the source course is in an earlier term, marked **completed**, or (for co-reqs) the paired course is completed.
 
-## Authentication (not wired yet)
+## Authentication
 
-Tables include `users` and RLS policies, but routes do not enforce auth. `degree_plans.user_id` is nullable. When OAuth lands:
+Google OAuth is implemented via `apps/api/src/routes/auth.ts` and `express-session` (`yorklanes.sid`). The web app proxies `/api/auth/*` on the same origin so cookies work in dev and production. SSR pages forward the `Cookie` header to the API for server-side fetches.
 
-1. Implement `apps/api/src/middleware/auth.ts`
-2. Attach `user_id` on plan create
-3. Tighten RLS policies from permissive `using (true)` to user-scoped rules
+![OAuth flow](./diagrams/png/06-auth-oauth.png)
+
+Protected API routes use `requireAuth` in `apps/api/src/middleware/auth.ts`. `degree_plans.user_id` is set on import when signed in. Supabase RLS remains permissive for staging — tighten before public launch.
 
 ## Extension points
 

@@ -1,0 +1,39 @@
+%% YorkLanes — monorepo layer diagram
+flowchart TB
+  subgraph presentation["Presentation layer"]
+    Pages["apps/web/src/pages/*.astro"]
+    Scripts["apps/web/src/scripts/*.ts"]
+    Lib["apps/web/src/lib/*.ts"]
+  end
+
+  subgraph application["Application layer — apps/api"]
+    HTTP["src/routes/*.ts"]
+    Logic["src/services/*.ts"]
+    MW2["middleware/auth.ts session.ts"]
+  end
+
+  subgraph dataAccess["Data access"]
+    PG2["src/db/index.ts pg pool"]
+    Migrations["supabase/migrations/*.sql"]
+  end
+
+  subgraph sidecars["Sidecar processes"]
+    Parser2["services/checklist-parser"]
+    Scraper2["services/scraper"]
+  end
+
+  subgraph persistence["Persistence"]
+    DB2[("Supabase PostgreSQL")]
+  end
+
+  Pages --> Scripts
+  Scripts --> Lib
+  Pages -->|"SSR fetch"| HTTP
+  Lib -->|"client fetch /api"| HTTP
+  HTTP --> MW2
+  HTTP --> Logic
+  Logic --> PG2
+  Logic --> Parser2
+  PG2 --> DB2
+  Migrations -.->|"schema source of truth"| DB2
+  Scraper2 --> DB2

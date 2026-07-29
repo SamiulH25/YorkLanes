@@ -1,0 +1,30 @@
+%% YorkLanes — production deployment (self-hosted)
+flowchart TB
+  User["User browser"]
+  DNS["DNS\nyorklanes.samiulh25.com"]
+  CF["Cloudflare DNS\noptional proxy"]
+  Nginx["Host nginx\n:443 TLS"]
+  GH["GitHub push main"]
+
+  subgraph host["Ubuntu server — Docker Compose"]
+    Web["yorklanes-web\nAstro SSR :4321\n127.0.0.1 only"]
+    API["yorklanes-api\nExpress :3001\ninternal network"]
+    Hook["deploy-webhook\n:9876 optional"]
+  end
+
+  subgraph external["External services"]
+    Google["Google OAuth"]
+    SB[("Supabase Postgres")]
+  end
+
+  User --> DNS
+  DNS --> CF
+  CF --> Nginx
+  Nginx -->|"reverse_proxy"| Web
+  Web -->|"API_INTERNAL_URL\nhttp://api:3001"| API
+  API --> SB
+  User -->|"OAuth"| Google
+  Google -->|"callback /api/auth/google/callback"| Nginx
+  GH -->|"POST /hooks/github-deploy"| Nginx
+  Nginx --> Hook
+  Hook -->|"scripts/deploy.sh"| host

@@ -41,7 +41,9 @@ async function proxyApiRequest(context: Parameters<MiddlewareHandler>[0]): Promi
     redirect: "manual",
   };
 
-  if (request.method !== "GET" && request.method !== "HEAD") {
+  // Only attach a body for methods that may carry one. Forwarding DELETE/GET with
+  // duplex/body has caused upstream proxies to drop or mishandle mutations.
+  if (request.method !== "GET" && request.method !== "HEAD" && request.body) {
     init.body = request.body;
     init.duplex = "half";
   }

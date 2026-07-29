@@ -4,7 +4,7 @@ import {
   recurrenceLabel,
   type FinanceRecurrence,
 } from "../lib/finance-recurrence";
-import { fetchWithRetry } from "../lib/fetch-retry";
+import { fetchWithRetry, formatFetchError } from "../lib/fetch-retry";
 import { registerPageBoot } from "../lib/page-boot";
 import { parseScriptJson } from "../lib/serialize-for-script";
 import {
@@ -179,6 +179,22 @@ function writeEntries(entries: FinanceEntry[]): void {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(entries));
 }
 
+function removeLocalEntry(entryId: string): void {
+  writeEntries(readEntries().filter((entry) => entry.id !== entryId));
+}
+
+function setActionError(root: HTMLElement, message: string | null): void {
+  const el = root.querySelector<HTMLElement>("[data-finance-action-error]");
+  if (!el) return;
+  if (!message) {
+    el.hidden = true;
+    el.textContent = "";
+    return;
+  }
+  el.hidden = false;
+  el.textContent = message;
+}
+
 function readBudgets(): Record<string, number> {
   try {
     const raw = localStorage.getItem(BUDGET_STORAGE_KEY);
@@ -287,15 +303,28 @@ async function postApiEntry(entry: Omit<FinanceEntry, "id" | "createdAt">): Prom
 }
 
 async function deleteApiEntry(entryId: string): Promise<void> {
-  const response = await financeFetch(`/api/finance/entries/${entryId}`, { method: "DELETE" });
-  if (!response.ok) throw new Error(`Finance delete API error: ${response.status}`);
+  const response = await financeFetch(`/api/finance/entries/${encodeURIComponent(entryId)}`, {
+    method: "DELETE",
+  });
+  if (!response.ok) {
+    let detail = `Finance delete API error: ${response.status}`;
+    try {
+      const payload = (await response.json()) as { error?: string; hint?: string };
+      if (payload.error) {
+        detail = payload.hint ? `${payload.error} ${payload.hint}` : payload.error;
+      }
+    } catch {
+      // keep status detail
+    }
+    throw new Error(detail);
+  }
 }
 
 async function patchApiEntry(
   entryId: string,
   entry: Omit<FinanceEntry, "id" | "createdAt">,
 ): Promise<FinanceEntry> {
-  const response = await financeFetch(`/api/finance/entries/${entryId}`, {
+  const response = await financeFetch(`/api/finance/entries/${encodeURIComponent(entryId)}`, {
     method: "PATCH",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
@@ -313,7 +342,9 @@ async function patchApiEntry(
 }
 
 async function postApiNextOccurrence(entryId: string): Promise<FinanceEntry> {
-  const response = await financeFetch(`/api/finance/entries/${entryId}/next`, { method: "POST" });
+  const response = await financeFetch(`/api/finance/entries/${encodeURIComponent(entryId)}/next`, {
+    method: "POST",
+  });
   if (!response.ok) throw new Error(`Finance next occurrence API error: ${response.status}`);
   const data = (await response.json()) as { entry: FinanceEntry };
   return normalizeEntry(data.entry);
@@ -1149,18 +1180,27 @@ async function initFinance(root: HTMLElement): Promise<void> {
     const entryId = deleteButton.dataset.financeDelete;
     if (!entryId) return;
 
-    if (apiAvailable) {
+    setActionError(root, null);
+
+    // Signed-in / database mode must hit the API. Silent local fallback left rows
+    // in Postgres, so they came back after refresh.
+    if (signedIn || apiAvailable) {
       try {
         await deleteApiEntry(entryId);
         entries = entries.filter((entry) => entry.id !== entryId);
+        removeLocalEntry(entryId);
         if (editingId === entryId) {
-          clearEditMode();
-          return;
+          editingId = null;
+          setEditMode(root, null);
         }
         paint();
         return;
-      } catch {
-        // Keep database mode; fall back to local delete for this action only.
+      } catch (error) {
+        setActionError(
+          root,
+          formatFetchError(error, "Could not delete that entry from the database. Try again."),
+        );
+        return;
       }
     }
 

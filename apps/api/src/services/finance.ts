@@ -515,12 +515,13 @@ export async function deleteFinanceEntry(
 ): Promise<boolean> {
   const scope = userId ? "user_id = $2" : "user_id is null";
   const values = userId ? [entryId, userId] : [entryId];
-  const result = await pool.query(
+  const result = await pool.query<{ id: string }>(
     `delete from public.finance_entries
-       where id = $1 and ${scope}`,
+       where id = $1::uuid and ${scope}
+       returning id`,
     values,
   );
-  return (result.rowCount ?? 0) > 0;
+  return result.rows.length > 0;
 }
 
 export async function getFinanceBudget(
@@ -738,7 +739,7 @@ export async function deleteFinanceEntryViaRest(
   const config = requireSupabaseRestConfig();
   const url = new URL(`${config.url}/rest/v1/finance_entries`);
   url.searchParams.set("id", `eq.${entryId}`);
-  url.searchParams.set("user_id", userId ? `eq.${encodeURIComponent(userId)}` : "is.null");
+  url.searchParams.set("user_id", userId ? `eq.${userId}` : "is.null");
 
   const response = await fetch(url, {
     method: "DELETE",
@@ -748,8 +749,18 @@ export async function deleteFinanceEntryViaRest(
     throw new Error(`Finance REST delete failed: ${response.status} ${await response.text()}`);
   }
 
-  const rows = (await response.json()) as FinanceEntryRow[];
-  return rows.length > 0;
+  // Prefer=representation can return [] even when the row was removed (or when
+  // no row matched). Confirm by id so the API does not report a false delete.
+  const checkUrl = new URL(`${config.url}/rest/v1/finance_entries`);
+  checkUrl.searchParams.set("id", `eq.${entryId}`);
+  checkUrl.searchParams.set("select", "id");
+  checkUrl.searchParams.set("limit", "1");
+  const check = await fetch(checkUrl, { headers: financeRestHeaders() });
+  if (!check.ok) {
+    throw new Error(`Finance REST delete verify failed: ${check.status} ${await check.text()}`);
+  }
+  const remaining = (await check.json()) as Array<{ id: string }>;
+  return remaining.length === 0;
 }
 
 export async function getFinanceBudgetViaRest(

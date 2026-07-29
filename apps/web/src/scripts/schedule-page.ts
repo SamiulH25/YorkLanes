@@ -114,14 +114,16 @@ function rebuildSectionGroupLookup(groups: SectionGroup[]): Map<string, SectionG
 
 function readScheduleSsrPayload(): {
   schedules: SavedScheduleSummary[];
+  cdmTerms: string[];
   error: string | null;
 } {
   const el = document.getElementById("schedule-ssr");
   return (
     parseScriptJson<{
       schedules?: SavedScheduleSummary[];
+      cdmTerms?: string[];
       error?: string | null;
-    }>(el?.textContent ?? null) ?? { schedules: [], error: null }
+    }>(el?.textContent ?? null) ?? { schedules: [], cdmTerms: [], error: null }
   );
 }
 
@@ -163,6 +165,7 @@ export function initSchedulePage(options: SchedulePageOptions = {}): void {
   const planSnapshot = readActivePlanGraphSnapshot();
   const planYears = planSnapshot ? listPlanChecklistYears(planSnapshot) : [];
   const defaultYear = planYears[0] ?? 1;
+  const scheduleSsr = readScheduleSsrPayload();
 
   let planYear = Number(yearSelect?.value || defaultYear);
   let planSeason = (seasonSelect?.value || "all") as PlanSeasonFilter;
@@ -170,7 +173,12 @@ export function initSchedulePage(options: SchedulePageOptions = {}): void {
   let entries: ScheduleGridEntry[] = [];
   let sectionGroups: SectionGroup[] = [];
   let sectionGroupLookup = rebuildSectionGroupLookup(sectionGroups);
-  let availableTerms: string[] = options.focusTerm ? [options.focusTerm] : [];
+  let availableTerms: string[] =
+    scheduleSsr.cdmTerms.length > 0
+      ? scheduleSsr.cdmTerms
+      : options.focusTerm
+        ? [options.focusTerm]
+        : [];
   let savedSchedules: MergedSavedSchedule[] = [];
   let currentIsActive = false;
   let cloudSyncEnabled = false;
@@ -336,11 +344,13 @@ export function initSchedulePage(options: SchedulePageOptions = {}): void {
         availableTerms = mergeTerms(availableTerms, [options.focusTerm]);
       }
     } catch (error) {
-      if (options.focusTerm) {
+      if (availableTerms.length === 0 && options.focusTerm) {
         availableTerms = [options.focusTerm];
       }
-      const message = error instanceof Error ? error.message : "Could not load CDM terms.";
-      setStatus(message, "error");
+      if (availableTerms.length === 0) {
+        const message = error instanceof Error ? error.message : "Could not load CDM terms.";
+        setStatus(message, "error");
+      }
     }
     renderTermOptions();
     updateConfirmButton();
@@ -1568,6 +1578,7 @@ export function initSchedulePage(options: SchedulePageOptions = {}): void {
   setMode("home");
   updatePanelState();
   void refreshSavedSchedules();
+  void loadAvailableTerms();
 
   const startNew = root.dataset.startNew === "true";
   if (startNew) {

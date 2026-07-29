@@ -3,6 +3,7 @@ import DashboardLayout from "../../layouts/DashboardLayout.astro";
 import "../../styles/schedule-page.css";
 import "../../styles/schedule-shuffle.css";
 import { fetchSessionUser } from "../../lib/auth";
+import { fetchCdmTerms } from "../../lib/course-sections";
 import { fetchSavedSchedules, type SavedScheduleSummary } from "../../lib/schedules";
 import { serializeForScript } from "../../lib/serialize-for-script";
 
@@ -18,6 +19,13 @@ const startNew = Astro.url.searchParams.get("new") === "1";
 
 let savedSchedules: SavedScheduleSummary[] = [];
 let schedulesLoadError: string | null = null;
+let cdmTerms: string[] = [];
+
+try {
+  cdmTerms = await fetchCdmTerms(undefined, cookie);
+} catch (error) {
+  schedulesLoadError ??= error instanceof Error ? error.message : "Could not load CDM terms";
+}
 
 if (sessionUser) {
   try {
@@ -29,6 +37,7 @@ if (sessionUser) {
 
 const scheduleSsrPayload = serializeForScript({
   schedules: savedSchedules,
+  cdmTerms,
   error: schedulesLoadError,
 });
 ---

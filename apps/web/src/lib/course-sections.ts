@@ -2,6 +2,7 @@
  * Course section timetables API client.
  */
 import { apiRequestInit, apiUrl } from "./api-request";
+import { fetchWithRetry } from "./fetch-retry";
 import type {
   CourseOfferingSummaryResponse,
   CourseSectionsResponse,
@@ -65,13 +66,17 @@ export async function fetchCourseOfferingSummary(
   return data.summary;
 }
 
-export async function fetchCdmTerms(courseCode?: string): Promise<string[]> {
+export async function fetchCdmTerms(
+  courseCode?: string,
+  cookieHeader?: string | null,
+): Promise<string[]> {
   const params = new URLSearchParams();
   if (courseCode) params.set("course_code", courseCode);
   const query = params.toString();
-  const response = await fetch(
+  const response = await fetchWithRetry(
     apiUrl(`/api/course-sections/terms${query ? `?${query}` : ""}`),
-    apiRequestInit(),
+    apiRequestInit(cookieHeader),
+    { attempts: 3, baseDelayMs: 500 },
   );
   const data = (await response.json().catch(() => ({}))) as { terms?: string[]; error?: string };
   if (!response.ok) {

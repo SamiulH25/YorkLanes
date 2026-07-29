@@ -901,11 +901,13 @@ async function initFinance(root: HTMLElement): Promise<void> {
       setRecurrenceAvailability(root, apiAvailable, recurrenceSupported);
     } catch (error) {
       if (!root.isConnected) return;
-      apiAvailable = false;
-      recurrenceSupported = true;
-      paint();
-      setMode(root, signedIn ? "sync-delayed" : "local");
-      setRecurrenceAvailability(root, apiAvailable, recurrenceSupported);
+      if (!ssr.data) {
+        apiAvailable = false;
+        recurrenceSupported = true;
+        paint();
+        setMode(root, signedIn ? "sync-delayed" : "local");
+        setRecurrenceAvailability(root, apiAvailable, recurrenceSupported);
+      }
     }
   } else {
     apiAvailable = false;

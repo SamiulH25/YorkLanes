@@ -227,6 +227,8 @@ function initAssignmentsPage(): void {
 
   form?.addEventListener("submit", async (event) => {
     event.preventDefault();
+    if (form.dataset.submitting === "true") return;
+
     const formData = new FormData(form);
     const title = formData.get("title")?.toString().trim() ?? "";
     const courseCode = formData.get("courseCode")?.toString().trim() ?? "";
@@ -238,10 +240,12 @@ function initAssignmentsPage(): void {
       return;
     }
 
+    form.dataset.submitting = "true";
     try {
       await createAssignment({ title, courseCode, description, dueDate });
       reloadAfterSave({ target: "banner", kind: "success", message: `Added "${title}"` });
     } catch (error) {
+      delete form.dataset.submitting;
       showFlash({
         target: "form",
         kind: "error",
@@ -252,6 +256,7 @@ function initAssignmentsPage(): void {
 
   editForm?.addEventListener("submit", async (event) => {
     event.preventDefault();
+    if (editForm.dataset.submitting === "true") return;
     const formData = new FormData(editForm);
     const id = formData.get("id")?.toString().trim() ?? "";
     const title = formData.get("title")?.toString().trim() ?? "";
@@ -269,10 +274,12 @@ function initAssignmentsPage(): void {
       return;
     }
 
+    editForm.dataset.submitting = "true";
     try {
       await updateAssignment(id, { title, courseCode, description, dueDate });
       reloadAfterSave({ target: "edit", kind: "success", message: `Updated "${title}"` });
     } catch (error) {
+      delete editForm.dataset.submitting;
       showFlash({
         target: "edit",
         kind: "error",
@@ -283,14 +290,17 @@ function initAssignmentsPage(): void {
 
   deleteForm?.addEventListener("submit", async (event) => {
     event.preventDefault();
+    if (deleteForm.dataset.submitting === "true") return;
     const formData = new FormData(deleteForm);
     const id = formData.get("id")?.toString().trim() ?? "";
     if (!id) return;
 
+    deleteForm.dataset.submitting = "true";
     try {
       await deleteAssignment(id);
       reloadAfterSave({ target: "banner", kind: "success", message: "Assignment deleted successfully" });
     } catch (error) {
+      delete deleteForm.dataset.submitting;
       deleteModal?.classList.add("hidden");
       showFlash({
         target: "edit",
@@ -303,11 +313,14 @@ function initAssignmentsPage(): void {
   document.querySelectorAll<HTMLFormElement>("form.js-inline-action").forEach((inlineForm) => {
     inlineForm.addEventListener("submit", async (event) => {
       event.preventDefault();
+      if (inlineForm.dataset.submitting === "true") return;
+
       const formData = new FormData(inlineForm);
       const action = formData.get("_action")?.toString() ?? "";
       const id = formData.get("id")?.toString() ?? "";
       if (!id) return;
 
+      inlineForm.dataset.submitting = "true";
       try {
         if (action === "toggle-done") {
           await setAssignmentDone(id, formData.get("done")?.toString() === "true");
@@ -318,6 +331,7 @@ function initAssignmentsPage(): void {
         }
         window.location.reload();
       } catch (error) {
+        delete inlineForm.dataset.submitting;
         showFlash({
           target: "edit",
           kind: "error",
@@ -338,12 +352,8 @@ function bootAssignmentsPage(): void {
   initAssignmentsPage();
 }
 
-document.addEventListener("astro:page-load", () => {
-  const root = document.getElementById("assignments-root");
-  if (root) delete root.dataset.assignmentsInit;
-  bootAssignmentsPage();
-});
-
-bootAssignmentsPage();
+// View Transitions swap the DOM on navigation; astro:page-load is the single init hook.
+// Do not also call bootAssignmentsPage() at module load — that double-binds listeners on first paint.
+document.addEventListener("astro:page-load", bootAssignmentsPage);
 
 export {};

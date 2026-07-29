@@ -1,8 +1,13 @@
 ---
 /** Finance module — Taziz. Guide: docs/tasks/finance.md */
-import DashboardLayout from "../../layouts/DashboardLayout.astro";import { EXPENSE_CATEGORIES, INCOME_CATEGORIES } from "../../lib/finance-categories";
+import DashboardLayout from "../../layouts/DashboardLayout.astro";
+import { EXPENSE_CATEGORIES, INCOME_CATEGORIES } from "../../lib/finance-categories";
+import { fetchSessionUser } from "../../lib/auth";
 
 export const prerender = false;
+
+const cookie = Astro.request.headers.get("cookie");
+const sessionUser = await fetchSessionUser(cookie);
 ---
 
 <DashboardLayout title="Finance | YorkLanes" activeNav="finance">
@@ -19,6 +24,7 @@ export const prerender = false;
   </Fragment>
   <div
     data-finance-root
+    data-signed-in={sessionUser ? "true" : "false"}
     data-expense-categories={EXPENSE_CATEGORIES.join("|")}
     data-income-categories={INCOME_CATEGORIES.join("|")}
     class="grid gap-4 xl:grid-cols-[minmax(0,1fr)_24rem]"

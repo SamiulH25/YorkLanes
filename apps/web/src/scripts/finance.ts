@@ -200,15 +200,23 @@ function normalizeEntry(entry: FinanceEntry): FinanceEntry {
   };
 }
 
-async function fetchSignedIn(): Promise<boolean> {
-  try {
-    const response = await fetch("/api/auth/me", API_CREDENTIALS);
-    if (!response.ok) return false;
-    const data = (await response.json()) as { user?: { id?: string } | null };
-    return Boolean(data.user?.id);
-  } catch {
-    return false;
+async function fetchSignedIn(fallback = false): Promise<boolean> {
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+    try {
+      const response = await fetch("/api/auth/me", API_CREDENTIALS);
+      if (!response.ok) {
+        if (attempt === 0) continue;
+        return fallback;
+      }
+
+      const data = (await response.json()) as { user?: { id?: string } | null };
+      return Boolean(data.user?.id);
+    } catch {
+      if (attempt === 1) return fallback;
+    }
   }
+
+  return fallback;
 }
 
 function setSignInPrompt(root: HTMLElement, show: boolean): void {
@@ -828,9 +836,11 @@ async function initFinance(root: HTMLElement): Promise<void> {
   paint();
   setMode(root, "loading");
   setRecurrenceAvailability(root, apiAvailable, recurrenceSupported);
-  setSignInPrompt(root, false);
 
-  const signedIn = await fetchSignedIn();
+  const ssrSignedIn = root.dataset.signedIn === "true";
+  setSignInPrompt(root, !ssrSignedIn);
+
+  const signedIn = await fetchSignedIn(ssrSignedIn);
   if (!root.isConnected) return;
   setSignInPrompt(root, !signedIn);
 
@@ -1128,13 +1138,6 @@ function bootFinance(): void {
   void initFinance(root);
 }
 
-document.addEventListener("astro:page-load", () => {
-  document.querySelectorAll<HTMLElement>("[data-finance-root]").forEach((root) => {
-    delete root.dataset.financeInit;
-  });
-  bootFinance();
-});
-
-bootFinance();
+document.addEventListener("astro:page-load", bootFinance);
 
 export {};

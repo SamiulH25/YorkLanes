@@ -27,6 +27,20 @@ export interface CreateAssignmentInput {
   dueDate: string;
 }
 
+function parseAssignmentPayload(data: unknown): Assignment {
+  if (!data || typeof data !== "object") {
+    throw new Error("Assignments API returned an empty response.");
+  }
+
+  const record = data as { assignment?: Assignment; error?: string };
+  const assignment = record.assignment;
+  if (!assignment || typeof assignment.title !== "string") {
+    throw new Error(record.error ?? "Assignments API returned an invalid assignment.");
+  }
+
+  return assignment;
+}
+
 export async function fetchAssignments(cookieHeader?: string | null): Promise<AssignmentsResponse> {
   const response = await fetch(apiUrl("/api/assignments"), apiRequestInit(cookieHeader));
   if (!response.ok) throw new Error(`Assignments API error: ${response.status}`);
@@ -55,7 +69,7 @@ export async function createAssignment(
     throw new Error(data.error ?? `Assignments API error: ${response.status}`);
   }
 
-  return data.assignment as Assignment;
+  return parseAssignmentPayload(data);
 }
 
 async function patchAssignment(
@@ -81,7 +95,7 @@ async function patchAssignment(
     throw new Error(data.error ?? `Assignments API error: ${response.status}`);
   }
 
-  return data.assignment as Assignment;
+  return parseAssignmentPayload(data);
 }
 
 export function setAssignmentDone(
@@ -157,5 +171,5 @@ export async function updateAssignment(
     throw new Error(responseData.error || `Failed to update assignment: ${response.status}`);
   }
 
-  return responseData.assignment as Assignment;
+  return parseAssignmentPayload(responseData);
 }

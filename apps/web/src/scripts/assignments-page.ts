@@ -239,8 +239,8 @@ function initAssignmentsPage(): void {
     }
 
     try {
-      const created = await createAssignment({ title, courseCode, description, dueDate });
-      reloadAfterSave({ target: "banner", kind: "success", message: `Added "${created.title}"` });
+      await createAssignment({ title, courseCode, description, dueDate });
+      reloadAfterSave({ target: "banner", kind: "success", message: `Added "${title}"` });
     } catch (error) {
       showFlash({
         target: "form",
@@ -270,8 +270,8 @@ function initAssignmentsPage(): void {
     }
 
     try {
-      const updated = await updateAssignment(id, { title, courseCode, description, dueDate });
-      reloadAfterSave({ target: "edit", kind: "success", message: `Updated "${updated.title}"` });
+      await updateAssignment(id, { title, courseCode, description, dueDate });
+      reloadAfterSave({ target: "edit", kind: "success", message: `Updated "${title}"` });
     } catch (error) {
       showFlash({
         target: "edit",

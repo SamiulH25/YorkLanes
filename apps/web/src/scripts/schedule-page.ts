@@ -180,9 +180,12 @@ export function initSchedulePage(options: SchedulePageOptions = {}): void {
       : options.focusTerm
         ? [options.focusTerm]
         : [];
-  let savedSchedules: MergedSavedSchedule[] = [];
+  let savedSchedules: MergedSavedSchedule[] =
+    scheduleSsr.schedules.length > 0
+      ? mergeSavedSchedules(scheduleSsr.schedules, listLocalSavedSchedules())
+      : [];
   let currentIsActive = false;
-  let cloudSyncEnabled = false;
+  let cloudSyncEnabled = scheduleSsr.schedules.length > 0;
   let persistTimer: ReturnType<typeof setTimeout> | null = null;
   let mode: ScheduleMode = "home";
   let panelCollapsed = options.collapsePanel ?? false;
@@ -348,6 +351,12 @@ export function initSchedulePage(options: SchedulePageOptions = {}): void {
   }
 
   async function loadAvailableTerms(): Promise<void> {
+    if (availableTerms.length > 0) {
+      renderTermOptions();
+      updateConfirmButton();
+      return;
+    }
+
     const courses = plannedCourses();
     const probeCourse = courses[0] ?? options.focusCourse;
     try {
@@ -668,6 +677,15 @@ export function initSchedulePage(options: SchedulePageOptions = {}): void {
       return;
     }
 
+    if (!scheduleExistsInCloud(planYear, planSeason, cdmTerm)) {
+      loadWeekForCurrentFilters();
+      if (entries.length > 0) {
+        persistWeek();
+      }
+      refreshConflictIndex();
+      return;
+    }
+
     let loadedFromLocal = false;
     try {
       const remote = await fetchScheduleWeek(planYear, planSeason, cdmTerm);
@@ -731,8 +749,22 @@ export function initSchedulePage(options: SchedulePageOptions = {}): void {
 
   async function refreshSavedSchedules(): Promise<void> {
     const ssr = readScheduleSsrPayload();
-    let cloud: SavedScheduleSummary[] = ssr.schedules;
-    if (ssr.error) {
+    let cloud: SavedScheduleSummary[] =
+      savedSchedules.length > 0
+        ? savedSchedules
+            .filter((item) => item.source === "cloud")
+            .map(({ planYear, planSeason, cdmTerm, courseCount, entryCount, isActive, updatedAt }) => ({
+              planYear,
+              planSeason,
+              cdmTerm,
+              courseCount,
+              entryCount,
+              isActive,
+              updatedAt,
+            }))
+        : ssr.schedules;
+
+    if (ssr.error && cloud.length === 0) {
       setStatus(ssr.error, "error");
     }
     if (cloud.length > 0) {
@@ -751,10 +783,10 @@ export function initSchedulePage(options: SchedulePageOptions = {}): void {
         const local = listLocalSavedSchedules();
         if (error instanceof SchedulesApiError) {
           if (error.status !== 401 || local.length === 0) {
-            setStatus(error.message, "error");
+            setStatus(formatFetchError(error, error.message), "error");
           }
         } else if (error instanceof Error) {
-          setStatus(error.message, "error");
+          setStatus(formatFetchError(error, "Could not load saved schedules."), "error");
         }
       }
     }
@@ -1578,10 +1610,15 @@ export function initSchedulePage(options: SchedulePageOptions = {}): void {
   renderYearOptions();
   renderTermOptions();
   renderGridStructure();
+  if (savedSchedules.length > 0) {
+    renderSavedSchedules();
+  }
   setMode("home");
   updatePanelState();
   void refreshSavedSchedules();
-  void loadAvailableTerms();
+  if (availableTerms.length === 0) {
+    void loadAvailableTerms();
+  }
 
   const startNew = root.dataset.startNew === "true";
   if (startNew) {

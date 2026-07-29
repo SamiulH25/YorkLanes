@@ -57,8 +57,8 @@ async function scheduleFetch(
   cookieHeader?: string | null,
 ): Promise<Response> {
   return fetchWithRetry(apiUrl(path), apiRequestInit(cookieHeader, init), {
-    attempts: 3,
-    baseDelayMs: 500,
+    attempts: 5,
+    baseDelayMs: 800,
   });
 }
 

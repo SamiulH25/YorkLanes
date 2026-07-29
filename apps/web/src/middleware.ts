@@ -1,5 +1,6 @@
 import type { MiddlewareHandler } from "astro";
 import { fetchAuthStatus, fetchSessionUser } from "./lib/auth";
+import { fetchWithRetry } from "./lib/fetch-retry";
 import { runWithSsrRequestCache } from "./lib/ssr-request-cache";
 
 const API_ORIGIN = import.meta.env.API_INTERNAL_URL ?? "http://localhost:3001";
@@ -46,7 +47,7 @@ async function proxyApiRequest(context: Parameters<MiddlewareHandler>[0]): Promi
   }
 
   try {
-    const response = await fetch(target, init);
+    const response = await fetchWithRetry(target, init, { attempts: 4, baseDelayMs: 600 });
     return new Response(response.body, {
       status: response.status,
       statusText: response.statusText,

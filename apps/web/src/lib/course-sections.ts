@@ -26,7 +26,7 @@ export async function fetchCourseSections(options: FetchSectionsOptions = {}): P
   const response = await fetchWithRetry(
     apiUrl(`/api/course-sections${query ? `?${query}` : ""}`),
     apiRequestInit(),
-    { attempts: 3, baseDelayMs: 500 },
+    { attempts: 5, baseDelayMs: 800 },
   );
   const data = (await response.json().catch(() => ({}))) as Partial<CourseSectionsResponse> & { error?: string };
 
@@ -51,7 +51,7 @@ export async function fetchCourseOfferingSummary(
   const response = await fetchWithRetry(
     apiUrl(`/api/course-sections/summary?${params}`),
     apiRequestInit(),
-    { attempts: 3, baseDelayMs: 500 },
+    { attempts: 5, baseDelayMs: 800 },
   );
   const data = (await response.json().catch(() => ({}))) as Partial<CourseOfferingSummaryResponse> & {
     error?: string;
@@ -78,7 +78,7 @@ export async function fetchCdmTerms(
   const response = await fetchWithRetry(
     apiUrl(`/api/course-sections/terms${query ? `?${query}` : ""}`),
     apiRequestInit(cookieHeader),
-    { attempts: 3, baseDelayMs: 500 },
+    { attempts: 5, baseDelayMs: 800 },
   );
   const data = (await response.json().catch(() => ({}))) as { terms?: string[]; error?: string };
   if (!response.ok) {

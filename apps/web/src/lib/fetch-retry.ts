@@ -43,3 +43,13 @@ export function isTransientFetchError(error: unknown): boolean {
   if (error instanceof DOMException && error.name === "AbortError") return true;
   return error instanceof TypeError;
 }
+
+export function formatFetchError(error: unknown, fallback = "Network request failed"): string {
+  if (error instanceof TypeError && /fetch/i.test(error.message)) {
+    return "Could not reach the server. Wait a moment and try again.";
+  }
+  if (error instanceof Error && error.message.trim()) {
+    return error.message;
+  }
+  return fallback;
+}

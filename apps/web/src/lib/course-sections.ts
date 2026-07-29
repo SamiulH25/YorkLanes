@@ -23,9 +23,10 @@ export async function fetchCourseSections(options: FetchSectionsOptions = {}): P
   if (options.department) params.set("department", options.department);
 
   const query = params.toString();
-  const response = await fetch(
+  const response = await fetchWithRetry(
     apiUrl(`/api/course-sections${query ? `?${query}` : ""}`),
     apiRequestInit(),
+    { attempts: 3, baseDelayMs: 500 },
   );
   const data = (await response.json().catch(() => ({}))) as Partial<CourseSectionsResponse> & { error?: string };
 
@@ -47,9 +48,10 @@ export async function fetchCourseOfferingSummary(
   courseCode: string,
 ): Promise<CourseOfferingSummaryResponse["summary"]> {
   const params = new URLSearchParams({ course_code: courseCode });
-  const response = await fetch(
+  const response = await fetchWithRetry(
     apiUrl(`/api/course-sections/summary?${params}`),
     apiRequestInit(),
+    { attempts: 3, baseDelayMs: 500 },
   );
   const data = (await response.json().catch(() => ({}))) as Partial<CourseOfferingSummaryResponse> & {
     error?: string;

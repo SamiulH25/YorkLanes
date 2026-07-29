@@ -1,4 +1,5 @@
 import { fetchCdmTerms, fetchCourseSections } from "../lib/course-sections";
+import { formatFetchError } from "../lib/fetch-retry";
 import { formatClock } from "../lib/schedule-days";
 import {
   buildScheduleConflictIndex,
@@ -315,9 +316,21 @@ export function initSchedulePage(options: SchedulePageOptions = {}): void {
     }
 
     activeCourse = options.focusCourse?.trim().toUpperCase() || courses[0];
-    await refreshVisibleCourses();
+    renderCourseChips();
+    setStatus(`Loading sections for ${activeCourse}…`);
+    try {
+      const loaded = await mergeSectionsForCourse(activeCourse);
+      if (loaded) {
+        renderTermOptions();
+        renderSectionBrowser();
+      }
+    } catch (error) {
+      setStatus(formatFetchError(error, "Could not load section data."), "error");
+    }
+
     bootstrapPlannedSchedule();
     renderConflictBanner();
+    void loadRemainingCourseSections(activeCourse, courses);
   }
 
   function updatePanelState(): void {
@@ -1489,86 +1502,76 @@ export function initSchedulePage(options: SchedulePageOptions = {}): void {
     renderConflictBanner();
   }
 
+  async function mergeSectionsForCourse(courseCode: string): Promise<boolean> {
+    const response = await fetchCourseSections({
+      courseCode,
+      term: resolveSelectedTerm(termSelect, availableTerms, options.focusTerm) || undefined,
+    });
+    const courseGroups = response.groups.filter(
+      (group) => normalizeCourseCode(group.course_code) === normalizeCourseCode(courseCode),
+    );
+    if (courseGroups.length === 0) return false;
+
+    updateSectionGroups([
+      ...sectionGroups.filter(
+        (group) => normalizeCourseCode(group.course_code) !== normalizeCourseCode(courseCode),
+      ),
+      ...courseGroups,
+    ]);
+    const terms = uniqueTerms(courseGroups);
+    if (terms.length > 0) {
+      availableTerms = mergeTerms(availableTerms, terms);
+    }
+    return true;
+  }
+
   async function loadSectionsForCourse(courseCode: string): Promise<void> {
     if (!courseCode || mode !== "editor") return;
     setStatus(`Loading sections for ${courseCode}…`);
     try {
-      const response = await fetchCourseSections({
-        courseCode,
-        term: resolveSelectedTerm(termSelect, availableTerms, options.focusTerm) || undefined,
-      });
-      const courseGroups = response.groups.filter(
-        (group) => normalizeCourseCode(group.course_code) === normalizeCourseCode(courseCode),
-      );
-      updateSectionGroups([
-        ...sectionGroups.filter(
-          (group) => normalizeCourseCode(group.course_code) !== normalizeCourseCode(courseCode),
-        ),
-        ...courseGroups,
-      ]);
-      const terms = uniqueTerms(courseGroups);
-      if (terms.length > 0) {
-        availableTerms = mergeTerms(availableTerms, terms);
-        renderTermOptions();
-      }
+      await mergeSectionsForCourse(courseCode);
+      renderTermOptions();
       renderSectionBrowser();
       setStatus("");
     } catch (error) {
-      setStatus(error instanceof Error ? error.message : "Failed to load sections.", "error");
+      setStatus(formatFetchError(error, "Failed to load sections."), "error");
     }
   }
 
-  async function refreshVisibleCourses(): Promise<void> {
-    renderCourseChips();
-    const courses = plannedCourses();
-    if (courses.length === 0) {
-      renderSectionBrowser();
-      return;
-    }
-
-    setStatus(`Loading sections for ${courses.length} course${courses.length === 1 ? "" : "s"}…`);
-    const results = await Promise.allSettled(
-      courses.map(async (courseCode) => {
-        if (!courseCode || mode !== "editor") return;
-        const response = await fetchCourseSections({
-          courseCode,
-          term: selectedTerm() || undefined,
-        });
-        return {
-          courseCode,
-          courseGroups: response.groups.filter(
-            (group) => normalizeCourseCode(group.course_code) === normalizeCourseCode(courseCode),
-          ),
-        };
-      }),
+  async function loadRemainingCourseSections(
+    priorityCourse: string,
+    courses: string[],
+  ): Promise<void> {
+    const remaining = courses.filter(
+      (courseCode) => normalizeCourseCode(courseCode) !== normalizeCourseCode(priorityCourse),
     );
+    if (remaining.length === 0 || mode !== "editor") return;
 
     let loadedCount = 0;
-    for (const result of results) {
-      if (result.status !== "fulfilled") continue;
-      const { courseCode, courseGroups } = result.value;
-      if (courseGroups.length === 0) continue;
-      loadedCount += 1;
-      updateSectionGroups([
-        ...sectionGroups.filter(
-          (group) => normalizeCourseCode(group.course_code) !== normalizeCourseCode(courseCode),
-        ),
-        ...courseGroups,
-      ]);
-      const terms = uniqueTerms(courseGroups);
-      if (terms.length > 0) {
-        availableTerms = mergeTerms(availableTerms, terms);
+    for (const courseCode of remaining) {
+      if (mode !== "editor") return;
+      try {
+        if (await mergeSectionsForCourse(courseCode)) {
+          loadedCount += 1;
+        }
+      } catch {
+        // Keep loading other courses even if one fails.
       }
     }
 
-    if (loadedCount > 0) {
-      renderTermOptions();
-    }
+    if (loadedCount === 0 || mode !== "editor") return;
+
+    renderTermOptions();
     if (activeCourse) {
       renderSectionBrowser();
     }
-    setStatus(loadedCount > 0 ? "" : "Could not load section data for your planned courses.", loadedCount > 0 ? "info" : "error");
+    rebuildScheduleAlternatives();
+    if (entries.length === 0 && scheduleAlternatives.length > 0) {
+      bootstrapPlannedSchedule();
+    }
+    renderGridEvents();
     renderConflictBanner();
+    setStatus("");
   }
 
   loadWeekForCurrentFilters();

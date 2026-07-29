@@ -303,18 +303,24 @@ async function postApiEntry(entry: Omit<FinanceEntry, "id" | "createdAt">): Prom
 }
 
 async function deleteApiEntry(entryId: string): Promise<void> {
+  // Astro CSRF treats body-less DELETE as a form submission. Behind nginx,
+  // url.origin can be http while the browser Origin is https, which yields 403.
+  // application/json skips that form check (same pattern as assignments delete).
   const response = await financeFetch(`/api/finance/entries/${encodeURIComponent(entryId)}`, {
     method: "DELETE",
+    headers: { "Content-Type": "application/json" },
   });
   if (!response.ok) {
     let detail = `Finance delete API error: ${response.status}`;
+    const raw = await response.text();
     try {
-      const payload = (await response.json()) as { error?: string; hint?: string };
+      const payload = JSON.parse(raw) as { error?: string; hint?: string };
       if (payload.error) {
         detail = payload.hint ? `${payload.error} ${payload.hint}` : payload.error;
       }
     } catch {
-      // keep status detail
+      const text = raw.trim();
+      if (text) detail = `${detail}: ${text}`;
     }
     throw new Error(detail);
   }

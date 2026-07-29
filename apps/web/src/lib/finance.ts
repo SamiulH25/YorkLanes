@@ -110,8 +110,11 @@ export async function deleteFinanceEntry(
   cookieHeader?: string | null,
 ): Promise<{ deleted: boolean; summary: FinanceSummary }> {
   const response = await fetch(
-    apiUrl(`/api/finance/entries/${entryId}`),
-    apiRequestInit(cookieHeader, { method: "DELETE" }),
+    apiUrl(`/api/finance/entries/${encodeURIComponent(entryId)}`),
+    apiRequestInit(cookieHeader, {
+      method: "DELETE",
+      headers: { "Content-Type": "application/json" },
+    }),
   );
   if (!response.ok) throw new Error(`Finance delete API error: ${response.status}`);
   return response.json() as Promise<{ deleted: boolean; summary: FinanceSummary }>;

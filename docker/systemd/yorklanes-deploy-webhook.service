@@ -1,0 +1,17 @@
+[Unit]
+Description=YorkLanes GitHub deploy webhook
+After=network-online.target docker.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=bob2142
+Group=bob2142
+WorkingDirectory=/home/bob2142/YorkLanes/YorkLanes
+EnvironmentFile=/home/bob2142/YorkLanes/YorkLanes/docker/deploy-webhook.env
+ExecStart=/usr/local/bin/node /home/bob2142/YorkLanes/YorkLanes/scripts/github-webhook.mjs
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

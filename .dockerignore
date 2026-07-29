@@ -1,0 +1,12 @@
+node_modules
+.git
+.astro
+**/dist
+**/.env
+**/.env.local
+**/.env.*.local
+services/checklist-parser/.venv
+services/scraper/output
+postgres_data
+*.log
+.DS_Store

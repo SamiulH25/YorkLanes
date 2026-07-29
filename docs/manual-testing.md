@@ -219,20 +219,22 @@ Build/commit:
 
 ## K. Finance (`/finance`)
 
-| ID | Steps | Expected |
-|----|-------|----------|
-| K-01 | Open `/finance` signed out | Sign-in prompt; local draft mode may work |
-| K-02 | Open `/finance` signed in | Entries, balance, charts load |
-| K-03 | Add expense entry | Amount, category, date; list updates |
-| K-04 | Add income entry | Category list switches (OSAP, Job, etc.) |
-| K-05 | Edit entry | PATCH saves correctly |
-| K-06 | Delete entry | Removed; balance recalculates |
-| K-07 | Set monthly budget | Budget bar / overspend alert appears |
-| K-08 | Change month filter | Entries and summary match selected month |
-| K-09 | Search / kind filter | Filters compose correctly |
-| K-10 | Recurring entry (if enabled) | Recurrence option + “Log next” for due items |
-| K-11 | Export CSV | File downloads with expected rows |
-| K-12 | Dashboard finance widget | Reflects signed-in totals |
+RTM: `docs/rtm/finance-rtm.md`. Unit outcomes: `docs/testing/finance-test-cases.md`.
+
+| ID | RTM | Steps | Expected |
+|----|-----|-------|----------|
+| K-01 | FR-FIN-09, NFR-FIN-02 | Open `/finance` signed out | Sign-in prompt; local draft mode may work |
+| K-02 | FR-FIN-02, FR-FIN-09, NFR-FIN-02, NFR-FIN-04 | Open `/finance` signed in | Entries, balance, charts load |
+| K-03 | FR-FIN-01 | Add expense entry | Amount, category, date; list updates |
+| K-04 | FR-FIN-01, FR-FIN-03 | Add income entry | Category list switches (OSAP, Job, etc.) |
+| K-05 | FR-FIN-07 | Edit entry | PATCH saves correctly |
+| K-06 | FR-FIN-07 | Delete entry | Removed; balance recalculates |
+| K-07 | FR-FIN-04 | Set monthly budget | Budget bar / overspend alert appears |
+| K-08 | FR-FIN-05 | Change month filter | Entries and summary match selected month |
+| K-09 | FR-FIN-05 | Search / kind filter | Filters compose correctly |
+| K-10 | FR-FIN-06 | Recurring entry (if enabled) | Recurrence option + “Log next” for due items |
+| K-11 | FR-FIN-08 | Export CSV | File downloads with expected rows |
+| K-12 | FR-FIN-10 | Dashboard finance widget | Reflects signed-in totals |
 
 ---
 
@@ -247,7 +249,7 @@ These end-to-end paths catch integration bugs.
 | L-03 | Plan → mark courses complete → progress page | Percentages increase |
 | L-04 | Upload complementary PDF on plan → progress electives bar | Complementary credits reflected |
 | L-05 | Add assignments due this week → dashboard stat | “Due this week” count increases |
-| L-06 | Add finance entries → dashboard balance stat | Balance updates |
+| L-06 | Add finance entries → dashboard balance stat (RTM FR-FIN-02, FR-FIN-10) | Balance updates |
 | L-07 | Theme change on dashboard → navigate to plan | Theme persists |
 | L-08 | Sign out → sign back in | Data still on server (plans, schedules, assignments, finance) |
 

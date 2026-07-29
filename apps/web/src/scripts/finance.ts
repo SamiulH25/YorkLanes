@@ -4,8 +4,17 @@ import {
   recurrenceLabel,
   type FinanceRecurrence,
 } from "../lib/finance-recurrence";
-
-type FinanceKind = "income" | "expense";
+import {
+  budgetProgress,
+  filterListEntries,
+  getDueRecurring,
+  getMonthlyTotals,
+  getVisibleEntries,
+  monthExpenseCents,
+  parseAmountCents,
+  type FinanceKind,
+  type ListKindFilter,
+} from "../lib/finance-logic";
 
 interface FinanceEntry {
   id: string;
@@ -29,13 +38,6 @@ interface FinanceResponse extends FinanceEntriesResponse {
 interface FinanceBudget {
   month: string;
   amountCents: number;
-}
-
-interface MonthlyTotal {
-  month: string;
-  incomeCents: number;
-  expenseCents: number;
-  balanceCents: number;
 }
 
 const STORAGE_KEY = "yorklanes.finance.entries";
@@ -306,57 +308,6 @@ async function putApiBudget(month: string, amountCents: number): Promise<Finance
   return data.budget;
 }
 
-function parseAmountCents(value: FormDataEntryValue | null): number {
-  const amount = Number(value);
-  if (!Number.isFinite(amount) || amount <= 0) return 0;
-  return Math.round(amount * 100);
-}
-
-function getVisibleEntries(entries: FinanceEntry[], selectedMonth: string, monthOnly: boolean): FinanceEntry[] {
-  return monthOnly ? entries.filter((entry) => entry.occurredOn.startsWith(selectedMonth)) : entries;
-}
-
-type ListKindFilter = "all" | FinanceKind;
-
-function filterListEntries(
-  entries: FinanceEntry[],
-  selectedMonth: string,
-  monthOnly: boolean,
-  kindFilter: ListKindFilter,
-  query: string,
-): FinanceEntry[] {
-  let list = getVisibleEntries(entries, selectedMonth, monthOnly);
-  if (kindFilter !== "all") {
-    list = list.filter((entry) => entry.kind === kindFilter);
-  }
-  const normalized = query.trim().toLowerCase();
-  if (!normalized) return list;
-  return list.filter(
-    (entry) =>
-      entry.label.toLowerCase().includes(normalized) ||
-      entry.category.toLowerCase().includes(normalized) ||
-      entry.occurredOn.includes(normalized),
-  );
-}
-
-function getMonthlyTotals(entries: FinanceEntry[]): MonthlyTotal[] {
-  const totals = new Map<string, MonthlyTotal>();
-  for (const entry of entries) {
-    const month = entry.occurredOn.slice(0, 7);
-    if (!/^\d{4}-\d{2}$/.test(month)) continue;
-    const current = totals.get(month) ?? { month, incomeCents: 0, expenseCents: 0, balanceCents: 0 };
-    if (entry.kind === "income") {
-      current.incomeCents += entry.amountCents;
-    } else {
-      current.expenseCents += entry.amountCents;
-    }
-    current.balanceCents = current.incomeCents - current.expenseCents;
-    totals.set(month, current);
-  }
-
-  return [...totals.values()].sort((a, b) => b.month.localeCompare(a.month));
-}
-
 function csvCell(value: string): string {
   return `"${value.replaceAll('"', '""')}"`;
 }
@@ -585,47 +536,6 @@ function renderList(
   }
 }
 
-function seriesKey(entry: FinanceEntry): string {
-  return [entry.kind, entry.label, entry.category, entry.recurrence, String(entry.amountCents)].join("\0");
-}
-
-/** Recurring rows whose next date falls in selectedMonth and is not already logged. */
-function getDueRecurring(
-  entries: FinanceEntry[],
-  selectedMonth: string,
-): Array<{ entry: FinanceEntry; nextDate: string }> {
-  const candidates: Array<{ entry: FinanceEntry; nextDate: string }> = [];
-
-  for (const entry of entries) {
-    if (entry.recurrence === "none") continue;
-    const nextDate = nextOccurredOn(entry.occurredOn, entry.recurrence);
-    if (!nextDate || !nextDate.startsWith(selectedMonth)) continue;
-
-    const alreadyLogged = entries.some(
-      (other) =>
-        other.occurredOn === nextDate &&
-        other.label === entry.label &&
-        other.category === entry.category &&
-        other.kind === entry.kind &&
-        other.recurrence === entry.recurrence &&
-        other.amountCents === entry.amountCents,
-    );
-    if (alreadyLogged) continue;
-    candidates.push({ entry, nextDate });
-  }
-
-  const bestBySeries = new Map<string, { entry: FinanceEntry; nextDate: string }>();
-  for (const item of candidates) {
-    const key = `${seriesKey(item.entry)}\0${item.nextDate}`;
-    const existing = bestBySeries.get(key);
-    if (!existing || item.entry.occurredOn > existing.entry.occurredOn) {
-      bestBySeries.set(key, item);
-    }
-  }
-
-  return [...bestBySeries.values()].sort((a, b) => a.nextDate.localeCompare(b.nextDate));
-}
-
 function renderDue(root: HTMLElement, entries: FinanceEntry[], selectedMonth: string): void {
   const list = root.querySelector<HTMLElement>("[data-finance-due]");
   const empty = root.querySelector<HTMLElement>("[data-finance-due-empty]");
@@ -745,12 +655,8 @@ function renderBudget(root: HTMLElement, entries: FinanceEntry[], budgetCents: n
   const alert = root.querySelector<HTMLElement>("[data-finance-budget-alert]");
   const budgetInput = root.querySelector<HTMLInputElement>("[data-finance-budget-input]");
 
-  const spentCents = entries
-    .filter((entry) => entry.kind === "expense" && entry.occurredOn.startsWith(selectedMonth))
-    .reduce((total, entry) => total + entry.amountCents, 0);
-  const remainingCents = budgetCents - spentCents;
-  const percent = budgetCents > 0 ? Math.min(100, Math.round((spentCents / budgetCents) * 100)) : 0;
-  const overspent = budgetCents > 0 && spentCents > budgetCents;
+  const spentCents = monthExpenseCents(entries, selectedMonth);
+  const { remainingCents, percent, overspent } = budgetProgress(spentCents, budgetCents);
 
   if (budgetValue) budgetValue.textContent = formatCents(budgetCents);
   if (spentValue) spentValue.textContent = formatCents(spentCents);

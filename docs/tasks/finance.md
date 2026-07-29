@@ -8,10 +8,12 @@
 |------|---------|
 | `apps/web/src/pages/finance/index.astro` | Page UI |
 | `apps/web/src/scripts/finance.ts` | Client form, charts, edit mode, kind-aware categories |
+| `apps/web/src/lib/finance-logic.ts` | Pure filter/budget/due helpers (unit-tested) |
 | `apps/web/src/lib/finance.ts` | API client |
 | `apps/web/src/lib/finance-categories.ts` | Student expense/income category lists |
 | `apps/api/src/routes/finance.ts` | entries, budget, categories, and monthly summary API routes |
 | `apps/api/src/services/finance.ts` | SQL + Supabase REST helpers |
+| `apps/api/src/services/financeMoney.ts` | Cents/budget/error helpers (unit-tested) |
 | `apps/api/src/services/financeCategories.ts` | Category lists + alias normalization |
 | `supabase/migrations/` | `finance_entries`, `finance_monthly_budgets` tables |
 | `apps/web/src/components/dashboard/FinanceWidget.astro` | Dashboard card (later) |
@@ -59,6 +61,7 @@ Before using recurring entries against the remote database, the maintainer must 
 - [x] Due-this-month strip for recurring entries with Log next
 - [x] Richer dashboard Finance widget (income, expenses, month budget, link to `/finance`)
 - [x] Entry search and kind filters, plus budget overspend / on-track alert
+- [x] Finance RTM + unit tests (`docs/rtm/finance-rtm.md`, `docs/testing/finance-test-cases.md`)
 - [ ] Tighter Supabase RLS with the maintainer once OAuth is configured for demos
 
 Signed-in users read and write only their own `finance_entries` and `finance_monthly_budgets` rows via `req.session.userId`. Guests see a sign-in banner and keep drafts in localStorage so demos still work without Google OAuth.

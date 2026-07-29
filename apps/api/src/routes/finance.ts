@@ -23,63 +23,24 @@ import {
   updateFinanceEntryViaRest,
   upsertFinanceBudget,
   upsertFinanceBudgetViaRest,
-  type FinanceEntryKind,
 } from "../services/finance.js";
 import {
   listFinanceCategories,
   normalizeFinanceCategory,
 } from "../services/financeCategories.js";
+import {
+  classifyFinanceError,
+  normalizeDate,
+  normalizeKind,
+  normalizeMonth,
+  toAmountCents,
+} from "../services/financeMoney.js";
 import { nextOccurredOn, normalizeRecurrence } from "../services/financeRecurrence.js";
 
 export const financeRouter = Router();
 
-function toAmountCents(value: unknown): number | null {
-  if (typeof value === "number" && Number.isFinite(value)) {
-    return Math.round(value * 100);
-  }
-  if (typeof value === "string" && value.trim()) {
-    const parsed = Number(value);
-    return Number.isFinite(parsed) ? Math.round(parsed * 100) : null;
-  }
-  return null;
-}
-
-function normalizeKind(value: unknown): FinanceEntryKind {
-  return value === "income" ? "income" : "expense";
-}
-
-function normalizeDate(value: unknown): string | undefined {
-  if (typeof value !== "string" || !value.trim()) return undefined;
-  return /^\d{4}-\d{2}-\d{2}$/.test(value) ? value : undefined;
-}
-
-function normalizeMonth(value: unknown): string | null {
-  if (typeof value !== "string" || !value.trim()) return null;
-  return /^\d{4}-\d{2}$/.test(value) ? value : null;
-}
-
 function financeError(error: unknown): { status: number; body: { error: string; hint?: string } } {
-  const message = error instanceof Error ? error.message : "Finance request failed";
-  const needsMigration =
-    message.includes("finance_entries") ||
-    message.includes("finance_monthly_budgets") ||
-    message.includes("recurrence migration") ||
-    message.includes("relation") ||
-    message.includes("does not exist") ||
-    message.includes("404");
-  const missingDatabase = message.includes("No database configured") || message.includes("SUPABASE_DB_URL");
-
-  return {
-    status: missingDatabase ? 503 : needsMigration ? 503 : 500,
-    body: {
-      error: message,
-      hint: missingDatabase
-        ? "Set SUPABASE_DB_URL or SUPABASE_URL plus SUPABASE_PUBLISHABLE_KEY in apps/api/.env."
-        : needsMigration
-          ? "Ask the database maintainer to apply the finance migrations."
-          : undefined,
-    },
-  };
+  return classifyFinanceError(error);
 }
 
 function usePostgres(): boolean {

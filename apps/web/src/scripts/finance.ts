@@ -4,6 +4,7 @@ import {
   recurrenceLabel,
   type FinanceRecurrence,
 } from "../lib/finance-recurrence";
+import { fetchWithRetry } from "../lib/fetch-retry";
 import {
   budgetProgress,
   filterListEntries,
@@ -200,10 +201,14 @@ function normalizeEntry(entry: FinanceEntry): FinanceEntry {
   };
 }
 
+async function financeFetch(path: string, init?: RequestInit): Promise<Response> {
+  return fetchWithRetry(path, { ...API_CREDENTIALS, ...init }, { attempts: 3, baseDelayMs: 500 });
+}
+
 async function fetchSignedIn(fallback = false): Promise<boolean> {
   for (let attempt = 0; attempt < 2; attempt += 1) {
     try {
-      const response = await fetch("/api/auth/me", API_CREDENTIALS);
+      const response = await financeFetch("/api/auth/me");
       if (!response.ok) {
         if (attempt === 0) continue;
         return fallback;
@@ -226,21 +231,20 @@ function setSignInPrompt(root: HTMLElement, show: boolean): void {
 }
 
 async function fetchApiEntries(): Promise<FinanceEntry[]> {
-  const response = await fetch("/api/finance/entries", API_CREDENTIALS);
+  const response = await financeFetch("/api/finance/entries");
   if (!response.ok) throw new Error(`Finance API error: ${response.status}`);
   const data = (await response.json()) as FinanceEntriesResponse;
   return data.entries.map(normalizeEntry);
 }
 
 async function fetchApiFinance(): Promise<FinanceResponse> {
-  const response = await fetch("/api/finance", API_CREDENTIALS);
+  const response = await financeFetch("/api/finance");
   if (!response.ok) throw new Error(`Finance API error: ${response.status}`);
   return response.json() as Promise<FinanceResponse>;
 }
 
 async function postApiEntry(entry: Omit<FinanceEntry, "id" | "createdAt">): Promise<FinanceEntry> {
-  const response = await fetch("/api/finance/entries", {
-    ...API_CREDENTIALS,
+  const response = await financeFetch("/api/finance/entries", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
@@ -258,10 +262,7 @@ async function postApiEntry(entry: Omit<FinanceEntry, "id" | "createdAt">): Prom
 }
 
 async function deleteApiEntry(entryId: string): Promise<void> {
-  const response = await fetch(`/api/finance/entries/${entryId}`, {
-    ...API_CREDENTIALS,
-    method: "DELETE",
-  });
+  const response = await financeFetch(`/api/finance/entries/${entryId}`, { method: "DELETE" });
   if (!response.ok) throw new Error(`Finance delete API error: ${response.status}`);
 }
 
@@ -269,8 +270,7 @@ async function patchApiEntry(
   entryId: string,
   entry: Omit<FinanceEntry, "id" | "createdAt">,
 ): Promise<FinanceEntry> {
-  const response = await fetch(`/api/finance/entries/${entryId}`, {
-    ...API_CREDENTIALS,
+  const response = await financeFetch(`/api/finance/entries/${entryId}`, {
     method: "PATCH",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
@@ -288,25 +288,21 @@ async function patchApiEntry(
 }
 
 async function postApiNextOccurrence(entryId: string): Promise<FinanceEntry> {
-  const response = await fetch(`/api/finance/entries/${entryId}/next`, {
-    ...API_CREDENTIALS,
-    method: "POST",
-  });
+  const response = await financeFetch(`/api/finance/entries/${entryId}/next`, { method: "POST" });
   if (!response.ok) throw new Error(`Finance next occurrence API error: ${response.status}`);
   const data = (await response.json()) as { entry: FinanceEntry };
   return normalizeEntry(data.entry);
 }
 
 async function fetchApiBudget(month: string): Promise<FinanceBudget> {
-  const response = await fetch(`/api/finance/budget/${month}`, API_CREDENTIALS);
+  const response = await financeFetch(`/api/finance/budget/${month}`);
   if (!response.ok) throw new Error(`Finance budget API error: ${response.status}`);
   const data = (await response.json()) as { budget: FinanceBudget };
   return data.budget;
 }
 
 async function putApiBudget(month: string, amountCents: number): Promise<FinanceBudget> {
-  const response = await fetch(`/api/finance/budget/${month}`, {
-    ...API_CREDENTIALS,
+  const response = await financeFetch(`/api/finance/budget/${month}`, {
     method: "PUT",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ amount: amountCents / 100 }),
@@ -763,7 +759,7 @@ function renderTrend(root: HTMLElement, entries: FinanceEntry[]): void {
   }
 }
 
-type FinanceMode = "loading" | "database" | "local";
+type FinanceMode = "loading" | "database" | "local" | "sync-delayed";
 
 function setMode(root: HTMLElement, mode: FinanceMode): void {
   const badge = root.ownerDocument.querySelector<HTMLElement>("[data-finance-mode]");
@@ -776,6 +772,15 @@ function setMode(root: HTMLElement, mode: FinanceMode): void {
     return;
   }
 
+  if (mode === "sync-delayed") {
+    badge.textContent = "Sync delayed";
+    badge.title = "Could not reach the server. Showing your local draft until sync recovers.";
+    badge.className =
+      "rounded-full bg-york-gold/15 px-3 py-1 text-xs font-semibold text-york-gold";
+    return;
+  }
+
+  badge.title = "";
   badge.textContent = mode === "database" ? "Database" : "Local draft";
   badge.className =
     mode === "database"
@@ -800,11 +805,6 @@ function setRecurrenceAvailability(
   } else {
     hint.textContent = "Log each occurrence when it is due.";
   }
-}
-
-function isTransientFetchError(error: unknown): boolean {
-  if (error instanceof DOMException && error.name === "AbortError") return true;
-  return error instanceof TypeError;
 }
 
 async function initFinance(root: HTMLElement): Promise<void> {
@@ -860,10 +860,11 @@ async function initFinance(root: HTMLElement): Promise<void> {
       setMode(root, "database");
       setRecurrenceAvailability(root, apiAvailable, recurrenceSupported);
     } catch (error) {
-      if (!root.isConnected || isTransientFetchError(error)) return;
+      if (!root.isConnected) return;
       apiAvailable = false;
       recurrenceSupported = true;
-      setMode(root, "local");
+      paint();
+      setMode(root, signedIn ? "sync-delayed" : "local");
       setRecurrenceAvailability(root, apiAvailable, recurrenceSupported);
     }
   } else {
@@ -1138,6 +1139,13 @@ function bootFinance(): void {
   void initFinance(root);
 }
 
-document.addEventListener("astro:page-load", bootFinance);
+function handleFinancePageLoad(): void {
+  document.querySelectorAll<HTMLElement>("[data-finance-root]").forEach((root) => {
+    delete root.dataset.financeInit;
+  });
+  bootFinance();
+}
+
+document.addEventListener("astro:page-load", handleFinancePageLoad);
 
 export {};

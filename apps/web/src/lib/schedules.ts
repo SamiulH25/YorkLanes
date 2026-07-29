@@ -1,5 +1,6 @@
 /** Task guide: docs/tasks/schedule.md */
 import { apiRequestInit, apiUrl } from "./api-request";
+import { fetchWithRetry } from "./fetch-retry";
 import type { ScheduleGridEntry } from "./schedule-grid";
 
 export interface ScheduleBundlePick {
@@ -50,13 +51,11 @@ export class SchedulesApiError extends Error {
   }
 }
 
-async function scheduleFetch(path: string, init?: RequestInit, attempt = 0): Promise<Response> {
-  const response = await fetch(apiUrl(path), apiRequestInit(null, init));
-  if (response.status >= 500 && attempt < 1) {
-    await new Promise((resolve) => setTimeout(resolve, 400));
-    return scheduleFetch(path, init, attempt + 1);
-  }
-  return response;
+async function scheduleFetch(path: string, init?: RequestInit): Promise<Response> {
+  return fetchWithRetry(apiUrl(path), apiRequestInit(null, init), {
+    attempts: 3,
+    baseDelayMs: 500,
+  });
 }
 
 async function readSchedulesError(response: Response): Promise<string> {

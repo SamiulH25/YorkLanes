@@ -1,0 +1,13 @@
+import assert from "node:assert/strict";
+import { describe, it } from "node:test";
+import { isTransientFetchError } from "../../apps/web/src/lib/fetch-retry";
+
+describe("isTransientFetchError", () => {
+  it("treats network TypeErrors as transient", () => {
+    assert.equal(isTransientFetchError(new TypeError("Failed to fetch")), true);
+  });
+
+  it("treats HTTP errors as non-transient", () => {
+    assert.equal(isTransientFetchError(new Error("Finance API error: 502")), false);
+  });
+});

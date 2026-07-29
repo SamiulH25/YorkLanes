@@ -1,4 +1,4 @@
-import { getApiUrl } from "./api-url";
+/** Browser-facing auth URLs — always relative so SSR HTML stays on the web origin. */
 
 export function googleSignInUrl(returnTo?: string, rememberMe = true): string {
   const params = new URLSearchParams();
@@ -9,10 +9,9 @@ export function googleSignInUrl(returnTo?: string, rememberMe = true): string {
     params.set("remember", "0");
   }
   const query = params.toString();
-  const base = `${getApiUrl()}/api/auth/google`;
-  return query ? `${base}?${query}` : base;
+  return query ? `/api/auth/google?${query}` : "/api/auth/google";
 }
 
 export function signOutUrl(): string {
-  return `${getApiUrl()}/api/auth/logout`;
+  return "/api/auth/logout";
 }

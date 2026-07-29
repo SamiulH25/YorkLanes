@@ -1,11 +1,9 @@
 ---
 import DashboardLayout from "../../layouts/DashboardLayout.astro";import { fetchFaculties } from "../../lib/plans";
-import { getApiUrl } from "../../lib/api-url";
 import "../../styles/plan-portal.css";
 
 export const prerender = false;
 
-const apiUrl = getApiUrl();
 const cookie = Astro.request.headers.get("cookie");
 
 let faculties: Awaited<ReturnType<typeof fetchFaculties>> = [];
@@ -40,7 +38,7 @@ try {
       )
     }
 
-    <form id="checklist-form" class="plan-setup-form space-y-6" novalidate data-api-url={apiUrl}>
+    <form id="checklist-form" class="plan-setup-form space-y-6" novalidate>
       <section class="portal-card plan-setup-step" aria-labelledby="step-download-heading">
         <p class="label">Step 1</p>
         <h2 id="step-download-heading" class="plan-setup-step__title">

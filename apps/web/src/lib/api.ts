@@ -9,8 +9,6 @@ import type { DashboardSummary } from "../types/dashboard";
 import { getApiUrl } from "./api-url";
 import { dedupeSsrFetch } from "./ssr-request-cache";
 
-const API_URL = getApiUrl();
-
 async function fetchDashboardSummaryUncached(
   cookieHeader?: string | null,
 ): Promise<DashboardSummary> {
@@ -19,7 +17,7 @@ async function fetchDashboardSummaryUncached(
     headers.cookie = cookieHeader;
   }
 
-  const response = await fetch(`${API_URL}/api/dashboard/summary`, {
+  const response = await fetch(`${getApiUrl()}/api/dashboard/summary`, {
     headers,
     credentials: "include",
   });
@@ -47,7 +45,7 @@ async function fetchDashboardHubUncached(cookieHeader?: string | null): Promise<
     headers.cookie = cookieHeader;
   }
 
-  const response = await fetch(`${API_URL}/api/dashboard/hub`, {
+  const response = await fetch(`${getApiUrl()}/api/dashboard/hub`, {
     headers,
     credentials: "include",
   });

@@ -1,14 +1,12 @@
 /**
  * Course section timetables API client.
  */
-import { getApiUrl } from "./api-url";
+import { apiRequestInit, apiUrl } from "./api-request";
 import type {
   CourseOfferingSummaryResponse,
   CourseSectionsResponse,
   FetchSectionsOptions,
 } from "../types/course-sections";
-
-const API_URL = getApiUrl();
 
 async function parseError(response: Response): Promise<string> {
   const data = (await response.json().catch(() => ({}))) as { error?: string; hint?: string };
@@ -24,7 +22,10 @@ export async function fetchCourseSections(options: FetchSectionsOptions = {}): P
   if (options.department) params.set("department", options.department);
 
   const query = params.toString();
-  const response = await fetch(`${API_URL}/api/course-sections${query ? `?${query}` : ""}`);
+  const response = await fetch(
+    apiUrl(`/api/course-sections${query ? `?${query}` : ""}`),
+    apiRequestInit(),
+  );
   const data = (await response.json().catch(() => ({}))) as Partial<CourseSectionsResponse> & { error?: string };
 
   if (!response.ok) {
@@ -45,7 +46,10 @@ export async function fetchCourseOfferingSummary(
   courseCode: string,
 ): Promise<CourseOfferingSummaryResponse["summary"]> {
   const params = new URLSearchParams({ course_code: courseCode });
-  const response = await fetch(`${API_URL}/api/course-sections/summary?${params}`);
+  const response = await fetch(
+    apiUrl(`/api/course-sections/summary?${params}`),
+    apiRequestInit(),
+  );
   const data = (await response.json().catch(() => ({}))) as Partial<CourseOfferingSummaryResponse> & {
     error?: string;
   };
@@ -65,7 +69,10 @@ export async function fetchCdmTerms(courseCode?: string): Promise<string[]> {
   const params = new URLSearchParams();
   if (courseCode) params.set("course_code", courseCode);
   const query = params.toString();
-  const response = await fetch(`${API_URL}/api/course-sections/terms${query ? `?${query}` : ""}`);
+  const response = await fetch(
+    apiUrl(`/api/course-sections/terms${query ? `?${query}` : ""}`),
+    apiRequestInit(),
+  );
   const data = (await response.json().catch(() => ({}))) as { terms?: string[]; error?: string };
   if (!response.ok) {
     throw new Error(data.error ?? `CDM terms API error: ${response.status}`);

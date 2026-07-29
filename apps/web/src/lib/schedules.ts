@@ -40,15 +40,39 @@ export interface ScheduleWeekPayload {
   }>;
 }
 
-async function scheduleFetch(path: string, init?: RequestInit): Promise<Response> {
-  return fetch(apiUrl(path), apiRequestInit(null, init));
+export class SchedulesApiError extends Error {
+  readonly status: number;
+
+  constructor(message: string, status: number) {
+    super(message);
+    this.name = "SchedulesApiError";
+    this.status = status;
+  }
+}
+
+async function scheduleFetch(path: string, init?: RequestInit, attempt = 0): Promise<Response> {
+  const response = await fetch(apiUrl(path), apiRequestInit(null, init));
+  if (response.status >= 500 && attempt < 1) {
+    await new Promise((resolve) => setTimeout(resolve, 400));
+    return scheduleFetch(path, init, attempt + 1);
+  }
+  return response;
+}
+
+async function readSchedulesError(response: Response): Promise<string> {
+  const data = (await response.json().catch(() => ({}))) as { error?: string; hint?: string };
+  const parts = [data.error ?? `Schedules API error: ${response.status}`];
+  if (data.hint) parts.push(data.hint);
+  return parts.join(" ");
 }
 
 export async function fetchSavedSchedules(): Promise<SavedScheduleSummary[]> {
   const response = await scheduleFetch("/api/schedules");
-  if (response.status === 401) return [];
+  if (response.status === 401) {
+    throw new SchedulesApiError("Sign in to load saved schedules from your account.", 401);
+  }
   if (!response.ok) {
-    throw new Error(`Schedules API error: ${response.status}`);
+    throw new SchedulesApiError(await readSchedulesError(response), response.status);
   }
   const data = (await response.json()) as { schedules: SavedScheduleSummary[] };
   return data.schedules ?? [];
@@ -67,7 +91,7 @@ export async function fetchScheduleWeek(
   const response = await scheduleFetch(`/api/schedules/week?${params}`);
   if (response.status === 401 || response.status === 404) return null;
   if (!response.ok) {
-    throw new Error(`Schedule week API error: ${response.status}`);
+    throw new SchedulesApiError(await readSchedulesError(response), response.status);
   }
   return response.json() as Promise<ScheduleWeekResponse>;
 }
@@ -78,16 +102,11 @@ export async function saveScheduleWeek(payload: ScheduleWeekPayload): Promise<Sc
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(payload),
   });
-  if (response.status === 401) return null;
+  if (response.status === 401) {
+    throw new SchedulesApiError("Sign in to save schedules to your account.", 401);
+  }
   if (!response.ok) {
-    let detail = `Save schedule error: ${response.status}`;
-    try {
-      const data = (await response.json()) as { error?: string };
-      if (data.error) detail = data.error;
-    } catch {
-      // ignore parse errors
-    }
-    throw new Error(detail);
+    throw new SchedulesApiError(await readSchedulesError(response), response.status);
   }
   return response.json() as Promise<ScheduleWeekResponse>;
 }

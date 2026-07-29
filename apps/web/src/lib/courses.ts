@@ -1,7 +1,7 @@
 /**
  * Course explorer API client.
  */
-import { getApiUrl } from "./api-url";
+import { apiRequestInit, apiUrl } from "./api-request";
 import type {
   CourseDetail,
   CourseDetailResponse,
@@ -10,8 +10,6 @@ import type {
   DepartmentsResponse,
   FetchCoursesOptions,
 } from "../types/courses";
-
-const API_URL = getApiUrl();
 
 async function parseError(response: Response): Promise<string> {
   const data = (await response.json().catch(() => ({}))) as { error?: string; hint?: string };
@@ -36,9 +34,10 @@ export async function fetchCourses(options: FetchCoursesOptions = {}): Promise<{
   if (options.offset !== undefined) params.set("offset", String(options.offset));
 
   const query = params.toString();
-  const response = await fetch(`${API_URL}/api/courses${query ? `?${query}` : ""}`, {
-    credentials: "include",
-  });
+  const response = await fetch(
+    apiUrl(`/api/courses${query ? `?${query}` : ""}`),
+    apiRequestInit(),
+  );
   const data = (await response.json().catch(() => ({}))) as Partial<CoursesListResponse> & { error?: string };
 
   if (!response.ok) {
@@ -53,7 +52,7 @@ export async function fetchCourses(options: FetchCoursesOptions = {}): Promise<{
 }
 
 export async function fetchDepartments(): Promise<string[]> {
-  const response = await fetch(`${API_URL}/api/courses/departments`);
+  const response = await fetch(apiUrl("/api/courses/departments"), apiRequestInit());
   const data = (await response.json().catch(() => ({}))) as Partial<DepartmentsResponse> & { error?: string };
 
   if (!response.ok) {
@@ -64,7 +63,7 @@ export async function fetchDepartments(): Promise<string[]> {
 }
 
 export async function fetchCourse(code: string): Promise<CourseDetail> {
-  const response = await fetch(`${API_URL}/api/courses/${encodeURIComponent(code)}`);
+  const response = await fetch(apiUrl(`/api/courses/${encodeURIComponent(code)}`), apiRequestInit());
   const data = (await response.json().catch(() => ({}))) as Partial<CourseDetailResponse> & { error?: string };
 
   if (!response.ok) {

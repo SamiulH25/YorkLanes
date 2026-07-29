@@ -21,6 +21,7 @@ import {
   fetchSavedSchedules,
   fetchScheduleWeek,
   saveScheduleWeek,
+  SchedulesApiError,
   seasonLabel,
   setActiveSchedule,
   type SavedScheduleSummary,
@@ -319,10 +320,12 @@ export function initSchedulePage(options: SchedulePageOptions = {}): void {
       if (options.focusTerm) {
         availableTerms = mergeTerms(availableTerms, [options.focusTerm]);
       }
-    } catch {
+    } catch (error) {
       if (options.focusTerm) {
         availableTerms = [options.focusTerm];
       }
+      const message = error instanceof Error ? error.message : "Could not load CDM terms.";
+      setStatus(message, "error");
     }
     renderTermOptions();
     updateConfirmButton();
@@ -693,8 +696,16 @@ export function initSchedulePage(options: SchedulePageOptions = {}): void {
     try {
       cloud = await fetchSavedSchedules();
       if (cloud.length > 0) cloudSyncEnabled = true;
-    } catch {
+    } catch (error) {
       cloud = [];
+      const local = listLocalSavedSchedules();
+      if (error instanceof SchedulesApiError) {
+        if (error.status !== 401 || local.length === 0) {
+          setStatus(error.message, "error");
+        }
+      } else if (error instanceof Error) {
+        setStatus(error.message, "error");
+      }
     }
     savedSchedules = mergeSavedSchedules(cloud, listLocalSavedSchedules());
     renderSavedSchedules();
@@ -1734,11 +1745,14 @@ export function bootSchedulePage(): void {
   });
 }
 
-document.addEventListener("astro:page-load", () => {
+function handleSchedulePageLoad(): void {
   document.querySelectorAll<HTMLElement>("[data-schedule-root]").forEach((root) => {
     delete root.dataset.scheduleReady;
   });
   bootSchedulePage();
-});
+}
 
-bootSchedulePage();
+// View Transitions swap the DOM on navigation; astro:page-load is the single init hook.
+document.addEventListener("astro:page-load", handleSchedulePageLoad);
+
+export {};
